@@ -1,0 +1,99 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+
+interface Stats {
+  totalMerchants: number;
+  pendingMerchants: number;
+  activeMerchants: number;
+  totalOrders: number;
+  gmv: number;
+  commissionEarned: number;
+  openTickets: number;
+}
+
+export function Dashboard() {
+  const [stats, setStats] = useState<Stats | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      const [
+        { count: totalMerchants },
+        { count: pendingMerchants },
+        { count: activeMerchants },
+        { count: totalOrders },
+        { data: paidOrders },
+        { data: commissionTx },
+        { count: openTickets },
+      ] = await Promise.all([
+        supabase.from("merchants").select("id", { count: "exact", head: true }),
+        supabase.from("merchants").select("id", { count: "exact", head: true }).eq("status", "registered"),
+        supabase.from("merchants").select("id", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("orders").select("id", { count: "exact", head: true }),
+        supabase.from("orders").select("total").eq("payment_status", "paid"),
+        supabase.from("wallet_transactions").select("amount").eq("type", "commission"),
+        supabase.from("support_tickets").select("id", { count: "exact", head: true }).eq("status", "open"),
+      ]);
+
+      const gmv = (paidOrders ?? []).reduce((sum, o) => sum + Number(o.total), 0);
+      const commissionEarned = (commissionTx ?? []).reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
+
+      setStats({
+        totalMerchants: totalMerchants ?? 0,
+        pendingMerchants: pendingMerchants ?? 0,
+        activeMerchants: activeMerchants ?? 0,
+        totalOrders: totalOrders ?? 0,
+        gmv,
+        commissionEarned,
+        openTickets: openTickets ?? 0,
+      });
+    }
+    load();
+  }, []);
+
+  return (
+    <div>
+      <h1 className="text-xl font-bold mb-1">Platform Overview</h1>
+      <p className="text-sm text-gray-500 mb-6">Tolo marketplace at a glance.</p>
+
+      {!stats ? (
+        <p className="text-gray-500">Loading...</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <StatCard label="Active Merchants" value={stats.activeMerchants} />
+            <StatCard label="Total Orders" value={stats.totalOrders} />
+            <StatCard label="GMV (paid)" value={`${stats.gmv.toFixed(2)} ETB`} />
+            <StatCard label="Commission Earned" value={`${stats.commissionEarned.toFixed(2)} ETB`} />
+          </div>
+
+          {stats.pendingMerchants > 0 && (
+            <Link
+              to="/merchants?status=registered"
+              className="block bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-lg p-4 mb-4 text-sm font-medium hover:bg-yellow-100"
+            >
+              {stats.pendingMerchants} merchant application(s) awaiting review →
+            </Link>
+          )}
+          {stats.openTickets > 0 && (
+            <Link
+              to="/support"
+              className="block bg-blue-50 border border-blue-300 text-blue-800 rounded-lg p-4 text-sm font-medium hover:bg-blue-100"
+            >
+              {stats.openTickets} open support ticket(s) →
+            </Link>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="bg-white border rounded-lg p-4">
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-2xl font-bold mt-1">{value}</p>
+    </div>
+  );
+}
