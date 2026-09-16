@@ -1,0 +1,65 @@
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../lib/AuthContext";
+
+export function Login() {
+  const { signIn } = useAuth();
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const { error } = await signIn(email, password);
+    setLoading(false);
+    if (error) {
+      setError(error);
+      return;
+    }
+    navigate("/");
+  }
+
+  return (
+    <div className="max-w-sm mx-auto mt-16">
+      <h1 className="text-xl font-bold mb-1">Tolo Merchant Portal</h1>
+      <p className="text-sm text-gray-500 mb-4">Sign in to manage your store.</p>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          className="w-full border rounded-md px-3 py-2 text-sm"
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          className="w-full border rounded-md px-3 py-2 text-sm"
+        />
+        {error && <p className="text-red-600 text-sm">{error}</p>}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-gray-900 text-white py-2.5 rounded-md font-medium hover:bg-gray-800 disabled:opacity-60"
+        >
+          {loading ? "Signing in..." : "Sign in"}
+        </button>
+      </form>
+      <p className="text-sm text-gray-500 mt-4">
+        New merchant?{" "}
+        <Link to="/signup" className="text-gray-900 font-medium underline">
+          Apply here
+        </Link>
+      </p>
+    </div>
+  );
+}
