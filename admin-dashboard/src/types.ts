@@ -53,7 +53,15 @@ export interface OrderRow {
   total: number;
   payment_status: string;
   created_at: string;
-  merchant_orders: { id: string; merchant_id: string; status: string; subtotal: number; merchants: { business_name: string } | null }[];
+  merchant_orders: {
+    id: string;
+    merchant_id: string;
+    status: string;
+    subtotal: number;
+    notification_sent_at: string | null;
+    order_received_at: string | null;
+    merchants: { business_name: string } | null;
+  }[];
 }
 
 export interface Settlement {

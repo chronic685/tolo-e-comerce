@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
+import { NewOrderAlert } from "./NewOrderAlert";
 
 const navItems = [
   { to: "/", label: "Dashboard", end: true },
@@ -48,6 +49,7 @@ export function Layout() {
       <main className="flex-1 p-6 max-w-5xl">
         <Outlet />
       </main>
+      <NewOrderAlert />
     </div>
   );
 }

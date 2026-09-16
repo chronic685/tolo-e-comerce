@@ -1,8 +1,30 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import type { OrderRow } from "../types";
 
+const STATUS_LABELS: Record<string, string> = {
+  new: "New order",
+  accepted: "Order received",
+  processing: "Preparing",
+  ready_for_pickup: "Ready for pickup",
+  picked_up: "Picked up",
+  delivered: "Delivered",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  rejected: "Rejected",
+};
+
+const UNACK_THRESHOLD_MINUTES = 15;
+
+function isUnacknowledged(mo: OrderRow["merchant_orders"][number]) {
+  if (mo.status !== "new" || !mo.notification_sent_at || mo.order_received_at) return false;
+  return Date.now() - new Date(mo.notification_sent_at).getTime() > UNACK_THRESHOLD_MINUTES * 60_000;
+}
+
 export function Orders() {
+  const [searchParams] = useSearchParams();
+  const onlyUnacknowledged = searchParams.get("filter") === "unacknowledged";
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -11,7 +33,7 @@ export function Orders() {
       .from("orders")
       .select(
         `id, customer_id, total, payment_status, created_at,
-         merchant_orders ( id, merchant_id, status, subtotal, merchants ( business_name ) )`,
+         merchant_orders ( id, merchant_id, status, subtotal, notification_sent_at, order_received_at, merchants ( business_name ) )`,
       )
       .order("created_at", { ascending: false })
       .limit(100)
@@ -23,32 +45,46 @@ export function Orders() {
 
   if (loading) return <p className="text-gray-500">Loading...</p>;
 
+  const visibleOrders = onlyUnacknowledged
+    ? orders.filter((o) => o.merchant_orders.some(isUnacknowledged))
+    : orders;
+
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4">All Orders</h1>
-      <div className="bg-white border rounded-lg divide-y">
-        {orders.map((o) => (
-          <div key={o.id} className="p-4">
-            <div className="flex justify-between items-center mb-2">
-              <div>
-                <p className="font-medium text-sm">Order #{o.id.slice(0, 8)}</p>
-                <p className="text-xs text-gray-500">{new Date(o.created_at).toLocaleString()}</p>
+      <h1 className="text-xl font-bold mb-4">{onlyUnacknowledged ? "Unacknowledged Orders" : "All Orders"}</h1>
+      {visibleOrders.length === 0 ? (
+        <p className="text-gray-500">Nothing here.</p>
+      ) : (
+        <div className="bg-white border rounded-lg divide-y">
+          {visibleOrders.map((o) => (
+            <div key={o.id} className="p-4">
+              <div className="flex justify-between items-center mb-2">
+                <div>
+                  <p className="font-medium text-sm">Order #{o.id.slice(0, 8)}</p>
+                  <p className="text-xs text-gray-500">{new Date(o.created_at).toLocaleString()}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold text-sm">{o.total.toFixed(2)} ETB</p>
+                  <p className="text-xs text-gray-500 capitalize">{o.payment_status}</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="font-semibold text-sm">{o.total.toFixed(2)} ETB</p>
-                <p className="text-xs text-gray-500 capitalize">{o.payment_status}</p>
+              <div className="flex gap-2 flex-wrap">
+                {o.merchant_orders.map((mo) => (
+                  <span
+                    key={mo.id}
+                    className={`text-xs rounded-full px-2 py-0.5 ${
+                      isUnacknowledged(mo) ? "bg-red-100 text-red-800 font-semibold" : "bg-gray-100"
+                    }`}
+                  >
+                    {mo.merchants?.business_name ?? "Merchant"}: {STATUS_LABELS[mo.status] ?? mo.status} ({mo.subtotal.toFixed(2)} ETB)
+                    {isUnacknowledged(mo) && " — UNACKNOWLEDGED"}
+                  </span>
+                ))}
               </div>
             </div>
-            <div className="flex gap-2 flex-wrap">
-              {o.merchant_orders.map((mo) => (
-                <span key={mo.id} className="text-xs bg-gray-100 rounded-full px-2 py-0.5">
-                  {mo.merchants?.business_name ?? "Merchant"}: {mo.status.replace(/_/g, " ")} ({mo.subtotal.toFixed(2)} ETB)
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

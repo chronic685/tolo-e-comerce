@@ -16,6 +16,18 @@ const statusColors: Record<string, string> = {
   cancelled: "bg-red-100 text-red-800",
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  new: "New order",
+  accepted: "Order received",
+  processing: "Preparing",
+  ready_for_pickup: "Ready for pickup",
+  picked_up: "Picked up",
+  delivered: "Delivered",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  rejected: "Rejected",
+};
+
 const FILTERS = ["all", "new", "accepted", "processing", "ready_for_pickup", "completed"];
 
 export function Orders() {
@@ -53,7 +65,7 @@ export function Orders() {
               filter === f ? "bg-gray-900 text-white border-gray-900" : "bg-white"
             }`}
           >
-            {f.replace(/_/g, " ")}
+            {f === "all" ? "All" : STATUS_LABELS[f] ?? f.replace(/_/g, " ")}
           </button>
         ))}
       </div>
@@ -71,9 +83,9 @@ export function Orders() {
                 <p className="text-xs text-gray-500">{o.order_items.length} item(s) · {new Date(o.created_at).toLocaleDateString()}</p>
               </div>
               <div className="flex items-center gap-3">
-                <span className="font-semibold text-sm">{o.subtotal.toFixed(2)} ETB</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${statusColors[o.status]}`}>
-                  {o.status.replace(/_/g, " ")}
+                <span className="font-semibold text-sm">{o.merchant_payable.toFixed(2)} ETB</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[o.status]}`}>
+                  {STATUS_LABELS[o.status] ?? o.status.replace(/_/g, " ")}
                 </span>
               </div>
             </Link>

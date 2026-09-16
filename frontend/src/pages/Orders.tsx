@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
+import { STATUS_COPY } from "../lib/orderStatus";
 
 interface OrderRow {
   id: string;
@@ -54,8 +55,8 @@ export function Orders() {
             </div>
             <div className="flex gap-2 mt-2 flex-wrap">
               {o.merchant_orders.map((mo) => (
-                <span key={mo.id} className="text-xs bg-gray-100 rounded-full px-2 py-0.5 capitalize">
-                  {mo.status.replace(/_/g, " ")}
+                <span key={mo.id} className="text-xs bg-gray-100 rounded-full px-2 py-0.5">
+                  {STATUS_COPY[mo.status]?.label ?? mo.status.replace(/_/g, " ")}
                 </span>
               ))}
             </div>

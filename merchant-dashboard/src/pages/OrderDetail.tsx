@@ -24,17 +24,29 @@ interface MerchantOrderDetail {
 
 const TRANSITIONS: Record<string, { status: string; label: string; primary?: boolean }[]> = {
   new: [
-    { status: "accepted", label: "Accept order", primary: true },
+    { status: "accepted", label: "ORDER RECEIVED", primary: true },
     { status: "rejected", label: "Reject order" },
   ],
   accepted: [
-    { status: "processing", label: "Start processing", primary: true },
+    { status: "processing", label: "Start preparing", primary: true },
     { status: "cancelled", label: "Cancel order" },
   ],
   processing: [
-    { status: "ready_for_pickup", label: "Mark ready for pickup", primary: true },
+    { status: "ready_for_pickup", label: "Ready for pickup", primary: true },
     { status: "cancelled", label: "Cancel order" },
   ],
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  new: "New order",
+  accepted: "Order received",
+  processing: "Preparing",
+  ready_for_pickup: "Ready for pickup",
+  picked_up: "Picked up",
+  delivered: "Delivered",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  rejected: "Rejected",
 };
 
 export function OrderDetail() {
@@ -152,7 +164,7 @@ export function OrderDetail() {
             .sort((a, b) => new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime())
             .map((h, idx) => (
               <li key={idx}>
-                {new Date(h.changed_at).toLocaleString()} — {h.status.replace(/_/g, " ")}
+                {new Date(h.changed_at).toLocaleString()} — {STATUS_LABELS[h.status] ?? h.status.replace(/_/g, " ")}
                 {h.note ? ` (${h.note})` : ""}
               </li>
             ))}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { STATUS_COPY } from "../lib/orderStatus";
 
 interface OrderItemRow {
   id: string;
@@ -78,12 +79,13 @@ export function OrderDetail() {
 
       {order.merchant_orders.map((mo) => (
         <div key={mo.id} className="bg-white border rounded-lg p-4 mb-4">
-          <div className="flex justify-between items-center mb-2">
+          <div className="flex justify-between items-center mb-1">
             <p className="font-medium">{mo.merchants?.business_name}</p>
-            <span className="text-xs bg-emerald-100 text-emerald-800 rounded-full px-2 py-0.5 capitalize">
-              {mo.status.replace(/_/g, " ")}
+            <span className="text-xs bg-emerald-100 text-emerald-800 rounded-full px-2 py-0.5">
+              {STATUS_COPY[mo.status]?.label ?? mo.status.replace(/_/g, " ")}
             </span>
           </div>
+          {STATUS_COPY[mo.status] && <p className="text-xs text-gray-500 mb-2">{STATUS_COPY[mo.status].detail}</p>}
           <div className="space-y-1 mb-3">
             {mo.order_items.map((item) => (
               <div key={item.id} className="flex justify-between text-sm">
@@ -105,7 +107,7 @@ export function OrderDetail() {
                 .sort((a, b) => new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime())
                 .map((h, idx) => (
                   <li key={idx}>
-                    {new Date(h.changed_at).toLocaleString()} — {h.status.replace(/_/g, " ")}
+                    {new Date(h.changed_at).toLocaleString()} — {STATUS_COPY[h.status]?.label ?? h.status.replace(/_/g, " ")}
                     {h.note ? ` (${h.note})` : ""}
                   </li>
                 ))}

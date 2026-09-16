@@ -59,7 +59,19 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Not authorized for this merchant" }, 403);
     }
 
-    await db.from("merchant_orders").update({ status }).eq("id", mo.id);
+    const update: Record<string, unknown> = { status };
+    const now = new Date().toISOString();
+    // "accepted" is the spec's "ORDER RECEIVED" acknowledgement — this
+    // timestamp, not the notification, is what counts as the merchant
+    // having actually seen the order.
+    if (status === "accepted") {
+      update.order_received_at = now;
+      update.received_by = userData.user.id;
+    }
+    if (status === "processing") update.preparation_started_at = now;
+    if (status === "ready_for_pickup") update.ready_for_pickup_at = now;
+
+    await db.from("merchant_orders").update(update).eq("id", mo.id);
     await db.from("order_status_history").insert({
       merchant_order_id: mo.id,
       status,

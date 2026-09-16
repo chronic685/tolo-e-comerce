@@ -49,10 +49,12 @@ Deno.serve(async (req) => {
       .select("id, merchant_id, merchant_payable")
       .eq("order_id", payment.order_id);
 
+    const notifiedAt = new Date().toISOString();
+
     for (const mo of merchantOrders ?? []) {
       const { data: items } = await db
         .from("order_items")
-        .select("variant_id, quantity")
+        .select("variant_id, quantity, product_name_snapshot")
         .eq("merchant_order_id", mo.id);
 
       for (const item of items ?? []) {
@@ -74,6 +76,23 @@ Deno.serve(async (req) => {
         p_amount: mo.merchant_payable,
         p_note: "Order payment confirmed",
       });
+
+      // notification_sent_at is the clock start for the merchant's
+      // acknowledgement — never treat this row alone as proof the merchant
+      // saw the order; only order_received_at (set when they press "Order
+      // Received") counts as acknowledgement.
+      await db.from("merchant_orders").update({ notification_sent_at: notifiedAt }).eq("id", mo.id);
+
+      const { data: merchant } = await db.from("merchants").select("owner_id, business_name").eq("id", mo.merchant_id).single();
+      if (merchant) {
+        const itemCount = (items ?? []).reduce((sum, i) => sum + i.quantity, 0);
+        await db.from("notifications").insert({
+          user_id: merchant.owner_id,
+          type: "new_order",
+          title: "New order received",
+          body: `Order #${mo.id.slice(0, 8)} — ${itemCount} item(s), ${mo.merchant_payable} ETB`,
+        });
+      }
     }
 
     return jsonResponse({ ok: true });

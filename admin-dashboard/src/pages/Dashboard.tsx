@@ -10,6 +10,7 @@ interface Stats {
   gmv: number;
   commissionEarned: number;
   openTickets: number;
+  unacknowledgedOrders: number;
 }
 
 export function Dashboard() {
@@ -17,6 +18,14 @@ export function Dashboard() {
 
   useEffect(() => {
     async function load() {
+      const { data: settingRow } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "unacknowledged_order_escalation_minutes")
+        .maybeSingle();
+      const thresholdMinutes = Number(settingRow?.value ?? 15);
+      const cutoff = new Date(Date.now() - thresholdMinutes * 60_000).toISOString();
+
       const [
         { count: totalMerchants },
         { count: pendingMerchants },
@@ -25,6 +34,7 @@ export function Dashboard() {
         { data: paidOrders },
         { data: paidMerchantOrders },
         { count: openTickets },
+        { count: unacknowledgedOrders },
       ] = await Promise.all([
         supabase.from("merchants").select("id", { count: "exact", head: true }),
         supabase.from("merchants").select("id", { count: "exact", head: true }).eq("status", "registered"),
@@ -33,6 +43,12 @@ export function Dashboard() {
         supabase.from("orders").select("total").eq("payment_status", "paid"),
         supabase.from("merchant_orders").select("commission_amount, orders!inner(payment_status)").eq("orders.payment_status", "paid"),
         supabase.from("support_tickets").select("id", { count: "exact", head: true }).eq("status", "open"),
+        supabase
+          .from("merchant_orders")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "new")
+          .not("notification_sent_at", "is", null)
+          .lt("notification_sent_at", cutoff),
       ]);
 
       const gmv = (paidOrders ?? []).reduce((sum, o) => sum + Number(o.total), 0);
@@ -46,6 +62,7 @@ export function Dashboard() {
         gmv,
         commissionEarned,
         openTickets: openTickets ?? 0,
+        unacknowledgedOrders: unacknowledgedOrders ?? 0,
       });
     }
     load();
@@ -67,6 +84,14 @@ export function Dashboard() {
             <StatCard label="Commission Earned" value={`${stats.commissionEarned.toFixed(2)} ETB`} />
           </div>
 
+          {stats.unacknowledgedOrders > 0 && (
+            <Link
+              to="/orders?filter=unacknowledged"
+              className="block bg-red-50 border border-red-300 text-red-800 rounded-lg p-4 mb-4 text-sm font-bold hover:bg-red-100"
+            >
+              ⚠ {stats.unacknowledgedOrders} order(s) not acknowledged by their merchant — customer may be waiting →
+            </Link>
+          )}
           {stats.pendingMerchants > 0 && (
             <Link
               to="/merchants?status=registered"
