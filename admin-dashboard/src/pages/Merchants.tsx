@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
-import type { Merchant } from "../types";
+import type { Merchant, MerchantDocument } from "../types";
 
 const STATUS_FILTERS = ["all", "registered", "under_review", "active", "suspended", "rejected", "closed"];
 
@@ -17,12 +17,22 @@ const statusColors: Record<string, string> = {
   closed: "bg-gray-200 text-gray-700",
 };
 
+const docStatusColors: Record<string, string> = {
+  uploaded: "bg-gray-100 text-gray-700",
+  under_review: "bg-blue-100 text-blue-800",
+  verified: "bg-emerald-100 text-emerald-800",
+  rejected: "bg-red-100 text-red-800",
+};
+
 export function Merchants() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get("status") ?? "all";
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<MerchantDocument[]>([]);
+  const [docLinks, setDocLinks] = useState<Record<string, string>>({});
 
   async function load() {
     setLoading(true);
@@ -46,6 +56,35 @@ export function Merchants() {
     }
     await supabase.from("merchants").update(payload).eq("id", m.id);
     await load();
+  }
+
+  async function toggleExpand(m: Merchant) {
+    if (expandedId === m.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(m.id);
+    const { data } = await supabase.from("merchant_documents").select("*").eq("merchant_id", m.id);
+    setDocuments(data ?? []);
+  }
+
+  async function openDocument(doc: MerchantDocument) {
+    if (docLinks[doc.id]) {
+      window.open(docLinks[doc.id], "_blank");
+      return;
+    }
+    const { data, error } = await supabase.storage.from("merchant-documents").createSignedUrl(doc.file_url, 300);
+    if (error || !data) return;
+    setDocLinks((prev) => ({ ...prev, [doc.id]: data.signedUrl }));
+    window.open(data.signedUrl, "_blank");
+  }
+
+  async function setDocStatus(doc: MerchantDocument, status: string) {
+    await supabase
+      .from("merchant_documents")
+      .update({ status, verified_by: user?.id, verification_date: new Date().toISOString() })
+      .eq("id", doc.id);
+    setDocuments((prev) => prev.map((d) => (d.id === doc.id ? { ...d, status } : d)));
   }
 
   return (
@@ -73,50 +112,92 @@ export function Merchants() {
       ) : (
         <div className="bg-white border rounded-lg divide-y">
           {merchants.map((m) => (
-            <div key={m.id} className="flex items-center justify-between p-4">
-              <div>
-                <p className="font-medium text-sm">{m.business_name}</p>
-                <p className="text-xs text-gray-500">
-                  {m.business_category ?? "—"} · {m.location ?? "—"} · {m.phone ?? m.email}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${statusColors[m.status]}`}>
-                  {m.status.replace(/_/g, " ")}
-                </span>
-                {(m.status === "registered" || m.status === "pending_verification" || m.status === "under_review") && (
-                  <>
+            <div key={m.id}>
+              <div className="flex items-center justify-between p-4">
+                <button className="text-left" onClick={() => toggleExpand(m)}>
+                  <p className="font-medium text-sm hover:text-emerald-700">{m.business_name}</p>
+                  <p className="text-xs text-gray-500">
+                    {[m.business_category, m.business_subcategory].filter(Boolean).join(" · ") || "—"} ·{" "}
+                    {[m.city, m.sub_city].filter(Boolean).join(", ") || m.location || "—"}
+                  </p>
+                </button>
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${statusColors[m.status]}`}>
+                    {m.status.replace(/_/g, " ")}
+                  </span>
+                  {(m.status === "registered" || m.status === "pending_verification" || m.status === "under_review") && (
+                    <>
+                      <button
+                        onClick={() => updateStatus(m, "active")}
+                        className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-md hover:bg-emerald-700"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => updateStatus(m, "rejected")}
+                        className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  )}
+                  {m.status === "active" && (
+                    <button
+                      onClick={() => updateStatus(m, "suspended")}
+                      className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50"
+                    >
+                      Suspend
+                    </button>
+                  )}
+                  {m.status === "suspended" && (
                     <button
                       onClick={() => updateStatus(m, "active")}
                       className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-md hover:bg-emerald-700"
                     >
-                      Approve
+                      Reactivate
                     </button>
-                    <button
-                      onClick={() => updateStatus(m, "rejected")}
-                      className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50"
-                    >
-                      Reject
-                    </button>
-                  </>
-                )}
-                {m.status === "active" && (
-                  <button
-                    onClick={() => updateStatus(m, "suspended")}
-                    className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50"
-                  >
-                    Suspend
-                  </button>
-                )}
-                {m.status === "suspended" && (
-                  <button
-                    onClick={() => updateStatus(m, "active")}
-                    className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-md hover:bg-emerald-700"
-                  >
-                    Reactivate
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
+
+              {expandedId === m.id && (
+                <div className="bg-gray-50 px-4 py-3 text-sm">
+                  <p className="text-xs font-medium text-gray-500 mb-1">Owner</p>
+                  <p className="mb-3">
+                    {m.owner_full_name ?? "—"} · {m.owner_phone ?? "—"} · {m.owner_email ?? m.email ?? "—"}
+                  </p>
+                  <p className="text-xs font-medium text-gray-500 mb-1">Documents</p>
+                  {documents.length === 0 ? (
+                    <p className="text-gray-500 text-xs">No documents uploaded yet.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {documents.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between bg-white border rounded-md px-3 py-1.5">
+                          <button onClick={() => openDocument(doc)} className="text-left hover:text-emerald-700">
+                            <span className="capitalize">{doc.doc_type.replace(/_/g, " ")}</span>
+                            {doc.file_name && <span className="text-gray-400"> — {doc.file_name}</span>}
+                          </button>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${docStatusColors[doc.status]}`}>
+                              {doc.status.replace(/_/g, " ")}
+                            </span>
+                            {doc.status !== "verified" && (
+                              <button onClick={() => setDocStatus(doc, "verified")} className="text-xs text-emerald-700 hover:underline">
+                                Verify
+                              </button>
+                            )}
+                            {doc.status !== "rejected" && (
+                              <button onClick={() => setDocStatus(doc, "rejected")} className="text-xs text-red-600 hover:underline">
+                                Reject
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

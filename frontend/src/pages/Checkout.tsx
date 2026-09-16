@@ -17,10 +17,7 @@ export function Checkout() {
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const total = items.reduce((sum, item) => {
-    const price = item.product_variants.discount_price ?? item.product_variants.price;
-    return sum + price * item.quantity;
-  }, 0);
+  const total = items.reduce((sum, item) => sum + item.product_variants.customer_price * item.quantity, 0);
 
   useEffect(() => {
     if (!user) return;

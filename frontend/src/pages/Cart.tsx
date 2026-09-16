@@ -5,10 +5,7 @@ export function Cart() {
   const { items, loading, updateQuantity, removeItem } = useCart();
   const navigate = useNavigate();
 
-  const total = items.reduce((sum, item) => {
-    const price = item.product_variants.discount_price ?? item.product_variants.price;
-    return sum + price * item.quantity;
-  }, 0);
+  const total = items.reduce((sum, item) => sum + item.product_variants.customer_price * item.quantity, 0);
 
   if (loading) return <p className="text-gray-500">Loading cart...</p>;
 
@@ -27,7 +24,7 @@ export function Cart() {
     <div className="grid md:grid-cols-3 gap-8">
       <div className="md:col-span-2 space-y-3">
         {items.map((item) => {
-          const price = item.product_variants.discount_price ?? item.product_variants.price;
+          const price = item.product_variants.customer_price;
           const attrs = Object.values(item.product_variants.attributes ?? {}).join(" / ");
           return (
             <div key={item.id} className="bg-white border rounded-lg p-4 flex items-center gap-4">

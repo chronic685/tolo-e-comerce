@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
 
     const { data: merchantOrders } = await db
       .from("merchant_orders")
-      .select("id, merchant_id, subtotal, commission_amount, merchant_payable")
+      .select("id, merchant_id, merchant_payable")
       .eq("order_id", payment.order_id);
 
     for (const mo of merchantOrders ?? []) {
@@ -64,20 +64,15 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Merchant is credited their full listed price (merchant_payable).
+      // Tolo's commission is additional revenue on top of that, not a
+      // deduction from the merchant's wallet — see merchant_orders.commission_amount.
       await db.rpc("post_wallet_transaction", {
         p_merchant_id: mo.merchant_id,
         p_merchant_order_id: mo.id,
         p_type: "sale",
-        p_amount: mo.subtotal,
+        p_amount: mo.merchant_payable,
         p_note: "Order payment confirmed",
-      });
-
-      await db.rpc("post_wallet_transaction", {
-        p_merchant_id: mo.merchant_id,
-        p_merchant_order_id: mo.id,
-        p_type: "commission",
-        p_amount: -mo.commission_amount,
-        p_note: "Platform commission",
       });
     }
 

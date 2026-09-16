@@ -9,7 +9,7 @@ export function Commissions() {
 
   const [scopeType, setScopeType] = useState("platform");
   const [scopeId, setScopeId] = useState("");
-  const [rate, setRate] = useState("10");
+  const [rate, setRate] = useState("5");
   const [error, setError] = useState<string | null>(null);
 
   async function load() {

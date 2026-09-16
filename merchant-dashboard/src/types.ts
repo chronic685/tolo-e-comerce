@@ -3,10 +3,31 @@ export interface Merchant {
   owner_id: string;
   business_name: string;
   business_category: string | null;
+  business_subcategory: string | null;
   phone: string | null;
   email: string | null;
   location: string | null;
+  city: string | null;
+  sub_city: string | null;
+  woreda: string | null;
+  landmark: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  owner_full_name: string | null;
+  owner_phone: string | null;
+  owner_email: string | null;
   status: string;
+}
+
+export interface MerchantDocument {
+  id: string;
+  merchant_id: string;
+  doc_type: string;
+  file_url: string;
+  file_name: string | null;
+  status: string;
+  rejection_reason: string | null;
+  uploaded_at: string;
 }
 
 export interface Store {

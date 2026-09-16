@@ -19,6 +19,8 @@ export interface ProductVariant {
   price: number;
   discount_price: number | null;
   is_default: boolean;
+  /** Server-computed: merchant price + commission. Always use this for display — never compute it client-side. */
+  customer_price: number;
 }
 
 export interface Product {
@@ -32,6 +34,8 @@ export interface Product {
   base_price: number;
   discount_price: number | null;
   status: string;
+  /** Server-computed: base_price + commission. Always use this for display — never compute it client-side. */
+  customer_price: number;
   product_variants: ProductVariant[];
   product_images: ProductImage[];
   stores?: { name: string; slug: string } | null;

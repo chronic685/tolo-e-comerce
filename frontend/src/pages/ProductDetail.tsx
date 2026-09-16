@@ -7,7 +7,7 @@ import type { Product } from "../types";
 
 const PRODUCT_SELECT = `
   id, merchant_id, store_id, category_id, name, slug, description, base_price, discount_price, status,
-  product_variants ( id, sku, attributes, price, discount_price, is_default ),
+  product_variants ( id, sku, attributes, price, discount_price, is_default, customer_price:product_variants_customer_price ),
   product_images ( id, url, is_primary, variant_id ),
   stores ( name, slug )
 `;
@@ -44,7 +44,7 @@ export function ProductDetail() {
     product.product_images.find((i) => i.variant_id === variantId) ??
     product.product_images.find((i) => i.is_primary) ??
     product.product_images[0];
-  const price = variant?.discount_price ?? variant?.price ?? product.base_price;
+  const price = variant?.customer_price ?? 0;
 
   async function handleAddToCart() {
     if (!user) {

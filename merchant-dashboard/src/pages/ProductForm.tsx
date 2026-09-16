@@ -42,6 +42,38 @@ export function ProductForm() {
   const [images, setImages] = useState<ImageDraft[]>([{ url: "" }]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [commissionRate, setCommissionRate] = useState<number | null>(null);
+  const [uploadingImageIdx, setUploadingImageIdx] = useState<number | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+
+  async function handleImageUpload(idx: number, file: File) {
+    if (!merchant) return;
+    setUploadingImageIdx(idx);
+    setImageError(null);
+
+    const path = `${merchant.id}/${Date.now()}-${file.name}`;
+    const { error: uploadError } = await supabase.storage.from("product-images").upload(path, file);
+
+    setUploadingImageIdx(null);
+    if (uploadError) {
+      setImageError(uploadError.message);
+      return;
+    }
+
+    const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+    const next = [...images];
+    next[idx] = { ...next[idx], url: data.publicUrl };
+    setImages(next);
+  }
+
+  useEffect(() => {
+    if (!merchant) return;
+    const params = new URLSearchParams({ merchant_id: merchant.id });
+    if (categoryId) params.set("category_id", categoryId);
+    supabase.functions
+      .invoke(`commission-calc?${params.toString()}`, { method: "GET" })
+      .then(({ data }) => setCommissionRate(data?.rate_percent ?? null));
+  }, [merchant, categoryId]);
 
   useEffect(() => {
     supabase.from("categories").select("id, name, slug").eq("is_active", true).then(({ data }) => setCategories(data ?? []));
@@ -198,13 +230,21 @@ export function ProductForm() {
             </option>
           ))}
         </select>
-        <input
-          type="number"
-          placeholder="Base price (ETB)"
-          value={basePrice}
-          onChange={(e) => setBasePrice(e.target.value)}
-          className="w-full border rounded-md px-3 py-2 text-sm"
-        />
+        <div>
+          <input
+            type="number"
+            placeholder="Your price (ETB)"
+            value={basePrice}
+            onChange={(e) => setBasePrice(e.target.value)}
+            className="w-full border rounded-md px-3 py-2 text-sm"
+          />
+          {basePrice && commissionRate !== null && (
+            <p className="text-xs text-gray-500 mt-1">
+              You keep the full {Number(basePrice).toFixed(2)} ETB. Customers will pay{" "}
+              {(Number(basePrice) * (1 + commissionRate / 100)).toFixed(2)} ETB (includes Tolo's {commissionRate}% commission).
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="bg-white border rounded-lg p-4 mb-4">
@@ -257,23 +297,41 @@ export function ProductForm() {
 
       <div className="bg-white border rounded-lg p-4 mb-4">
         <div className="flex justify-between items-center mb-2">
-          <h2 className="font-medium text-sm">Images (URLs)</h2>
+          <h2 className="font-medium text-sm">Product photos</h2>
           <button onClick={() => setImages([...images, { url: "" }])} className="text-xs text-emerald-700 font-medium">
-            + Add image
+            + Add another
           </button>
         </div>
+        {imageError && <p className="text-red-600 text-xs mb-2">{imageError}</p>}
         {images.map((img, idx) => (
-          <input
-            key={idx}
-            placeholder="https://..."
-            value={img.url}
-            onChange={(e) => {
-              const next = [...images];
-              next[idx] = { ...img, url: e.target.value };
-              setImages(next);
-            }}
-            className="w-full border rounded-md px-2 py-1.5 text-sm mb-2"
-          />
+          <div key={idx} className="flex items-center gap-2 mb-2">
+            {img.url && (
+              <img src={img.url} alt="" className="w-12 h-12 object-cover rounded border flex-shrink-0" />
+            )}
+            <input
+              placeholder="Photo URL, or upload a file →"
+              value={img.url}
+              onChange={(e) => {
+                const next = [...images];
+                next[idx] = { ...img, url: e.target.value };
+                setImages(next);
+              }}
+              className="flex-1 border rounded-md px-2 py-1.5 text-sm"
+            />
+            <label className="text-xs text-gray-700 border rounded-md px-2 py-1.5 cursor-pointer hover:bg-gray-50 flex-shrink-0">
+              {uploadingImageIdx === idx ? "Uploading..." : "Upload"}
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp"
+                className="hidden"
+                disabled={uploadingImageIdx !== null}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageUpload(idx, file);
+                }}
+              />
+            </label>
+          </div>
         ))}
       </div>
 

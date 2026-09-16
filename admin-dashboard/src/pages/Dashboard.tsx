@@ -23,7 +23,7 @@ export function Dashboard() {
         { count: activeMerchants },
         { count: totalOrders },
         { data: paidOrders },
-        { data: commissionTx },
+        { data: paidMerchantOrders },
         { count: openTickets },
       ] = await Promise.all([
         supabase.from("merchants").select("id", { count: "exact", head: true }),
@@ -31,12 +31,12 @@ export function Dashboard() {
         supabase.from("merchants").select("id", { count: "exact", head: true }).eq("status", "active"),
         supabase.from("orders").select("id", { count: "exact", head: true }),
         supabase.from("orders").select("total").eq("payment_status", "paid"),
-        supabase.from("wallet_transactions").select("amount").eq("type", "commission"),
+        supabase.from("merchant_orders").select("commission_amount, orders!inner(payment_status)").eq("orders.payment_status", "paid"),
         supabase.from("support_tickets").select("id", { count: "exact", head: true }).eq("status", "open"),
       ]);
 
       const gmv = (paidOrders ?? []).reduce((sum, o) => sum + Number(o.total), 0);
-      const commissionEarned = (commissionTx ?? []).reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
+      const commissionEarned = (paidMerchantOrders ?? []).reduce((sum, mo) => sum + Number(mo.commission_amount), 0);
 
       setStats({
         totalMerchants: totalMerchants ?? 0,
