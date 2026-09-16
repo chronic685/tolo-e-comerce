@@ -9,6 +9,7 @@ import { Login } from "./pages/Login";
 import { Signup } from "./pages/Signup";
 import { Orders } from "./pages/Orders";
 import { OrderDetail } from "./pages/OrderDetail";
+import { Account } from "./pages/Account";
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
+          <Route path="/account" element={<Account />} />
         </Route>
       </Route>
     </Routes>

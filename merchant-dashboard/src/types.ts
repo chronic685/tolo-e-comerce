@@ -39,6 +39,9 @@ export interface Store {
   logo_url: string | null;
   banner_url: string | null;
   status: string;
+  latitude: number | null;
+  longitude: number | null;
+  pickup_address: string | null;
 }
 
 export interface Category {

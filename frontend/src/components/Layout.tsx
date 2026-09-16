@@ -24,9 +24,14 @@ export function Layout() {
               Marketplace
             </Link>
             {user && (
-              <Link to="/orders" className="hover:text-emerald-700">
-                My Orders
-              </Link>
+              <>
+                <Link to="/orders" className="hover:text-emerald-700">
+                  My Orders
+                </Link>
+                <Link to="/account" className="hover:text-emerald-700">
+                  Account
+                </Link>
+              </>
             )}
             <Link to="/cart" className="hover:text-emerald-700 relative">
               Cart

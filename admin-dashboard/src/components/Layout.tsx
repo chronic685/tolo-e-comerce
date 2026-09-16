@@ -6,6 +6,8 @@ const navItems = [
   { to: "/merchants", label: "Merchants" },
   { to: "/categories", label: "Categories" },
   { to: "/orders", label: "Orders" },
+  { to: "/deliveries", label: "Deliveries" },
+  { to: "/drivers", label: "Drivers" },
   { to: "/commissions", label: "Commissions" },
   { to: "/settlements", label: "Settlements" },
   { to: "/support", label: "Support" },

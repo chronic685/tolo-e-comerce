@@ -9,6 +9,8 @@ import { Orders } from "./pages/Orders";
 import { Commissions } from "./pages/Commissions";
 import { Settlements } from "./pages/Settlements";
 import { Support } from "./pages/Support";
+import { Drivers } from "./pages/Drivers";
+import { Deliveries } from "./pages/Deliveries";
 
 export default function App() {
   return (
@@ -20,6 +22,8 @@ export default function App() {
           <Route path="/merchants" element={<Merchants />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/orders" element={<Orders />} />
+          <Route path="/deliveries" element={<Deliveries />} />
+          <Route path="/drivers" element={<Drivers />} />
           <Route path="/commissions" element={<Commissions />} />
           <Route path="/settlements" element={<Settlements />} />
           <Route path="/support" element={<Support />} />

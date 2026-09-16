@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
+import { getCurrentLocation } from "../lib/geolocation";
 import type { Address } from "../types";
 
 export function Checkout() {
@@ -13,7 +14,19 @@ export function Checkout() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressId, setAddressId] = useState<string | null>(null);
   const [showNewAddress, setShowNewAddress] = useState(false);
-  const [form, setForm] = useState({ recipient_name: "", phone: "", line1: "", city: "", label: "Home" });
+  const [form, setForm] = useState({
+    recipient_name: "",
+    phone: "",
+    line1: "",
+    city: "",
+    sub_city: "",
+    landmark: "",
+    label: "Home",
+    latitude: null as number | null,
+    longitude: null as number | null,
+  });
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +44,36 @@ export function Checkout() {
         if (data && data.length > 0) setAddressId(data[0].id);
         else setShowNewAddress(true);
       });
+    // Customer's phone/name come from their account — never re-typed (spec: no duplicate data entry).
+    supabase
+      .from("profiles")
+      .select("full_name, phone")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setForm((f) => ({ ...f, recipient_name: f.recipient_name || data.full_name || "", phone: f.phone || data.phone || "" }));
+      });
   }, [user]);
+
+  async function handleUseCurrentLocation() {
+    setLocating(true);
+    setLocationError(null);
+    try {
+      const loc = await getCurrentLocation();
+      setForm((f) => ({
+        ...f,
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        line1: loc.line1 || f.line1,
+        city: loc.city || f.city,
+        sub_city: loc.subCity || f.sub_city,
+      }));
+    } catch (err) {
+      setLocationError(err instanceof Error ? err.message : "Could not get your location.");
+    } finally {
+      setLocating(false);
+    }
+  }
 
   async function handleSaveAddress() {
     if (!user) return;
@@ -92,14 +134,15 @@ export function Checkout() {
       <h1 className="text-xl font-bold mb-4">Checkout</h1>
 
       <div className="bg-white border rounded-lg p-4 mb-4">
-        <h2 className="font-medium mb-2">Delivery address</h2>
+        <h2 className="font-medium mb-2">Deliver to</h2>
         {addresses.map((a) => (
           <label key={a.id} className="flex items-start gap-2 mb-2 text-sm">
             <input type="radio" checked={addressId === a.id} onChange={() => setAddressId(a.id)} />
             <span>
               <strong>{a.label ?? "Address"}</strong> — {a.recipient_name}, {a.phone}
               <br />
-              {a.line1}, {a.city}
+              📍 {a.line1}, {a.city}
+              {a.latitude && <span className="text-xs text-gray-400"> (GPS confirmed)</span>}
             </span>
           </label>
         ))}
@@ -112,6 +155,22 @@ export function Checkout() {
 
         {showNewAddress && (
           <div className="mt-2 space-y-2">
+            <button
+              onClick={handleUseCurrentLocation}
+              disabled={locating}
+              type="button"
+              className="w-full border-2 border-emerald-600 text-emerald-700 rounded-md px-3 py-2 text-sm font-medium hover:bg-emerald-50 disabled:opacity-60"
+            >
+              {locating ? "Getting your location..." : "📍 Use my current location"}
+            </button>
+            {locationError && <p className="text-red-600 text-xs">{locationError}</p>}
+
+            {form.latitude && (
+              <p className="text-xs text-emerald-700 bg-emerald-50 rounded-md px-3 py-2">
+                📍 Location confirmed — you can still edit the details below if needed.
+              </p>
+            )}
+
             <input
               placeholder="Recipient name"
               value={form.recipient_name}
@@ -125,15 +184,29 @@ export function Checkout() {
               className="w-full border rounded-md px-3 py-2 text-sm"
             />
             <input
-              placeholder="Street address"
+              placeholder="Street / area"
               value={form.line1}
               onChange={(e) => setForm({ ...form, line1: e.target.value })}
               className="w-full border rounded-md px-3 py-2 text-sm"
             />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                placeholder="City"
+                value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}
+                className="w-full border rounded-md px-3 py-2 text-sm"
+              />
+              <input
+                placeholder="Sub-city (optional)"
+                value={form.sub_city}
+                onChange={(e) => setForm({ ...form, sub_city: e.target.value })}
+                className="w-full border rounded-md px-3 py-2 text-sm"
+              />
+            </div>
             <input
-              placeholder="City"
-              value={form.city}
-              onChange={(e) => setForm({ ...form, city: e.target.value })}
+              placeholder="Landmark (optional)"
+              value={form.landmark}
+              onChange={(e) => setForm({ ...form, landmark: e.target.value })}
               className="w-full border rounded-md px-3 py-2 text-sm"
             />
             <button onClick={handleSaveAddress} className="text-sm bg-gray-800 text-white px-3 py-1.5 rounded-md">

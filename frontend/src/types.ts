@@ -64,6 +64,10 @@ export interface Address {
   line1: string;
   line2: string | null;
   city: string;
+  sub_city?: string | null;
+  landmark?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   region: string | null;
   country: string;
   is_default: boolean;

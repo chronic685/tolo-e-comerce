@@ -75,6 +75,31 @@ export interface Settlement {
   merchants: { business_name: string } | null;
 }
 
+export interface Driver {
+  id: string;
+  full_name: string;
+  phone: string;
+  vehicle_type: string | null;
+  vehicle_plate: string | null;
+  is_active: boolean;
+}
+
+export interface Delivery {
+  id: string;
+  merchant_order_id: string;
+  driver_id: string | null;
+  status: string;
+  pickup_address: string | null;
+  pickup_contact_name: string | null;
+  pickup_contact_phone: string | null;
+  dropoff_address: string | null;
+  dropoff_contact_name: string | null;
+  dropoff_contact_phone: string | null;
+  created_at: string;
+  drivers: { full_name: string } | null;
+  merchant_orders: { merchants: { business_name: string } | null } | null;
+}
+
 export interface SupportTicket {
   id: string;
   user_id: string;

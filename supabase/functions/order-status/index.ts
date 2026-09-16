@@ -80,7 +80,34 @@ Deno.serve(async (req) => {
     });
 
     if (status === "ready_for_pickup") {
-      await db.from("deliveries").insert({ merchant_order_id: mo.id });
+      // Pickup/dropoff are pulled from records the system already has — the
+      // store's own location and the order's delivery address — never asked
+      // for again at delivery-creation time (spec: "No Duplicate Data Entry").
+      const [{ data: store }, { data: merchant }, { data: orderRow }] = await Promise.all([
+        db.from("stores").select("latitude, longitude, pickup_address, name").eq("merchant_id", mo.merchant_id).maybeSingle(),
+        db.from("merchants").select("business_name, phone").eq("id", mo.merchant_id).single(),
+        db
+          .from("merchant_orders")
+          .select("orders!inner(addresses!inner(recipient_name, phone, line1, city, latitude, longitude))")
+          .eq("id", mo.id)
+          .single(),
+      ]);
+
+      const address = (orderRow as unknown as { orders: { addresses: Record<string, unknown> } } | null)?.orders?.addresses;
+
+      await db.from("deliveries").insert({
+        merchant_order_id: mo.id,
+        pickup_latitude: store?.latitude ?? null,
+        pickup_longitude: store?.longitude ?? null,
+        pickup_address: store?.pickup_address ?? null,
+        pickup_contact_name: store?.name ?? merchant?.business_name ?? null,
+        pickup_contact_phone: merchant?.phone ?? null,
+        dropoff_latitude: address?.latitude ?? null,
+        dropoff_longitude: address?.longitude ?? null,
+        dropoff_address: address ? `${address.line1}, ${address.city}` : null,
+        dropoff_contact_name: address?.recipient_name ?? null,
+        dropoff_contact_phone: address?.phone ?? null,
+      });
       // TODO: notify the Tolo delivery dispatch system (see delivery-dispatch function).
     }
 
