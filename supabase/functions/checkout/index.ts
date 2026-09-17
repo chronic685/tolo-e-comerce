@@ -7,6 +7,31 @@
 import { serviceClient, userClient } from "../_shared/client.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 
+// create_order() raises plain Postgres exceptions (see 0026+ migrations) —
+// those messages are meant for developers reading function source, not for
+// customers, and can include internal identifiers (variant UUIDs). Map the
+// known cases to safe, generic text + the right status code; log the raw
+// message server-side (Edge Function logs) instead of returning it.
+function sanitizeOrderError(message: string): { status: number; error: string } {
+  if (message.includes("Insufficient stock")) {
+    return { status: 409, error: "One or more items in your cart are no longer available in the requested quantity." };
+  }
+  if (message.includes("suspended")) {
+    return { status: 403, error: "This account is suspended and cannot place new orders." };
+  }
+  if (message.includes("maintenance")) {
+    return { status: 503, error: "Tolo is temporarily under maintenance. Please try again shortly." };
+  }
+  if (message.includes("no items")) {
+    return { status: 400, error: "Your cart is empty." };
+  }
+  if (message.includes("Not authorized")) {
+    return { status: 403, error: "You are not authorized to perform this action." };
+  }
+  console.error("create_order failed:", message);
+  return { status: 400, error: "Could not place your order. Please check your cart and try again." };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -49,7 +74,8 @@ Deno.serve(async (req) => {
     });
 
     if (orderError) {
-      return jsonResponse({ error: orderError.message }, 400);
+      const { status, error } = sanitizeOrderError(orderError.message);
+      return jsonResponse({ error }, status);
     }
 
     const { data: order } = await db

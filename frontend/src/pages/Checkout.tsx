@@ -133,7 +133,21 @@ export function Checkout() {
     });
 
     if (checkoutError || !checkoutData) {
-      setError(checkoutError?.message ?? "Checkout failed");
+      // supabase-js doesn't auto-parse a non-2xx function response body into
+      // error.message — it has to be read from the raw response ourselves,
+      // or the specific message the function returned (e.g. "out of stock",
+      // "account suspended") never reaches the user, just a generic failure.
+      let message = "Checkout failed. Please try again.";
+      const context = (checkoutError as { context?: Response })?.context;
+      if (context) {
+        try {
+          const body = await context.clone().json();
+          if (body?.error) message = body.error;
+        } catch {
+          // Non-JSON error body — fall back to the generic message above.
+        }
+      }
+      setError(message);
       setPlacing(false);
       return;
     }
