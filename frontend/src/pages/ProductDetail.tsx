@@ -66,7 +66,7 @@ export function ProductDetail() {
       <div>
         <p className="text-sm text-gray-500">{product.stores?.name}</p>
         <h1 className="text-2xl font-bold mt-1">{product.name}</h1>
-        <p className="text-xl font-semibold text-emerald-700 mt-2">{price.toFixed(2)} ETB</p>
+        <p className="text-xl font-semibold text-navy mt-2">{price.toFixed(2)} ETB</p>
         {product.description && <p className="text-gray-600 mt-4">{product.description}</p>}
 
         {product.product_variants.length > 1 && (
@@ -78,7 +78,7 @@ export function ProductDetail() {
                   key={v.id}
                   onClick={() => setVariantId(v.id)}
                   className={`px-3 py-1.5 rounded-md border text-sm ${
-                    variantId === v.id ? "bg-emerald-600 text-white border-emerald-600" : "bg-white"
+                    variantId === v.id ? "bg-navy text-white border-navy" : "bg-white"
                   }`}
                 >
                   {Object.values(v.attributes).join(" / ") || v.sku}
@@ -99,7 +99,7 @@ export function ProductDetail() {
           <button
             onClick={handleAddToCart}
             disabled={status === "adding"}
-            className="bg-emerald-600 text-white px-5 py-2 rounded-md text-sm font-medium hover:bg-emerald-700 disabled:opacity-60"
+            className="bg-navy text-white px-5 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
           >
             {status === "added" ? "Added!" : "Add to cart"}
           </button>

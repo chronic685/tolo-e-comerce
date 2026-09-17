@@ -49,14 +49,14 @@ export function Login() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-gray-900 text-white py-2.5 rounded-md font-medium hover:bg-gray-800 disabled:opacity-60"
+          className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
         >
           {loading ? "Signing in..." : "Sign in"}
         </button>
       </form>
       <p className="text-sm text-gray-500 mt-4">
         New merchant?{" "}
-        <Link to="/signup" className="text-gray-900 font-medium underline">
+        <Link to="/signup" className="text-navy font-medium underline">
           Apply here
         </Link>
       </p>

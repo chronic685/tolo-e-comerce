@@ -140,7 +140,7 @@ export function MerchantApplication() {
         {docError && <p className="text-red-600 text-sm mt-3">{docError}</p>}
         <button
           onClick={() => refresh()}
-          className="w-full bg-gray-900 text-white py-2.5 rounded-md font-medium hover:bg-gray-800 mt-4"
+          className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark mt-4"
         >
           Done — submit for review
         </button>
@@ -241,7 +241,7 @@ export function MerchantApplication() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-gray-900 text-white py-2.5 rounded-md font-medium hover:bg-gray-800 disabled:opacity-60"
+          className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
         >
           {submitting ? "Submitting..." : "Continue to documents"}
         </button>

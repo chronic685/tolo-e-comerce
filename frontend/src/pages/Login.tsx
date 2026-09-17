@@ -50,14 +50,14 @@ export function Login() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-emerald-600 text-white py-2.5 rounded-md font-medium hover:bg-emerald-700 disabled:opacity-60"
+          className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
         >
           {loading ? "Signing in..." : "Sign in"}
         </button>
       </form>
       <p className="text-sm text-gray-500 mt-4">
         No account?{" "}
-        <Link to="/signup" className="text-emerald-700 font-medium">
+        <Link to="/signup" className="text-navy font-medium">
           Sign up
         </Link>
       </p>

@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+@theme {
+  --color-navy: #14245c;
+  --color-navy-dark: #0b1638;
+  --color-navy-light: #24418f;
+  --color-navy-50: #eef1fa;
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;

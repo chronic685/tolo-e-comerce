@@ -60,7 +60,7 @@ export function Marketplace() {
         <button
           onClick={() => setActiveCategory(null)}
           className={`px-3 py-1.5 rounded-full text-sm border ${
-            activeCategory === null ? "bg-emerald-600 text-white border-emerald-600" : "bg-white"
+            activeCategory === null ? "bg-navy text-white border-navy" : "bg-white"
           }`}
         >
           All
@@ -70,7 +70,7 @@ export function Marketplace() {
             key={c.id}
             onClick={() => setActiveCategory(c.id)}
             className={`px-3 py-1.5 rounded-full text-sm border ${
-              activeCategory === c.id ? "bg-emerald-600 text-white border-emerald-600" : "bg-white"
+              activeCategory === c.id ? "bg-navy text-white border-navy" : "bg-white"
             }`}
           >
             {c.name}

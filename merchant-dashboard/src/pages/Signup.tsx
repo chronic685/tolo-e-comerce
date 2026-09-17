@@ -32,7 +32,7 @@ export function Signup() {
         <h1 className="text-xl font-bold mb-2">Check your email</h1>
         <p className="text-gray-600 text-sm">
           Confirm your email, then{" "}
-          <button onClick={() => navigate("/login")} className="text-gray-900 font-medium underline">
+          <button onClick={() => navigate("/login")} className="text-navy font-medium underline">
             sign in
           </button>{" "}
           to submit your merchant application.
@@ -73,14 +73,14 @@ export function Signup() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-gray-900 text-white py-2.5 rounded-md font-medium hover:bg-gray-800 disabled:opacity-60"
+          className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
         >
           {loading ? "Creating account..." : "Continue"}
         </button>
       </form>
       <p className="text-sm text-gray-500 mt-4">
         Already have an account?{" "}
-        <Link to="/login" className="text-gray-900 font-medium underline">
+        <Link to="/login" className="text-navy font-medium underline">
           Sign in
         </Link>
       </p>

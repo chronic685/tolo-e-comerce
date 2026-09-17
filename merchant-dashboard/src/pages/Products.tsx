@@ -56,7 +56,7 @@ export function Products() {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-xl font-bold">Products</h1>
-        <Link to="/products/new" className="bg-gray-900 text-white text-sm px-4 py-2 rounded-md hover:bg-gray-800">
+        <Link to="/products/new" className="bg-navy text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark">
           + New product
         </Link>
       </div>
@@ -77,7 +77,7 @@ export function Products() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <Link to={`/products/${p.id}`} className="font-medium hover:text-emerald-700 truncate block">
+                  <Link to={`/products/${p.id}`} className="font-medium hover:text-navy truncate block">
                     {p.name}
                   </Link>
                   <p className="text-xs text-gray-500">

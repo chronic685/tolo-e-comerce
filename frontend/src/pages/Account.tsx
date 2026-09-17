@@ -59,7 +59,7 @@ export function Account() {
         <button
           type="submit"
           disabled={saving}
-          className="bg-emerald-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-700 disabled:opacity-60"
+          className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
         >
           {saving ? "Saving..." : "Save"}
         </button>

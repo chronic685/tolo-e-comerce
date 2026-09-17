@@ -49,7 +49,7 @@ export function Orders() {
                 <p className="text-xs text-gray-500">{new Date(o.created_at).toLocaleString()}</p>
               </div>
               <div className="text-right">
-                <p className="font-semibold text-emerald-700">{o.total.toFixed(2)} ETB</p>
+                <p className="font-semibold text-navy">{o.total.toFixed(2)} ETB</p>
                 <p className="text-xs text-gray-500 capitalize">{o.payment_status}</p>
               </div>
             </div>

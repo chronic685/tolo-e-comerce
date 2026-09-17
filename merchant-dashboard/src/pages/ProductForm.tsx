@@ -252,7 +252,7 @@ export function ProductForm() {
           <h2 className="font-medium text-sm">Variants &amp; stock</h2>
           <button
             onClick={() => setVariants([...variants, { sku: "", attributesText: "", price: basePrice, stock: "0" }])}
-            className="text-xs text-emerald-700 font-medium"
+            className="text-xs text-navy font-medium"
           >
             + Add variant
           </button>
@@ -298,7 +298,7 @@ export function ProductForm() {
       <div className="bg-white border rounded-lg p-4 mb-4">
         <div className="flex justify-between items-center mb-2">
           <h2 className="font-medium text-sm">Product photos</h2>
-          <button onClick={() => setImages([...images, { url: "" }])} className="text-xs text-emerald-700 font-medium">
+          <button onClick={() => setImages([...images, { url: "" }])} className="text-xs text-navy font-medium">
             + Add another
           </button>
         </div>
@@ -348,7 +348,7 @@ export function ProductForm() {
         <button
           onClick={() => handleSave(store?.status === "active" ? "published" : "submitted")}
           disabled={saving}
-          className="bg-emerald-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-700 disabled:opacity-60"
+          className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
         >
           {saving ? "Saving..." : "Publish"}
         </button>

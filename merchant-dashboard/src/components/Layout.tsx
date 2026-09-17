@@ -23,10 +23,13 @@ export function Layout() {
 
   return (
     <div className="min-h-screen flex">
-      <aside className="w-56 bg-gray-900 text-gray-200 flex flex-col">
-        <div className="px-4 py-5 border-b border-gray-800">
-          <p className="text-lg font-bold text-white">Tolo Merchant</p>
-          <p className="text-xs text-gray-400 truncate">{store?.name ?? merchant?.business_name}</p>
+      <aside className="w-56 bg-navy-dark text-gray-200 flex flex-col">
+        <div className="px-4 py-5 border-b border-navy-light/40 flex items-center gap-2">
+          <img src="/logo.png" alt="" className="h-8 w-8 flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-lg font-bold text-white leading-tight">Tolo Merchant</p>
+            <p className="text-xs text-gray-400 truncate">{store?.name ?? merchant?.business_name}</p>
+          </div>
         </div>
         <nav className="flex-1 py-3">
           {navItems.map((item) => (
@@ -35,14 +38,14 @@ export function Layout() {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `block px-4 py-2 text-sm ${isActive ? "bg-gray-800 text-white" : "text-gray-300 hover:bg-gray-800"}`
+                `block px-4 py-2 text-sm ${isActive ? "bg-navy text-white" : "text-gray-300 hover:bg-navy"}`
               }
             >
               {item.label}
             </NavLink>
           ))}
         </nav>
-        <button onClick={handleSignOut} className="px-4 py-3 text-sm text-left text-gray-300 hover:bg-gray-800 border-t border-gray-800">
+        <button onClick={handleSignOut} className="px-4 py-3 text-sm text-left text-gray-300 hover:bg-navy border-t border-navy-light/40">
           Sign out
         </button>
       </aside>

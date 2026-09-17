@@ -97,7 +97,7 @@ export function Merchants() {
             key={s}
             onClick={() => setSearchParams(s === "all" ? {} : { status: s })}
             className={`px-3 py-1.5 rounded-full text-xs border capitalize ${
-              statusFilter === s ? "bg-slate-900 text-white border-slate-900" : "bg-white"
+              statusFilter === s ? "bg-navy text-white border-navy" : "bg-white"
             }`}
           >
             {s.replace(/_/g, " ")}
@@ -115,7 +115,7 @@ export function Merchants() {
             <div key={m.id}>
               <div className="flex items-center justify-between p-4">
                 <button className="text-left" onClick={() => toggleExpand(m)}>
-                  <p className="font-medium text-sm hover:text-emerald-700">{m.business_name}</p>
+                  <p className="font-medium text-sm hover:text-navy">{m.business_name}</p>
                   <p className="text-xs text-gray-500">
                     {[m.business_category, m.business_subcategory].filter(Boolean).join(" · ") || "—"} ·{" "}
                     {[m.city, m.sub_city].filter(Boolean).join(", ") || m.location || "—"}
@@ -129,7 +129,7 @@ export function Merchants() {
                     <>
                       <button
                         onClick={() => updateStatus(m, "active")}
-                        className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-md hover:bg-emerald-700"
+                        className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark"
                       >
                         Approve
                       </button>
@@ -152,7 +152,7 @@ export function Merchants() {
                   {m.status === "suspended" && (
                     <button
                       onClick={() => updateStatus(m, "active")}
-                      className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-md hover:bg-emerald-700"
+                      className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark"
                     >
                       Reactivate
                     </button>
@@ -173,7 +173,7 @@ export function Merchants() {
                     <div className="space-y-1.5">
                       {documents.map((doc) => (
                         <div key={doc.id} className="flex items-center justify-between bg-white border rounded-md px-3 py-1.5">
-                          <button onClick={() => openDocument(doc)} className="text-left hover:text-emerald-700">
+                          <button onClick={() => openDocument(doc)} className="text-left hover:text-navy">
                             <span className="capitalize">{doc.doc_type.replace(/_/g, " ")}</span>
                             {doc.file_name && <span className="text-gray-400"> — {doc.file_name}</span>}
                           </button>

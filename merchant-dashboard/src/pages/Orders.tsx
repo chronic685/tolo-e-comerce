@@ -62,7 +62,7 @@ export function Orders() {
             key={f}
             onClick={() => setFilter(f)}
             className={`px-3 py-1.5 rounded-full text-xs border capitalize ${
-              filter === f ? "bg-gray-900 text-white border-gray-900" : "bg-white"
+              filter === f ? "bg-navy text-white border-navy" : "bg-white"
             }`}
           >
             {f === "all" ? "All" : STATUS_LABELS[f] ?? f.replace(/_/g, " ")}

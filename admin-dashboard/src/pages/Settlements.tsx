@@ -70,7 +70,7 @@ export function Settlements() {
         <button
           type="submit"
           disabled={running}
-          className="bg-slate-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-800 disabled:opacity-60"
+          className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
         >
           {running ? "Running..." : "Run settlement"}
         </button>

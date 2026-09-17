@@ -13,7 +13,7 @@ export function Cart() {
     return (
       <div className="text-center py-16">
         <p className="text-gray-500 mb-4">Your cart is empty.</p>
-        <Link to="/" className="text-emerald-700 font-medium">
+        <Link to="/" className="text-navy font-medium">
           Browse the marketplace
         </Link>
       </div>
@@ -29,11 +29,11 @@ export function Cart() {
           return (
             <div key={item.id} className="bg-white border rounded-lg p-4 flex items-center gap-4">
               <div className="flex-1">
-                <Link to={`/products/${item.product_variants.products.slug}`} className="font-medium hover:text-emerald-700">
+                <Link to={`/products/${item.product_variants.products.slug}`} className="font-medium hover:text-navy">
                   {item.product_variants.products.name}
                 </Link>
                 {attrs && <p className="text-xs text-gray-500">{attrs}</p>}
-                <p className="text-sm text-emerald-700 font-semibold mt-1">{price.toFixed(2)} ETB</p>
+                <p className="text-sm text-navy font-semibold mt-1">{price.toFixed(2)} ETB</p>
               </div>
               <input
                 type="number"
@@ -56,7 +56,7 @@ export function Cart() {
         </div>
         <button
           onClick={() => navigate("/checkout")}
-          className="w-full bg-emerald-600 text-white py-2.5 rounded-md font-medium hover:bg-emerald-700"
+          className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark"
         >
           Proceed to checkout
         </button>

@@ -119,13 +119,13 @@ export function StoreSettings() {
             type="button"
             onClick={handleUseCurrentLocation}
             disabled={locating}
-            className="w-full border-2 border-emerald-600 text-emerald-700 rounded-md px-3 py-2 text-sm font-medium hover:bg-emerald-50 disabled:opacity-60 mb-2"
+            className="w-full border-2 border-navy text-navy rounded-md px-3 py-2 text-sm font-medium hover:bg-navy-50 disabled:opacity-60 mb-2"
           >
             {locating ? "Getting your location..." : "📍 Use my current location"}
           </button>
           {locationError && <p className="text-red-600 text-xs mb-2">{locationError}</p>}
           {latitude && (
-            <p className="text-xs text-emerald-700 bg-emerald-50 rounded-md px-3 py-2 mb-2">
+            <p className="text-xs text-navy bg-navy-50 rounded-md px-3 py-2 mb-2">
               📍 GPS location set ({latitude.toFixed(5)}, {longitude?.toFixed(5)})
             </p>
           )}
@@ -150,7 +150,7 @@ export function StoreSettings() {
         <button
           type="submit"
           disabled={saving}
-          className="bg-gray-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-60"
+          className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
         >
           {saving ? "Saving..." : "Save"}
         </button>

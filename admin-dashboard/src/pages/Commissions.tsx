@@ -87,7 +87,7 @@ export function Commissions() {
             className="border rounded-md px-2 py-1.5 text-sm w-24"
           />
         </div>
-        <button type="submit" className="bg-slate-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-800">
+        <button type="submit" className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark">
           Add rule
         </button>
       </form>

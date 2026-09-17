@@ -63,7 +63,7 @@ export function Drivers() {
           onChange={(e) => setForm({ ...form, vehicle_plate: e.target.value })}
           className="border rounded-md px-2 py-1.5 text-sm"
         />
-        <button type="submit" className="bg-slate-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-800">
+        <button type="submit" className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark">
           Add driver
         </button>
       </form>

@@ -17,7 +17,7 @@ export function ProductCard({ product }: { product: Product }) {
         <p className="text-xs text-gray-500">{product.stores?.name}</p>
         <h3 className="font-medium text-sm truncate">{product.name}</h3>
         <div className="mt-1">
-          <span className="font-semibold text-emerald-700">{price.toFixed(2)} ETB</span>
+          <span className="font-semibold text-navy">{price.toFixed(2)} ETB</span>
         </div>
       </div>
     </Link>

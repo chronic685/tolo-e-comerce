@@ -16,37 +16,38 @@ export function Layout() {
     <div className="min-h-screen flex flex-col">
       <header className="border-b bg-white sticky top-0 z-10">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
-          <Link to="/" className="text-xl font-bold text-emerald-700">
+          <Link to="/" className="flex items-center gap-2 text-xl font-bold text-navy">
+            <img src="/logo.png" alt="" className="h-8 w-8" />
             Tolo
           </Link>
           <nav className="flex items-center gap-5 text-sm">
-            <Link to="/" className="hover:text-emerald-700">
+            <Link to="/" className="hover:text-navy">
               Marketplace
             </Link>
             {user && (
               <>
-                <Link to="/orders" className="hover:text-emerald-700">
+                <Link to="/orders" className="hover:text-navy">
                   My Orders
                 </Link>
-                <Link to="/account" className="hover:text-emerald-700">
+                <Link to="/account" className="hover:text-navy">
                   Account
                 </Link>
               </>
             )}
-            <Link to="/cart" className="hover:text-emerald-700 relative">
+            <Link to="/cart" className="hover:text-navy relative">
               Cart
               {itemCount > 0 && (
-                <span className="absolute -top-2 -right-3 bg-emerald-600 text-white text-xs rounded-full px-1.5">
+                <span className="absolute -top-2 -right-3 bg-navy text-white text-xs rounded-full px-1.5">
                   {itemCount}
                 </span>
               )}
             </Link>
             {user ? (
-              <button onClick={handleSignOut} className="hover:text-emerald-700">
+              <button onClick={handleSignOut} className="hover:text-navy">
                 Sign out
               </button>
             ) : (
-              <Link to="/login" className="hover:text-emerald-700">
+              <Link to="/login" className="hover:text-navy">
                 Sign in
               </Link>
             )}

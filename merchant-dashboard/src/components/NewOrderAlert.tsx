@@ -143,7 +143,7 @@ export function NewOrderAlert() {
         <button
           onClick={handleReceived}
           disabled={acknowledging}
-          className="w-full bg-emerald-600 text-white py-3 rounded-md font-bold text-lg hover:bg-emerald-700 disabled:opacity-60"
+          className="w-full bg-navy text-white py-3 rounded-md font-bold text-lg hover:bg-navy-dark disabled:opacity-60"
         >
           {acknowledging ? "..." : "ORDER RECEIVED"}
         </button>

@@ -148,7 +148,7 @@ export function Checkout() {
         ))}
 
         {!showNewAddress && (
-          <button onClick={() => setShowNewAddress(true)} className="text-emerald-700 text-sm font-medium mt-1">
+          <button onClick={() => setShowNewAddress(true)} className="text-navy text-sm font-medium mt-1">
             + Add new address
           </button>
         )}
@@ -159,14 +159,14 @@ export function Checkout() {
               onClick={handleUseCurrentLocation}
               disabled={locating}
               type="button"
-              className="w-full border-2 border-emerald-600 text-emerald-700 rounded-md px-3 py-2 text-sm font-medium hover:bg-emerald-50 disabled:opacity-60"
+              className="w-full border-2 border-navy text-navy rounded-md px-3 py-2 text-sm font-medium hover:bg-navy-50 disabled:opacity-60"
             >
               {locating ? "Getting your location..." : "📍 Use my current location"}
             </button>
             {locationError && <p className="text-red-600 text-xs">{locationError}</p>}
 
             {form.latitude && (
-              <p className="text-xs text-emerald-700 bg-emerald-50 rounded-md px-3 py-2">
+              <p className="text-xs text-navy bg-navy-50 rounded-md px-3 py-2">
                 📍 Location confirmed — you can still edit the details below if needed.
               </p>
             )}
@@ -226,7 +226,7 @@ export function Checkout() {
       <button
         onClick={handlePlaceOrder}
         disabled={placing}
-        className="w-full bg-emerald-600 text-white py-2.5 rounded-md font-medium hover:bg-emerald-700 disabled:opacity-60"
+        className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
       >
         {placing ? "Placing order..." : "Place order"}
       </button>

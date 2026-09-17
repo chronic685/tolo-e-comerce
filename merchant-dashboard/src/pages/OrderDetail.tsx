@@ -147,7 +147,7 @@ export function OrderDetail() {
               onClick={() => handleTransition(a.status)}
               disabled={busy}
               className={`px-4 py-2 rounded-md text-sm font-medium disabled:opacity-60 ${
-                a.primary ? "bg-emerald-600 text-white hover:bg-emerald-700" : "border hover:bg-gray-50"
+                a.primary ? "bg-navy text-white hover:bg-navy-dark" : "border hover:bg-gray-50"
               }`}
             >
               {a.label}
