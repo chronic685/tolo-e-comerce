@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
+import { exportToCsv } from "../lib/csvExport";
 import type { Merchant, MerchantDocument } from "../types";
 
 const STATUS_FILTERS = ["all", "registered", "under_review", "active", "suspended", "rejected", "closed"];
@@ -87,9 +88,38 @@ export function Merchants() {
     setDocuments((prev) => prev.map((d) => (d.id === doc.id ? { ...d, status } : d)));
   }
 
+  function handleExport() {
+    exportToCsv(
+      `merchants-${statusFilter}-${new Date().toISOString().slice(0, 10)}.csv`,
+      merchants.map((m) => ({
+        id: m.id,
+        business_name: m.business_name,
+        category: m.business_category ?? "",
+        subcategory: m.business_subcategory ?? "",
+        phone: m.phone ?? "",
+        email: m.email ?? "",
+        city: m.city ?? "",
+        sub_city: m.sub_city ?? "",
+        status: m.status,
+        owner_full_name: m.owner_full_name ?? "",
+        owner_phone: m.owner_phone ?? "",
+        created_at: m.created_at,
+      })),
+    );
+  }
+
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4">Merchants</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-bold">Merchants</h1>
+        <button
+          onClick={handleExport}
+          disabled={merchants.length === 0}
+          className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-40"
+        >
+          ⬇ Export CSV
+        </button>
+      </div>
 
       <div className="flex gap-2 mb-4 flex-wrap">
         {STATUS_FILTERS.map((s) => (

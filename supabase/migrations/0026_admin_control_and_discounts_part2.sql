@@ -70,16 +70,22 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
+  -- NEW/OLD are generic RECORD here (this function triggers on several
+  -- tables with different columns): go through to_jsonb()->>'field' rather
+  -- than new.field directly, since a bare field reference is resolved for
+  -- every table this trigger is attached to, not just the one that fired,
+  -- and errors on tables missing that column (e.g. system_settings has no
+  -- "id") even inside a CASE branch that would otherwise skip it.
   insert into audit_logs (actor_id, action, entity_type, entity_id, metadata)
   values (
     auth.uid(),
     lower(tg_op),
     tg_table_name,
-    case when tg_table_name = 'system_settings' then null else new.id end,
+    nullif(to_jsonb(new)->>'id', '')::uuid,
     jsonb_build_object(
       'before', case when tg_op = 'INSERT' then null else to_jsonb(old) end,
       'after', to_jsonb(new),
-      'key', case when tg_table_name = 'system_settings' then new.key else null end
+      'key', to_jsonb(new)->>'key'
     )
   );
   return new;

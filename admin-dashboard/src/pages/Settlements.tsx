@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { exportToCsv } from "../lib/csvExport";
 import type { Merchant, Settlement } from "../types";
 
 export function Settlements() {
@@ -43,9 +44,33 @@ export function Settlements() {
     await load();
   }
 
+  function handleExport() {
+    exportToCsv(
+      `settlements-${new Date().toISOString().slice(0, 10)}.csv`,
+      settlements.map((s) => ({
+        id: s.id,
+        merchant: s.merchants?.business_name ?? "",
+        period_start: s.period_start,
+        period_end: s.period_end,
+        total_amount_etb: s.total_amount,
+        status: s.status,
+        created_at: s.created_at,
+      })),
+    );
+  }
+
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-bold mb-4">Settlements</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-bold">Settlements</h1>
+        <button
+          onClick={handleExport}
+          disabled={settlements.length === 0}
+          className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-40"
+        >
+          ⬇ Export CSV
+        </button>
+      </div>
 
       <form onSubmit={handleRun} className="bg-white border rounded-lg p-4 mb-4 flex gap-2 items-end flex-wrap">
         <div>

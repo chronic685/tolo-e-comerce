@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { exportToCsv } from "../lib/csvExport";
 import type { Category, DiscountRule, Merchant } from "../types";
 
 const emptyForm = {
@@ -106,10 +107,38 @@ export function Discounts() {
     await load();
   }
 
+  function handleExport() {
+    exportToCsv(
+      `discount-rules-${new Date().toISOString().slice(0, 10)}.csv`,
+      rules.map((r) => ({
+        id: r.id,
+        name: r.name,
+        scope: labelFor(r),
+        discount_kind: r.discount_kind,
+        amount: r.amount,
+        min_order_value: r.min_order_value,
+        funded_by: r.funded_by,
+        usage_count: r.usage_count,
+        usage_limit: r.usage_limit ?? "",
+        first_order_only: r.first_order_only,
+        is_active: r.is_active,
+        created_at: r.created_at,
+      })),
+    );
+  }
+
   return (
     <div className="max-w-4xl">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Discounts &amp; Promotions</h1>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            disabled={rules.length === 0}
+            className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-40"
+          >
+            ⬇ Export CSV
+          </button>
         <label className="flex items-center gap-2 text-sm bg-white border rounded-lg px-3 py-2">
           <span className="font-medium">Discounts platform-wide</span>
           <button
@@ -123,6 +152,7 @@ export function Discounts() {
           </button>
           <span className="text-xs text-gray-500">{discountsEnabled ? "ON" : "OFF"}</span>
         </label>
+        </div>
       </div>
 
       {!discountsEnabled && (

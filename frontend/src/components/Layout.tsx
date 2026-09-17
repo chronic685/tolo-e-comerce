@@ -1,11 +1,23 @@
+import { useEffect, useState } from "react";
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
+import { supabase } from "../lib/supabase";
 
 export function Layout() {
   const { user, signOut } = useAuth();
   const { itemCount } = useCart();
   const navigate = useNavigate();
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "platform_maintenance_mode")
+      .maybeSingle()
+      .then(({ data }) => setMaintenanceMode(Boolean(data?.value)));
+  }, []);
 
   async function handleSignOut() {
     await signOut();
@@ -14,6 +26,11 @@ export function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {maintenanceMode && (
+        <div className="bg-red-600 text-white text-center text-sm py-2 px-4">
+          ⚠ Tolo is temporarily under maintenance — placing new orders is paused. Browsing still works.
+        </div>
+      )}
       <header className="border-b bg-white sticky top-0 z-10">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
           <Link to="/" className="flex items-center gap-2 text-xl font-bold text-navy">

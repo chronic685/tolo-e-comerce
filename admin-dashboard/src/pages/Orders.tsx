@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { exportToCsv } from "../lib/csvExport";
 import type { OrderRow } from "../types";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -49,9 +50,33 @@ export function Orders() {
     ? orders.filter((o) => o.merchant_orders.some(isUnacknowledged))
     : orders;
 
+  function handleExport() {
+    exportToCsv(
+      `orders-${new Date().toISOString().slice(0, 10)}.csv`,
+      visibleOrders.map((o) => ({
+        id: o.id,
+        total_etb: o.total,
+        payment_status: o.payment_status,
+        created_at: o.created_at,
+        merchants: o.merchant_orders.map((mo) => mo.merchants?.business_name ?? "Merchant").join(" | "),
+        merchant_statuses: o.merchant_orders.map((mo) => STATUS_LABELS[mo.status] ?? mo.status).join(" | "),
+        has_unacknowledged: o.merchant_orders.some(isUnacknowledged),
+      })),
+    );
+  }
+
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4">{onlyUnacknowledged ? "Unacknowledged Orders" : "All Orders"}</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-bold">{onlyUnacknowledged ? "Unacknowledged Orders" : "All Orders"}</h1>
+        <button
+          onClick={handleExport}
+          disabled={visibleOrders.length === 0}
+          className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-40"
+        >
+          ⬇ Export CSV
+        </button>
+      </div>
       {visibleOrders.length === 0 ? (
         <p className="text-gray-500">Nothing here.</p>
       ) : (
