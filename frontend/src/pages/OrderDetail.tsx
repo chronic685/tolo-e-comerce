@@ -23,8 +23,10 @@ interface MerchantOrderRow {
 
 interface OrderRow {
   id: string;
+  subtotal: number;
   total: number;
   delivery_fee: number;
+  discount_amount: number;
   payment_status: string;
   created_at: string;
   addresses: { recipient_name: string; line1: string; city: string; phone: string } | null;
@@ -40,7 +42,7 @@ export function OrderDetail() {
     supabase
       .from("orders")
       .select(
-        `id, total, delivery_fee, payment_status, created_at,
+        `id, subtotal, total, delivery_fee, discount_amount, payment_status, created_at,
          addresses ( recipient_name, line1, city, phone ),
          merchant_orders (
            id, status, subtotal,
@@ -116,9 +118,27 @@ export function OrderDetail() {
         </div>
       ))}
 
-      <div className="bg-white border rounded-lg p-4 flex justify-between font-semibold">
-        <span>Total ({order.payment_status})</span>
-        <span>{order.total.toFixed(2)} ETB</span>
+      <div className="bg-white border rounded-lg p-4 space-y-1">
+        <div className="flex justify-between text-sm">
+          <span>Subtotal</span>
+          <span>{order.subtotal.toFixed(2)} ETB</span>
+        </div>
+        {order.discount_amount > 0 && (
+          <div className="flex justify-between text-sm text-emerald-700">
+            <span>Discount</span>
+            <span>-{order.discount_amount.toFixed(2)} ETB</span>
+          </div>
+        )}
+        {order.delivery_fee > 0 && (
+          <div className="flex justify-between text-sm">
+            <span>Delivery</span>
+            <span>{order.delivery_fee.toFixed(2)} ETB</span>
+          </div>
+        )}
+        <div className="flex justify-between font-semibold pt-1 border-t">
+          <span>Total ({order.payment_status})</span>
+          <span>{order.total.toFixed(2)} ETB</span>
+        </div>
       </div>
     </div>
   );

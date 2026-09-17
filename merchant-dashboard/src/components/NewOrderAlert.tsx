@@ -10,6 +10,7 @@ interface PendingOrder {
 }
 
 const VIBRATE_PATTERN = [300, 150, 300, 150, 300];
+const DEFAULT_ALERT_SETTINGS = { vibrate: true, reminder_interval_minutes: 2, escalate_after_minutes: 5 };
 
 // Best-effort beep via Web Audio API — no audio file to host, but browsers
 // require a prior user gesture before sound will actually play. Since the
@@ -36,7 +37,21 @@ export function NewOrderAlert() {
   const { merchant } = useMerchant();
   const [queue, setQueue] = useState<PendingOrder[]>([]);
   const [acknowledging, setAcknowledging] = useState(false);
+  const [alertSettings, setAlertSettings] = useState(DEFAULT_ALERT_SETTINGS);
   const vibrateTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    // Admin-configurable (spec section 22) — vibration on/off and the
+    // reminder cadence come from Settings, not a hardcoded constant.
+    supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "merchant_new_order_alerts")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value) setAlertSettings({ ...DEFAULT_ALERT_SETTINGS, ...(data.value as object) });
+      });
+  }, []);
 
   const loadOrder = useCallback(async (merchantOrderId: string) => {
     const { data: mo } = await supabase
@@ -92,15 +107,15 @@ export function NewOrderAlert() {
       return;
     }
     playBeep();
-    navigator.vibrate?.(VIBRATE_PATTERN);
+    if (alertSettings.vibrate) navigator.vibrate?.(VIBRATE_PATTERN);
     vibrateTimer.current = setInterval(() => {
       playBeep();
-      navigator.vibrate?.(VIBRATE_PATTERN);
-    }, 20000);
+      if (alertSettings.vibrate) navigator.vibrate?.(VIBRATE_PATTERN);
+    }, Math.max(1, alertSettings.reminder_interval_minutes) * 60_000);
     return () => {
       if (vibrateTimer.current) clearInterval(vibrateTimer.current);
     };
-  }, [current]);
+  }, [current, alertSettings]);
 
   async function handleReceived() {
     if (!current) return;

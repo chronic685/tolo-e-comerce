@@ -29,8 +29,33 @@ export function Checkout() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentMethods, setPaymentMethods] = useState<[string, string][]>([]);
+  const [paymentProvider, setPaymentProvider] = useState<string | null>(null);
 
   const total = items.reduce((sum, item) => sum + item.product_variants.customer_price * item.quantity, 0);
+
+  useEffect(() => {
+    // Admin can turn payment methods on/off from Settings — disabled methods
+    // never reach the checkout screen (spec: "backend decides, frontend follows").
+    supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "payment_methods")
+      .maybeSingle()
+      .then(({ data }) => {
+        const methods = (data?.value as Record<string, boolean>) ?? {};
+        const labels: Record<string, string> = {
+          cash_on_delivery: "Cash on delivery",
+          bank_transfer: "Bank transfer",
+          mobile_money: "Mobile money",
+        };
+        const enabled = Object.entries(methods)
+          .filter(([, on]) => on)
+          .map(([key]) => [key, labels[key] ?? key] as [string, string]);
+        setPaymentMethods(enabled);
+        setPaymentProvider(enabled[0]?.[0] ?? null);
+      });
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -96,11 +121,15 @@ export function Checkout() {
       setError("Please select or add a delivery address.");
       return;
     }
+    if (!paymentProvider) {
+      setError("No payment method is currently available. Please try again later.");
+      return;
+    }
     setPlacing(true);
     setError(null);
 
     const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke("checkout", {
-      body: { address_id: addressId, payment_provider: "demo" },
+      body: { address_id: addressId, payment_provider: paymentProvider },
     });
 
     if (checkoutError || !checkoutData) {
@@ -216,10 +245,25 @@ export function Checkout() {
         )}
       </div>
 
+      <div className="bg-white border rounded-lg p-4 mb-4">
+        <h2 className="font-medium mb-2">Payment method</h2>
+        {paymentMethods.length === 0 ? (
+          <p className="text-sm text-red-600">No payment method is currently available.</p>
+        ) : (
+          paymentMethods.map(([key, label]) => (
+            <label key={key} className="flex items-center gap-2 mb-1 text-sm">
+              <input type="radio" checked={paymentProvider === key} onChange={() => setPaymentProvider(key)} />
+              {label}
+            </label>
+          ))
+        )}
+      </div>
+
       <div className="bg-white border rounded-lg p-4 mb-4 flex justify-between font-semibold">
         <span>Total</span>
         <span>{total.toFixed(2)} ETB</span>
       </div>
+      <p className="text-xs text-gray-400 -mt-3 mb-4">Any eligible discount is applied automatically and shown on your order confirmation.</p>
 
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 

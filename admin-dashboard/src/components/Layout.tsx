@@ -9,8 +9,10 @@ const navItems = [
   { to: "/deliveries", label: "Deliveries" },
   { to: "/drivers", label: "Drivers" },
   { to: "/commissions", label: "Commissions" },
+  { to: "/discounts", label: "Discounts" },
   { to: "/settlements", label: "Settlements" },
   { to: "/support", label: "Support" },
+  { to: "/settings", label: "Settings" },
 ];
 
 export function Layout() {
@@ -29,7 +31,7 @@ export function Layout() {
           <img src="/logo.png" alt="" className="h-8 w-8 flex-shrink-0" />
           <div className="min-w-0">
             <p className="text-lg font-bold text-white leading-tight">Tolo Admin</p>
-            <p className="text-xs text-slate-400 capitalize">{role?.replace("_", " ")}</p>
+            <p className="text-xs text-slate-400 capitalize">{role?.replaceAll("_", " ")}</p>
           </div>
         </div>
         <nav className="flex-1 py-3">

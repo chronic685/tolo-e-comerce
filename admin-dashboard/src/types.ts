@@ -100,6 +100,34 @@ export interface Delivery {
   merchant_orders: { merchants: { business_name: string } | null } | null;
 }
 
+export interface DiscountRule {
+  id: string;
+  name: string;
+  description: string | null;
+  scope_type: "platform" | "merchant" | "category" | "product";
+  scope_id: string | null;
+  discount_kind: "percent" | "fixed";
+  amount: number;
+  max_discount_amount: number | null;
+  min_order_value: number;
+  funded_by: "tolo" | "merchant" | "shared";
+  tolo_share_percent: number | null;
+  usage_limit: number | null;
+  usage_count: number;
+  per_customer_limit: number | null;
+  first_order_only: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface SystemSetting {
+  key: string;
+  value: unknown;
+  updated_at: string;
+}
+
 export interface SupportTicket {
   id: string;
   user_id: string;

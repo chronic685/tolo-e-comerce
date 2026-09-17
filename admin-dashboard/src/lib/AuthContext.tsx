@@ -13,7 +13,14 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
-const TOLO_ROLES = new Set(["tolo_ops", "tolo_finance", "tolo_admin"]);
+const TOLO_ROLES = new Set([
+  "tolo_ops",
+  "tolo_finance",
+  "tolo_admin",
+  "tolo_marketing",
+  "tolo_support",
+  "tolo_merchant_verification",
+]);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
