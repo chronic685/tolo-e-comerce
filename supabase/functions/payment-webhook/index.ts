@@ -6,6 +6,7 @@
 import { serviceClient } from "../_shared/client.ts";
 import { jsonResponse } from "../_shared/cors.ts";
 import { getPaymentProvider } from "../_shared/payment_providers.ts";
+import { sendNotification } from "../_shared/notify.ts";
 
 Deno.serve(async (req) => {
   try {
@@ -38,11 +39,25 @@ Deno.serve(async (req) => {
 
     if (!result.verified) {
       await db.from("payments").update({ status: "failed" }).eq("id", payment.id);
+      const { data: order } = await db.from("orders").select("customer_id").eq("id", payment.order_id).single();
+      if (order) {
+        await sendNotification(db, order.customer_id, "payment_failed", {
+          order_id_short: payment.order_id.slice(0, 8),
+        });
+      }
       return jsonResponse({ ok: false });
     }
 
     await db.from("payments").update({ status: "verified" }).eq("id", payment.id);
     await db.from("orders").update({ payment_status: "paid" }).eq("id", payment.order_id);
+
+    const { data: paidOrder } = await db.from("orders").select("customer_id").eq("id", payment.order_id).single();
+    if (paidOrder) {
+      await sendNotification(db, paidOrder.customer_id, "payment_success", {
+        amount: payment.amount,
+        order_id_short: payment.order_id.slice(0, 8),
+      });
+    }
 
     const { data: merchantOrders } = await db
       .from("merchant_orders")
@@ -86,11 +101,10 @@ Deno.serve(async (req) => {
       const { data: merchant } = await db.from("merchants").select("owner_id, business_name").eq("id", mo.merchant_id).single();
       if (merchant) {
         const itemCount = (items ?? []).reduce((sum, i) => sum + i.quantity, 0);
-        await db.from("notifications").insert({
-          user_id: merchant.owner_id,
-          type: "new_order",
-          title: "New order received",
-          body: `Order #${mo.id.slice(0, 8)} — ${itemCount} item(s), ${mo.merchant_payable} ETB`,
+        await sendNotification(db, merchant.owner_id, "order_new", {
+          order_id_short: mo.id.slice(0, 8),
+          item_count: itemCount,
+          amount: mo.merchant_payable,
         });
       }
     }

@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
+import { useFavorites } from "../lib/FavoritesContext";
 import { supabase } from "../lib/supabase";
 
 export function Layout() {
   const { user, signOut } = useAuth();
   const { itemCount } = useCart();
+  const { enabled: favoritesEnabled } = useFavorites();
   const navigate = useNavigate();
   const [maintenanceMode, setMaintenanceMode] = useState(false);
 
@@ -49,6 +51,11 @@ export function Layout() {
                 <Link to="/account" className="hover:text-navy">
                   Account
                 </Link>
+                {favoritesEnabled && (
+                  <Link to="/favorites" className="hover:text-navy">
+                    Favorites
+                  </Link>
+                )}
               </>
             )}
             <Link to="/cart" className="hover:text-navy relative">

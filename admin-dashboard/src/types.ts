@@ -15,6 +15,8 @@ export interface Merchant {
   owner_phone: string | null;
   owner_email: string | null;
   status: string;
+  rejection_reason: string | null;
+  suspension_reason: string | null;
   agreement_accepted: boolean;
   created_at: string;
 }
@@ -181,6 +183,55 @@ export interface AuditLogEntry {
   metadata: Record<string, unknown>;
   created_at: string;
   profiles: { full_name: string | null } | null;
+}
+
+export interface DeliveryZone {
+  id: string;
+  name: string;
+  description: string | null;
+  center_latitude: number;
+  center_longitude: number;
+  radius_km: number;
+  delivery_fee: number;
+  free_delivery_threshold: number | null;
+  max_distance_km: number | null;
+  estimated_delivery_minutes: number | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface NotificationTemplate {
+  id: string;
+  event_type: string;
+  channel: string;
+  language: string;
+  title_template: string;
+  body_template: string;
+  enabled: boolean;
+  updated_at: string;
+}
+
+export interface FinancialAdjustment {
+  id: string;
+  merchant_id: string;
+  order_id: string | null;
+  settlement_id: string | null;
+  type: string;
+  amount: number;
+  reason: string;
+  created_at: string;
+  merchants: { business_name: string } | null;
+}
+
+export interface InventoryMovement {
+  id: string;
+  variant_id: string;
+  movement_type: string;
+  quantity: number;
+  reference_type: string | null;
+  reference_id: string | null;
+  created_at: string;
+  product_variants: { sku: string | null; products: { name: string } | null } | null;
 }
 
 export interface SupportTicket {

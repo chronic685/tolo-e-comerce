@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
+import { useFavorites } from "../lib/FavoritesContext";
 import type { Product } from "../types";
 
 const PRODUCT_SELECT = `
@@ -16,6 +17,7 @@ export function ProductDetail() {
   const { slug } = useParams();
   const { user } = useAuth();
   const { addItem } = useCart();
+  const { enabled: favoritesEnabled, isFavorite, toggleFavorite } = useFavorites();
   const navigate = useNavigate();
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -64,8 +66,21 @@ export function ProductDetail() {
         {image && <img src={image.url} alt={product.name} className="w-full h-full object-cover" />}
       </div>
       <div>
-        <p className="text-sm text-gray-500">{product.stores?.name}</p>
-        <h1 className="text-2xl font-bold mt-1">{product.name}</h1>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-sm text-gray-500">{product.stores?.name}</p>
+            <h1 className="text-2xl font-bold mt-1">{product.name}</h1>
+          </div>
+          {favoritesEnabled && user && (
+            <button
+              onClick={() => toggleFavorite(product.id)}
+              aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
+              className="text-2xl flex-shrink-0"
+            >
+              {isFavorite(product.id) ? "❤️" : "🤍"}
+            </button>
+          )}
+        </div>
         <p className="text-xl font-semibold text-navy mt-2">{price.toFixed(2)} ETB</p>
         {product.description && <p className="text-gray-600 mt-4">{product.description}</p>}
 

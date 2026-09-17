@@ -10,6 +10,7 @@ import { Signup } from "./pages/Signup";
 import { Orders } from "./pages/Orders";
 import { OrderDetail } from "./pages/OrderDetail";
 import { Account } from "./pages/Account";
+import { Favorites } from "./pages/Favorites";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/orders" element={<Orders />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/account" element={<Account />} />
+          <Route path="/favorites" element={<Favorites />} />
         </Route>
       </Route>
     </Routes>

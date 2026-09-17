@@ -5,6 +5,7 @@
 // order_status_history. Reaching "ready_for_pickup" opens a delivery record.
 import { serviceClient, userClient } from "../_shared/client.ts";
 import { jsonResponse } from "../_shared/cors.ts";
+import { sendNotification } from "../_shared/notify.ts";
 
 const MERCHANT_TRANSITIONS: Record<string, string[]> = {
   new: ["accepted", "rejected"],
@@ -78,6 +79,31 @@ Deno.serve(async (req) => {
       changed_by: userData.user.id,
       note,
     });
+
+    const CUSTOMER_NOTIFY_EVENTS: Record<string, string> = {
+      accepted: "order_received",
+      processing: "order_preparing",
+      ready_for_pickup: "order_ready_for_pickup",
+      cancelled: "order_cancelled",
+    };
+    const notifyEvent = CUSTOMER_NOTIFY_EVENTS[status];
+    if (notifyEvent) {
+      const [{ data: orderInfo }, { data: merchantInfo }] = await Promise.all([
+        db
+          .from("merchant_orders")
+          .select("orders!inner(customer_id)")
+          .eq("id", mo.id)
+          .single(),
+        db.from("merchants").select("business_name").eq("id", mo.merchant_id).single(),
+      ]);
+      const customerId = (orderInfo as unknown as { orders: { customer_id: string } } | null)?.orders?.customer_id;
+      if (customerId) {
+        await sendNotification(db, customerId, notifyEvent, {
+          order_id_short: mo.id.slice(0, 8),
+          merchant_name: merchantInfo?.business_name ?? "the merchant",
+        });
+      }
+    }
 
     if (status === "ready_for_pickup") {
       // Pickup/dropoff are pulled from records the system already has — the

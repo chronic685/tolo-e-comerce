@@ -18,6 +18,9 @@ import { Settlements } from "./pages/Settlements";
 import { Support } from "./pages/Support";
 import { Drivers } from "./pages/Drivers";
 import { Deliveries } from "./pages/Deliveries";
+import { DeliveryZones } from "./pages/DeliveryZones";
+import { NotificationTemplates } from "./pages/NotificationTemplates";
+import { InventoryMovements } from "./pages/InventoryMovements";
 
 export default function App() {
   return (
@@ -33,10 +36,13 @@ export default function App() {
           <Route path="/orders" element={<Orders />} />
           <Route path="/deliveries" element={<Deliveries />} />
           <Route path="/drivers" element={<Drivers />} />
+          <Route path="/delivery-zones" element={<DeliveryZones />} />
           <Route path="/commissions" element={<Commissions />} />
           <Route path="/discounts" element={<Discounts />} />
           <Route path="/refunds" element={<Refunds />} />
           <Route path="/settlements" element={<Settlements />} />
+          <Route path="/inventory-movements" element={<InventoryMovements />} />
+          <Route path="/notification-templates" element={<NotificationTemplates />} />
           <Route path="/support" element={<Support />} />
           <Route path="/users" element={<Users />} />
           <Route path="/audit-log" element={<AuditLog />} />

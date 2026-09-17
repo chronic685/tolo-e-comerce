@@ -34,6 +34,9 @@ export function Merchants() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [documents, setDocuments] = useState<MerchantDocument[]>([]);
   const [docLinks, setDocLinks] = useState<Record<string, string>>({});
+  const [reasonPromptId, setReasonPromptId] = useState<string | null>(null);
+  const [reasonPromptKind, setReasonPromptKind] = useState<"rejected" | "suspended" | null>(null);
+  const [reason, setReason] = useState("");
 
   async function load() {
     setLoading(true);
@@ -49,13 +52,17 @@ export function Merchants() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
 
-  async function updateStatus(m: Merchant, status: string) {
+  async function updateStatus(m: Merchant, status: string, reasonText?: string) {
     const payload: Record<string, unknown> = { status };
     if (status === "active" && user) {
       payload.approved_at = new Date().toISOString();
       payload.approved_by = user.id;
     }
+    if (status === "rejected") payload.rejection_reason = reasonText ?? null;
+    if (status === "suspended") payload.suspension_reason = reasonText ?? null;
     await supabase.from("merchants").update(payload).eq("id", m.id);
+    setReasonPromptId(null);
+    setReason("");
     await load();
   }
 
@@ -150,6 +157,12 @@ export function Merchants() {
                     {[m.business_category, m.business_subcategory].filter(Boolean).join(" · ") || "—"} ·{" "}
                     {[m.city, m.sub_city].filter(Boolean).join(", ") || m.location || "—"}
                   </p>
+                  {m.status === "rejected" && m.rejection_reason && (
+                    <p className="text-xs text-red-600 mt-0.5">Rejected: {m.rejection_reason}</p>
+                  )}
+                  {m.status === "suspended" && m.suspension_reason && (
+                    <p className="text-xs text-orange-600 mt-0.5">Suspended: {m.suspension_reason}</p>
+                  )}
                 </button>
                 <div className="flex items-center gap-3">
                   <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${statusColors[m.status]}`}>
@@ -164,7 +177,10 @@ export function Merchants() {
                         Approve
                       </button>
                       <button
-                        onClick={() => updateStatus(m, "rejected")}
+                        onClick={() => {
+                          setReasonPromptId(reasonPromptId === m.id ? null : m.id);
+                          setReasonPromptKind("rejected");
+                        }}
                         className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50"
                       >
                         Reject
@@ -173,7 +189,10 @@ export function Merchants() {
                   )}
                   {m.status === "active" && (
                     <button
-                      onClick={() => updateStatus(m, "suspended")}
+                      onClick={() => {
+                        setReasonPromptId(reasonPromptId === m.id ? null : m.id);
+                        setReasonPromptKind("suspended");
+                      }}
                       className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50"
                     >
                       Suspend
@@ -189,6 +208,23 @@ export function Merchants() {
                   )}
                 </div>
               </div>
+
+              {reasonPromptId === m.id && reasonPromptKind && (
+                <div className="px-4 pb-3 flex gap-2">
+                  <input
+                    placeholder={`Reason for ${reasonPromptKind === "rejected" ? "rejection" : "suspension"}`}
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className="flex-1 border rounded-md px-3 py-1.5 text-sm"
+                  />
+                  <button
+                    onClick={() => updateStatus(m, reasonPromptKind, reason || undefined)}
+                    className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700"
+                  >
+                    Confirm {reasonPromptKind === "rejected" ? "reject" : "suspend"}
+                  </button>
+                </div>
+              )}
 
               {expandedId === m.id && (
                 <div className="bg-gray-50 px-4 py-3 text-sm">
