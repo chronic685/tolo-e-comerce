@@ -128,6 +128,61 @@ export interface SystemSetting {
   updated_at: string;
 }
 
+export interface AdminProduct {
+  id: string;
+  merchant_id: string;
+  name: string;
+  slug: string;
+  sku: string | null;
+  base_price: number;
+  status: "draft" | "submitted" | "approved" | "published" | "paused" | "archived";
+  rejection_reason: string | null;
+  is_featured: boolean;
+  created_at: string;
+  merchants: { business_name: string } | null;
+  categories: { name: string } | null;
+}
+
+export interface ReturnRow {
+  id: string;
+  merchant_order_id: string;
+  customer_id: string;
+  reason: string;
+  status: "requested" | "approved" | "rejected" | "received" | "completed";
+  created_at: string;
+  merchant_orders: { subtotal: number; merchants: { business_name: string } | null } | null;
+  profiles: { full_name: string | null; phone: string | null } | null;
+  refunds: { id: string; amount: number; status: string }[];
+}
+
+export interface StaffProfile {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  role: string;
+  account_status: "active" | "suspended";
+  created_at: string;
+}
+
+export interface CustomerProfile {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  account_status: "active" | "suspended";
+  created_at: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  profiles: { full_name: string | null } | null;
+}
+
 export interface SupportTicket {
   id: string;
   user_id: string;

@@ -52,10 +52,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
 
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
+    const { data: profile } = await supabase.from("profiles").select("role, account_status").eq("id", data.user.id).maybeSingle();
     if (!profile || !TOLO_ROLES.has(profile.role)) {
       await supabase.auth.signOut();
       return { error: "This account does not have Tolo staff access." };
+    }
+    if (profile.account_status === "suspended") {
+      await supabase.auth.signOut();
+      return { error: "This staff account has been suspended." };
     }
     setRole(profile.role);
     return { error: null };

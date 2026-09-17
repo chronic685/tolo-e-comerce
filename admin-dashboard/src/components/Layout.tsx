@@ -3,15 +3,20 @@ import { useAuth } from "../lib/AuthContext";
 
 const navItems = [
   { to: "/", label: "Dashboard", end: true },
-  { to: "/merchants", label: "Merchants" },
-  { to: "/categories", label: "Categories" },
   { to: "/orders", label: "Orders" },
+  { to: "/merchants", label: "Merchants" },
+  { to: "/products", label: "Products" },
+  { to: "/categories", label: "Categories" },
+  { to: "/customers", label: "Customers" },
   { to: "/deliveries", label: "Deliveries" },
   { to: "/drivers", label: "Drivers" },
   { to: "/commissions", label: "Commissions" },
   { to: "/discounts", label: "Discounts" },
+  { to: "/refunds", label: "Refunds" },
   { to: "/settlements", label: "Settlements" },
   { to: "/support", label: "Support" },
+  { to: "/users", label: "Users & Roles" },
+  { to: "/audit-log", label: "Audit Log" },
   { to: "/settings", label: "Settings" },
 ];
 
