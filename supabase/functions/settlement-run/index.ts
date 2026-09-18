@@ -4,9 +4,11 @@
 // that isn't already in a settlement into a new settlement + settlement_items,
 // and posts a "settlement" debit to the merchant's wallet ledger.
 import { serviceClient, userClient } from "../_shared/client.ts";
-import { jsonResponse } from "../_shared/cors.ts";
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
   try {
     const authed = userClient(req);
     const { data: userData, error: authError } = await authed.auth.getUser();

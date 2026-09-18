@@ -4,11 +4,13 @@
 // into confirmed sales and posts the sale/commission entries to each
 // merchant's wallet ledger. Never trust a client-supplied "paid" status.
 import { serviceClient } from "../_shared/client.ts";
-import { jsonResponse } from "../_shared/cors.ts";
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { getPaymentProvider } from "../_shared/payment_providers.ts";
 import { sendNotification } from "../_shared/notify.ts";
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
   try {
     const url = new URL(req.url);
     const paymentId = url.pathname.split("/").pop();

@@ -5,7 +5,7 @@
 // the integration seam described in the platform spec (section 15) — swap
 // the TODO for a call into the real dispatch API once it's available.
 import { serviceClient } from "../_shared/client.ts";
-import { jsonResponse } from "../_shared/cors.ts";
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 
 const DELIVERY_TO_MERCHANT_ORDER_STATUS: Record<string, string> = {
   picked_up: "picked_up",
@@ -13,6 +13,8 @@ const DELIVERY_TO_MERCHANT_ORDER_STATUS: Record<string, string> = {
 };
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
   try {
     // TODO: authenticate this request as coming from the Tolo delivery
     // system (shared secret / mTLS), not an arbitrary caller.

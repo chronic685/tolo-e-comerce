@@ -4,7 +4,7 @@
 // owning merchant (or Tolo staff), applies it, and logs it to
 // order_status_history. Reaching "ready_for_pickup" opens a delivery record.
 import { serviceClient, userClient } from "../_shared/client.ts";
-import { jsonResponse } from "../_shared/cors.ts";
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { sendNotification } from "../_shared/notify.ts";
 
 const MERCHANT_TRANSITIONS: Record<string, string[]> = {
@@ -14,6 +14,8 @@ const MERCHANT_TRANSITIONS: Record<string, string[]> = {
 };
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
   try {
     const authed = userClient(req);
     const { data: userData, error: authError } = await authed.auth.getUser();
