@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../lib/AuthContext";
 import { STATUS_COPY } from "../lib/orderStatus";
 
 interface OrderItemRow {
@@ -10,6 +11,7 @@ interface OrderItemRow {
   unit_price: number;
   quantity: number;
   subtotal: number;
+  product_variants: { product_id: string } | null;
 }
 
 interface MerchantOrderRow {
@@ -35,11 +37,18 @@ interface OrderRow {
 
 export function OrderDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reviewed, setReviewed] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    supabase
+    load();
+  }, [id]);
+
+  async function load() {
+    setLoading(true);
+    const { data } = await supabase
       .from("orders")
       .select(
         `id, subtotal, total, delivery_fee, discount_amount, payment_status, created_at,
@@ -47,17 +56,38 @@ export function OrderDetail() {
          merchant_orders (
            id, status, subtotal,
            merchants ( business_name ),
-           order_items ( id, product_name_snapshot, variant_attributes_snapshot, unit_price, quantity, subtotal ),
+           order_items ( id, product_name_snapshot, variant_attributes_snapshot, unit_price, quantity, subtotal, product_variants ( product_id ) ),
            order_status_history ( status, changed_at, note )
          )`,
       )
       .eq("id", id)
-      .maybeSingle()
-      .then(({ data }) => {
-        setOrder(data as unknown as OrderRow | null);
-        setLoading(false);
-      });
-  }, [id]);
+      .maybeSingle();
+    const o = data as unknown as OrderRow | null;
+    setOrder(o);
+
+    const moIds = o?.merchant_orders.map((mo) => mo.id) ?? [];
+    if (moIds.length > 0) {
+      const { data: reviews } = await supabase
+        .from("reviews")
+        .select("merchant_order_id, product_id")
+        .in("merchant_order_id", moIds);
+      setReviewed(new Set((reviews ?? []).map((r) => `${r.merchant_order_id}:${r.product_id}`)));
+    }
+    setLoading(false);
+  }
+
+  async function submitReview(merchantOrderId: string, productId: string, rating: number, comment: string) {
+    if (!user) return { error: "Not signed in." };
+    const { error } = await supabase.from("reviews").insert({
+      merchant_order_id: merchantOrderId,
+      product_id: productId,
+      customer_id: user.id,
+      rating,
+      comment: comment || null,
+    });
+    if (!error) setReviewed((prev) => new Set(prev).add(`${merchantOrderId}:${productId}`));
+    return { error: error?.message };
+  }
 
   if (loading) return <p className="text-gray-500">Loading order...</p>;
   if (!order) return <p className="text-gray-500">Order not found.</p>;
@@ -90,14 +120,22 @@ export function OrderDetail() {
           {STATUS_COPY[mo.status] && <p className="text-xs text-gray-500 mb-2">{STATUS_COPY[mo.status].detail}</p>}
           <div className="space-y-1 mb-3">
             {mo.order_items.map((item) => (
-              <div key={item.id} className="flex justify-between text-sm">
-                <span>
-                  {item.product_name_snapshot}
-                  {Object.values(item.variant_attributes_snapshot ?? {}).length > 0 &&
-                    ` (${Object.values(item.variant_attributes_snapshot).join(" / ")})`}{" "}
-                  × {item.quantity}
-                </span>
-                <span>{item.subtotal.toFixed(2)} ETB</span>
+              <div key={item.id}>
+                <div className="flex justify-between text-sm">
+                  <span>
+                    {item.product_name_snapshot}
+                    {Object.values(item.variant_attributes_snapshot ?? {}).length > 0 &&
+                      ` (${Object.values(item.variant_attributes_snapshot).join(" / ")})`}{" "}
+                    × {item.quantity}
+                  </span>
+                  <span>{item.subtotal.toFixed(2)} ETB</span>
+                </div>
+                {mo.status === "completed" && item.product_variants?.product_id && (
+                  <ReviewWidget
+                    alreadyReviewed={reviewed.has(`${mo.id}:${item.product_variants.product_id}`)}
+                    onSubmit={(rating, comment) => submitReview(mo.id, item.product_variants!.product_id, rating, comment)}
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -139,6 +177,87 @@ export function OrderDetail() {
           <span>Total ({order.payment_status})</span>
           <span>{order.total.toFixed(2)} ETB</span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ReviewWidget({
+  alreadyReviewed,
+  onSubmit,
+}: {
+  alreadyReviewed: boolean;
+  onSubmit: (rating: number, comment: string) => Promise<{ error?: string }>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(alreadyReviewed);
+  const [error, setError] = useState<string | null>(null);
+
+  if (done) {
+    return <p className="text-xs text-emerald-700 mt-0.5">✓ You reviewed this product</p>;
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="text-xs text-navy font-medium mt-0.5">
+        Rate this product
+      </button>
+    );
+  }
+
+  async function handleSubmit() {
+    if (rating === 0) {
+      setError("Please select a star rating.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    const { error } = await onSubmit(rating, comment);
+    setSubmitting(false);
+    if (error) {
+      setError("Could not submit your review. Please try again.");
+      return;
+    }
+    setDone(true);
+  }
+
+  return (
+    <div className="mt-1 mb-1 bg-navy-50 rounded-md p-2">
+      <div className="flex gap-0.5 mb-1">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => setRating(n)}
+            className={`text-lg leading-none ${n <= rating ? "text-orange-500" : "text-gray-300"}`}
+            aria-label={`${n} star`}
+          >
+            ★
+          </button>
+        ))}
+      </div>
+      <textarea
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder="Optional comment..."
+        rows={2}
+        className="w-full border rounded-md px-2 py-1 text-xs mb-1"
+      />
+      {error && <p className="text-red-600 text-xs mb-1">{error}</p>}
+      <div className="flex gap-2">
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="bg-navy text-white text-xs px-3 py-1 rounded-md font-medium disabled:opacity-60"
+        >
+          {submitting ? "Submitting..." : "Submit review"}
+        </button>
+        <button onClick={() => setOpen(false)} className="text-xs text-gray-500">
+          Cancel
+        </button>
       </div>
     </div>
   );

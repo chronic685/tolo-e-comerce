@@ -11,6 +11,9 @@ import { Orders } from "./pages/Orders";
 import { OrderDetail } from "./pages/OrderDetail";
 import { Account } from "./pages/Account";
 import { Favorites } from "./pages/Favorites";
+import { Notifications } from "./pages/Notifications";
+import { Support } from "./pages/Support";
+import { SavedLocations } from "./pages/SavedLocations";
 
 export default function App() {
   return (
@@ -27,6 +30,9 @@ export default function App() {
           <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/account" element={<Account />} />
           <Route path="/favorites" element={<Favorites />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/support" element={<Support />} />
+          <Route path="/locations" element={<SavedLocations />} />
         </Route>
       </Route>
     </Routes>

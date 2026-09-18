@@ -73,6 +73,23 @@ export interface Address {
   is_default: boolean;
 }
 
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  subject: string;
+  body: string | null;
+  status: string;
+  created_at: string;
+}
+
 export interface MerchantOrderSummary {
   id: string;
   order_id: string;

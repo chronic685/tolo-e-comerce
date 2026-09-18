@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 
@@ -64,6 +65,21 @@ export function Account() {
           {saving ? "Saving..." : "Save"}
         </button>
       </form>
+
+      <div className="bg-white border rounded-lg mt-4 divide-y">
+        <Link to="/locations" className="block px-4 py-3 text-sm hover:bg-gray-50">
+          Saved locations
+        </Link>
+        <Link to="/favorites" className="block px-4 py-3 text-sm hover:bg-gray-50">
+          Favorites
+        </Link>
+        <Link to="/notifications" className="block px-4 py-3 text-sm hover:bg-gray-50">
+          Notifications
+        </Link>
+        <Link to="/support" className="block px-4 py-3 text-sm hover:bg-gray-50">
+          Support
+        </Link>
+      </div>
     </div>
   );
 }

@@ -11,6 +11,7 @@ export function Layout() {
   const { enabled: favoritesEnabled } = useFavorites();
   const navigate = useNavigate();
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     supabase
@@ -20,6 +21,18 @@ export function Layout() {
       .maybeSingle()
       .then(({ data }) => setMaintenanceMode(Boolean(data?.value)));
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+    supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("is_read", false)
+      .then(({ count }) => setUnreadCount(count ?? 0));
+  }, [user]);
 
   async function handleSignOut() {
     await signOut();
@@ -56,6 +69,14 @@ export function Layout() {
                     Favorites
                   </Link>
                 )}
+                <Link to="/notifications" className="hover:text-navy relative">
+                  Notifications
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-2 -right-3 bg-orange-500 text-white text-xs rounded-full px-1.5">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Link>
               </>
             )}
             <Link to="/cart" className="hover:text-navy relative">
