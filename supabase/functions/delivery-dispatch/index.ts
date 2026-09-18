@@ -1,10 +1,15 @@
 // POST /delivery-dispatch
 // body: { delivery_id: string, status: string, driver_id?: string, location?: object, note?: string }
-// Receives status pushes from Tolo's delivery/driver system and mirrors them
-// onto deliveries, delivery_tracking, and the owning merchant_order. This is
-// the integration seam described in the platform spec (section 15) — swap
-// the TODO for a call into the real dispatch API once it's available.
-import { serviceClient } from "../_shared/client.ts";
+// Receives status pushes and mirrors them onto deliveries, delivery_tracking,
+// and the owning merchant_order. This is the integration seam described in
+// the platform spec (section 15) for Tolo's delivery/driver system — but no
+// real external dispatch system is connected yet (see External Integrations
+// spec section 21), and the only actual caller today is the admin dashboard's
+// Deliveries page, so this requires authenticated Tolo staff for now. Once a
+// real dispatch system is connected, it will need its own adapter (shared
+// secret / mTLS) rather than a user session — do not weaken this check to
+// accommodate that later; add a second, separately-authenticated path.
+import { serviceClient, userClient } from "../_shared/client.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 
 const DELIVERY_TO_MERCHANT_ORDER_STATUS: Record<string, string> = {
@@ -16,14 +21,22 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // TODO: authenticate this request as coming from the Tolo delivery
-    // system (shared secret / mTLS), not an arbitrary caller.
+    const authed = userClient(req);
+    const { data: userData, error: authError } = await authed.auth.getUser();
+    if (authError || !userData?.user) return jsonResponse({ error: "Not authenticated" }, 401);
+
+    const db = serviceClient();
+
+    const { data: profile } = await db.from("profiles").select("role").eq("id", userData.user.id).maybeSingle();
+    const staffRoles = ["tolo_ops", "tolo_admin", "tolo_finance", "tolo_marketing", "tolo_support", "tolo_merchant_verification"];
+    if (!profile || !staffRoles.includes(profile.role)) {
+      return jsonResponse({ error: "Not authorized" }, 403);
+    }
+
     const { delivery_id, status, driver_id, location, note } = await req.json();
     if (!delivery_id || !status) {
       return jsonResponse({ error: "delivery_id and status are required" }, 400);
     }
-
-    const db = serviceClient();
 
     const update: Record<string, unknown> = { status };
     if (driver_id) update.driver_id = driver_id;
