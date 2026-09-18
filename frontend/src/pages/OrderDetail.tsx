@@ -33,7 +33,14 @@ interface OrderRow {
   created_at: string;
   addresses: { recipient_name: string; line1: string; city: string; phone: string } | null;
   merchant_orders: MerchantOrderRow[];
+  payments: { provider: string }[];
 }
+
+const PAYMENT_PENDING_COPY: Record<string, string> = {
+  cash_on_delivery: "Pay the delivery agent in cash when your order arrives.",
+  bank_transfer: "We'll confirm your bank transfer shortly.",
+  mobile_money: "We'll confirm your mobile money payment shortly.",
+};
 
 export function OrderDetail() {
   const { id } = useParams();
@@ -53,6 +60,7 @@ export function OrderDetail() {
       .select(
         `id, subtotal, total, delivery_fee, discount_amount, payment_status, created_at,
          addresses ( recipient_name, line1, city, phone ),
+         payments ( provider ),
          merchant_orders (
            id, status, subtotal,
            merchants ( business_name ),
@@ -177,6 +185,9 @@ export function OrderDetail() {
           <span>Total ({order.payment_status})</span>
           <span>{order.total.toFixed(2)} ETB</span>
         </div>
+        {order.payment_status === "pending" && order.payments[0] && PAYMENT_PENDING_COPY[order.payments[0].provider] && (
+          <p className="text-xs text-gray-500 pt-1">{PAYMENT_PENDING_COPY[order.payments[0].provider]}</p>
+        )}
       </div>
     </div>
   );

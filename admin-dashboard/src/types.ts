@@ -234,6 +234,17 @@ export interface InventoryMovement {
   product_variants: { sku: string | null; products: { name: string } | null } | null;
 }
 
+export interface Payment {
+  id: string;
+  order_id: string;
+  provider: string;
+  amount: number;
+  currency: string;
+  status: "pending" | "verified" | "failed" | "refunded";
+  created_at: string;
+  orders: { customer_id: string; profiles: { full_name: string | null; phone: string | null } | null } | null;
+}
+
 export interface SupportTicket {
   id: string;
   user_id: string;

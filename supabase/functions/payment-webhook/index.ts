@@ -1,12 +1,17 @@
 // POST /payment-webhook/:payment_id
-// Called by the payment provider (not the browser). Verifies the payment
-// server-side, then — only on verified success — converts reserved stock
-// into confirmed sales and posts the sale/commission entries to each
-// merchant's wallet ledger. Never trust a client-supplied "paid" status.
+// Called by an external payment gateway's server, not the browser. Verifies
+// the payment via that gateway's own provider adapter, then — only on
+// verified success — finalizes it (see _shared/payment_finalize.ts).
+//
+// No gateway is connected yet (see _shared/payment_providers.ts), so this
+// currently returns 400 for every payment: cash/bank/mobile-money go through
+// confirm-payment (authenticated, role-checked) instead of this public,
+// unauthenticated endpoint. That is intentional — an unauthenticated webhook
+// must never be trusted for a payment method with no real signature to check.
 import { serviceClient } from "../_shared/client.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { getPaymentProvider } from "../_shared/payment_providers.ts";
-import { sendNotification } from "../_shared/notify.ts";
+import { finalizePaymentFailure, finalizePaymentSuccess } from "../_shared/payment_finalize.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -29,6 +34,13 @@ Deno.serve(async (req) => {
     if (payment.status === "verified") return jsonResponse({ ok: true, already_processed: true });
 
     const provider = getPaymentProvider(payment.provider);
+    if (!provider) {
+      return jsonResponse(
+        { error: `${payment.provider} has no automated gateway connected — it must be confirmed manually via confirm-payment.` },
+        400,
+      );
+    }
+
     const result = await provider.verify(payload, req.headers);
 
     await db.from("payment_transactions").insert({
@@ -40,77 +52,11 @@ Deno.serve(async (req) => {
     });
 
     if (!result.verified) {
-      await db.from("payments").update({ status: "failed" }).eq("id", payment.id);
-      const { data: order } = await db.from("orders").select("customer_id").eq("id", payment.order_id).single();
-      if (order) {
-        await sendNotification(db, order.customer_id, "payment_failed", {
-          order_id_short: payment.order_id.slice(0, 8),
-        });
-      }
+      await finalizePaymentFailure(db, payment);
       return jsonResponse({ ok: false });
     }
 
-    await db.from("payments").update({ status: "verified" }).eq("id", payment.id);
-    await db.from("orders").update({ payment_status: "paid" }).eq("id", payment.order_id);
-
-    const { data: paidOrder } = await db.from("orders").select("customer_id").eq("id", payment.order_id).single();
-    if (paidOrder) {
-      await sendNotification(db, paidOrder.customer_id, "payment_success", {
-        amount: payment.amount,
-        order_id_short: payment.order_id.slice(0, 8),
-      });
-    }
-
-    const { data: merchantOrders } = await db
-      .from("merchant_orders")
-      .select("id, merchant_id, merchant_payable")
-      .eq("order_id", payment.order_id);
-
-    const notifiedAt = new Date().toISOString();
-
-    for (const mo of merchantOrders ?? []) {
-      const { data: items } = await db
-        .from("order_items")
-        .select("variant_id, quantity, product_name_snapshot")
-        .eq("merchant_order_id", mo.id);
-
-      for (const item of items ?? []) {
-        await db.rpc("release_stock", {
-          p_variant_id: item.variant_id,
-          p_quantity: item.quantity,
-          p_reference_id: payment.order_id,
-          p_as_sale: true,
-        });
-      }
-
-      // Merchant is credited their full listed price (merchant_payable).
-      // Tolo's commission is additional revenue on top of that, not a
-      // deduction from the merchant's wallet — see merchant_orders.commission_amount.
-      await db.rpc("post_wallet_transaction", {
-        p_merchant_id: mo.merchant_id,
-        p_merchant_order_id: mo.id,
-        p_type: "sale",
-        p_amount: mo.merchant_payable,
-        p_note: "Order payment confirmed",
-      });
-
-      // notification_sent_at is the clock start for the merchant's
-      // acknowledgement — never treat this row alone as proof the merchant
-      // saw the order; only order_received_at (set when they press "Order
-      // Received") counts as acknowledgement.
-      await db.from("merchant_orders").update({ notification_sent_at: notifiedAt }).eq("id", mo.id);
-
-      const { data: merchant } = await db.from("merchants").select("owner_id, business_name").eq("id", mo.merchant_id).single();
-      if (merchant) {
-        const itemCount = (items ?? []).reduce((sum, i) => sum + i.quantity, 0);
-        await sendNotification(db, merchant.owner_id, "order_new", {
-          order_id_short: mo.id.slice(0, 8),
-          item_count: itemCount,
-          amount: mo.merchant_payable,
-        });
-      }
-    }
-
+    await finalizePaymentSuccess(db, payment);
     return jsonResponse({ ok: true });
   } catch (err) {
     return jsonResponse({ error: String(err) }, 500);

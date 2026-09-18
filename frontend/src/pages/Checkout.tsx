@@ -152,17 +152,9 @@ export function Checkout() {
       return;
     }
 
-    // Demo payment confirmation — simulates a successful provider callback.
-    // Replace with a real payment provider redirect/webhook in production.
-    const { error: paymentError } = await supabase.functions.invoke(
-      `payment-webhook/${checkoutData.payment_id}`,
-      { body: { status: "success", reference: `demo-${checkoutData.payment_id}` } },
-    );
-
-    if (paymentError) {
-      setError("Order created but payment confirmation failed. Check Order History.");
-    }
-
+    // No payment gateway is connected yet — cash/bank transfer/mobile money
+    // are all confirmed manually by a merchant or Tolo finance once the
+    // money has actually moved (see confirm-payment), never assumed here.
     await refresh();
     setPlacing(false);
     navigate(`/orders/${checkoutData.order_id}`);

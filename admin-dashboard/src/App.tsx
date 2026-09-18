@@ -8,6 +8,7 @@ import { Categories } from "./pages/Categories";
 import { Products } from "./pages/Products";
 import { Customers } from "./pages/Customers";
 import { Orders } from "./pages/Orders";
+import { Payments } from "./pages/Payments";
 import { Commissions } from "./pages/Commissions";
 import { Discounts } from "./pages/Discounts";
 import { Refunds } from "./pages/Refunds";
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="/products" element={<Products />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/orders" element={<Orders />} />
+          <Route path="/payments" element={<Payments />} />
           <Route path="/deliveries" element={<Deliveries />} />
           <Route path="/drivers" element={<Drivers />} />
           <Route path="/delivery-zones" element={<DeliveryZones />} />

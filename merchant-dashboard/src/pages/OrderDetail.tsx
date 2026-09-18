@@ -18,7 +18,10 @@ interface MerchantOrderDetail {
   commission_amount: number;
   merchant_payable: number;
   order_items: OrderItemRow[];
-  orders: { addresses: { recipient_name: string; phone: string; line1: string; city: string } | null } | null;
+  orders: {
+    addresses: { recipient_name: string; phone: string; line1: string; city: string } | null;
+    payments: { id: string; provider: string; status: string }[];
+  } | null;
   order_status_history: { status: string; changed_at: string; note: string | null }[];
 }
 
@@ -61,7 +64,7 @@ export function OrderDetail() {
       .select(
         `id, status, subtotal, commission_amount, merchant_payable,
          order_items ( id, product_name_snapshot, variant_attributes_snapshot, unit_price, quantity, subtotal ),
-         orders ( addresses ( recipient_name, phone, line1, city ) ),
+         orders ( addresses ( recipient_name, phone, line1, city ), payments ( id, provider, status ) ),
          order_status_history ( status, changed_at, note )`,
       )
       .eq("id", id)
@@ -83,6 +86,20 @@ export function OrderDetail() {
     setBusy(false);
     if (error) {
       setError(error.message);
+      return;
+    }
+    await load();
+  }
+
+  async function handleConfirmCash(paymentId: string) {
+    setBusy(true);
+    setError(null);
+    const { error } = await supabase.functions.invoke("confirm-payment", {
+      body: { payment_id: paymentId },
+    });
+    setBusy(false);
+    if (error) {
+      setError("Could not confirm this payment. Please try again.");
       return;
     }
     await load();
@@ -136,6 +153,24 @@ export function OrderDetail() {
           </div>
         </div>
       </div>
+
+      {order.orders?.payments[0] && (
+        <div className="bg-white border rounded-lg p-4 mb-4 flex items-center justify-between text-sm">
+          <div>
+            <p className="font-medium">Payment: {order.orders.payments[0].provider.replace(/_/g, " ")}</p>
+            <p className="text-xs text-gray-500 capitalize">{order.orders.payments[0].status}</p>
+          </div>
+          {order.orders.payments[0].provider === "cash_on_delivery" && order.orders.payments[0].status === "pending" && (
+            <button
+              onClick={() => handleConfirmCash(order.orders!.payments[0].id)}
+              disabled={busy}
+              className="bg-navy text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-navy-dark disabled:opacity-60"
+            >
+              Confirm cash received
+            </button>
+          )}
+        </div>
+      )}
 
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
