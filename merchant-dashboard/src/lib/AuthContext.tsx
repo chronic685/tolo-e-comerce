@@ -9,6 +9,8 @@ interface AuthState {
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<{ error: string | null }>;
+  updatePassword: (password: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -48,8 +50,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   }
 
+  // Supabase owns the reset-token lifecycle entirely — this just requests
+  // the email and never reveals whether the address is registered (the
+  // caller shows the same neutral message regardless of the result).
+  async function requestPasswordReset(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    return { error: error?.message ?? null };
+  }
+
+  // Only valid with an active session (normally the temporary one Supabase
+  // establishes from the recovery link) — always updates that session's own
+  // user, never an arbitrary account.
+  async function updatePassword(password: string) {
+    const { error } = await supabase.auth.updateUser({ password });
+    return { error: error?.message ?? null };
+  }
+
   return (
-    <AuthContext.Provider value={{ user: session?.user ?? null, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider
+      value={{ user: session?.user ?? null, session, loading, signUp, signIn, signOut, requestPasswordReset, updatePassword }}
+    >
       {children}
     </AuthContext.Provider>
   );

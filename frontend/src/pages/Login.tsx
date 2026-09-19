@@ -47,6 +47,11 @@ export function Login() {
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
         {error && <p className="text-red-600 text-sm">{error}</p>}
+        <div className="text-right">
+          <Link to="/forgot-password" className="text-xs text-navy font-medium">
+            Forgot password?
+          </Link>
+        </div>
         <button
           type="submit"
           disabled={loading}
