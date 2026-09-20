@@ -62,6 +62,7 @@ export interface OrderRow {
     subtotal: number;
     notification_sent_at: string | null;
     order_received_at: string | null;
+    escalated_at: string | null;
     merchants: { business_name: string } | null;
   }[];
 }

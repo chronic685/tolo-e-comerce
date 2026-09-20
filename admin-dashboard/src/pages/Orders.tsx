@@ -34,7 +34,7 @@ export function Orders() {
       .from("orders")
       .select(
         `id, customer_id, total, payment_status, created_at,
-         merchant_orders ( id, merchant_id, status, subtotal, notification_sent_at, order_received_at, merchants ( business_name ) )`,
+         merchant_orders ( id, merchant_id, status, subtotal, notification_sent_at, order_received_at, escalated_at, merchants ( business_name ) )`,
       )
       .order("created_at", { ascending: false })
       .limit(100)
@@ -98,11 +98,18 @@ export function Orders() {
                   <span
                     key={mo.id}
                     className={`text-xs rounded-full px-2 py-0.5 ${
-                      isUnacknowledged(mo) ? "bg-red-100 text-red-800 font-semibold" : "bg-gray-100"
+                      mo.escalated_at
+                        ? "bg-orange-100 text-orange-900 font-semibold"
+                        : isUnacknowledged(mo)
+                          ? "bg-red-100 text-red-800 font-semibold"
+                          : "bg-gray-100"
                     }`}
                   >
                     {mo.merchants?.business_name ?? "Merchant"}: {STATUS_LABELS[mo.status] ?? mo.status} ({mo.subtotal.toFixed(2)} ETB)
-                    {isUnacknowledged(mo) && " — UNACKNOWLEDGED"}
+                    {/* escalated_at is the server-side, authoritative signal (Phase 4) — set once by the
+                        escalate_unacknowledged_orders() cron job, independent of anyone having this page open.
+                        isUnacknowledged() below is a client-side heuristic warning for orders not escalated yet. */}
+                    {mo.escalated_at ? " — ESCALATED" : isUnacknowledged(mo) && " — UNACKNOWLEDGED"}
                   </span>
                 ))}
               </div>
