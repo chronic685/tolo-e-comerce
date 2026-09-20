@@ -24,6 +24,23 @@ export function Products() {
   const { merchant, store } = useMerchant();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bulkUploadEnabled, setBulkUploadEnabled] = useState(false);
+
+  useEffect(() => {
+    // Platform-wide toggle (admin-dashboard Settings.tsx, merchant_features
+    // .bulk_upload_enabled) — there's no per-merchant override for any
+    // merchant_features flag in this schema, so this is the same value for
+    // every merchant.
+    supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "merchant_features")
+      .maybeSingle()
+      .then(({ data }) => {
+        const features = data?.value as { bulk_upload_enabled?: boolean } | null;
+        setBulkUploadEnabled(features?.bulk_upload_enabled ?? false);
+      });
+  }, []);
 
   async function load() {
     if (!merchant) return;
@@ -56,9 +73,16 @@ export function Products() {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-xl font-bold">Products</h1>
-        <Link to="/products/new" className="bg-navy text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark">
-          + New product
-        </Link>
+        <div className="flex items-center gap-2">
+          {bulkUploadEnabled && (
+            <Link to="/products-bulk-upload" className="text-sm border px-4 py-2 rounded-md hover:bg-gray-50">
+              Bulk upload
+            </Link>
+          )}
+          <Link to="/products/new" className="bg-navy text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark">
+            + New product
+          </Link>
+        </div>
       </div>
 
       {loading ? (

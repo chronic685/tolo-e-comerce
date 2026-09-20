@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
+import { isEligibleForListing, LISTING_ELIGIBILITY_ERROR, parseAttributes, slugify } from "../lib/productRules";
+import { saveProduct } from "../lib/productWrites";
 import type { Category, ProductVariant } from "../types";
 
 interface VariantDraft {
@@ -15,24 +17,6 @@ interface VariantDraft {
 interface ImageDraft {
   id?: string;
   url: string;
-}
-
-// Same rule enforced server-side (migration 0041) — checked here first so a
-// merchant gets an immediate inline error instead of a round-trip failure,
-// but the database trigger is the real guarantee (this check alone could be
-// bypassed by calling the API directly).
-const LISTING_ELIGIBILITY_ERROR = "Products need either 2+ units in stock or a price of at least 1000 ETB to be listed for sale.";
-
-function isEligibleForListing(price: number, stock: number): boolean {
-  return price >= 1000 || stock >= 2;
-}
-
-function slugify(name: string) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
 }
 
 export function ProductForm() {
@@ -125,19 +109,6 @@ export function ProductForm() {
       });
   }, [id, isNew]);
 
-  function parseAttributes(text: string): Record<string, string> {
-    const attrs: Record<string, string> = {};
-    text
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .forEach((pair) => {
-        const [k, v] = pair.split(":").map((s) => s.trim());
-        if (k && v) attrs[k] = v;
-      });
-    return attrs;
-  }
-
   async function handleSave(targetStatus: "draft" | "published" | "submitted") {
     if (!merchant || !store) return;
     if (!name.trim() || !basePrice) {
@@ -163,91 +134,36 @@ export function ProductForm() {
     setSaving(true);
     setError(null);
 
-    const payload = {
-      merchant_id: merchant.id,
-      store_id: store.id,
-      category_id: categoryId || null,
-      name: name.trim(),
-      slug: slugify(name),
-      description: description.trim() || null,
-      base_price: Number(basePrice),
-      status: targetStatus,
-    };
-
-    let productId = id;
-    if (isNew) {
-      const { data, error } = await supabase.from("products").insert(payload).select("id").single();
-      if (error) {
-        setError(error.message);
-        setSaving(false);
-        return;
-      }
-      productId = data.id;
-    } else {
-      const { error } = await supabase.from("products").update(payload).eq("id", id);
-      if (error) {
-        setError(error.message);
-        setSaving(false);
-        return;
-      }
-    }
-
-    // The listing-eligibility check above is a client-side convenience —
-    // migration 0041 enforces the same rule as a real database trigger on
-    // product_variants/inventory, which is what actually stops a direct API
-    // call from bypassing it. That means these writes can now genuinely
-    // fail (e.g. a stale form re-submitting a since-changed variant), so
-    // their errors have to be surfaced, not silently swallowed like before.
-    for (const v of variants) {
-      if (!v.price.trim()) continue;
-      const variantPayload = {
-        product_id: productId,
-        sku: v.sku || null,
-        attributes: parseAttributes(v.attributesText),
-        price: Number(v.price),
-        is_default: variants.indexOf(v) === 0,
-      };
-      let variantId = v.id;
-      if (variantId) {
-        const { error: variantError } = await supabase.from("product_variants").update(variantPayload).eq("id", variantId);
-        if (variantError) {
-          setError(variantError.message);
-          setSaving(false);
-          return;
-        }
-      } else {
-        const { data, error: variantError } = await supabase.from("product_variants").insert(variantPayload).select("id").single();
-        if (variantError) {
-          setError(variantError.message);
-          setSaving(false);
-          return;
-        }
-        variantId = data?.id;
-      }
-      if (variantId) {
-        const { error: inventoryError } = await supabase
-          .from("inventory")
-          .upsert({ variant_id: variantId, stock_quantity: Number(v.stock) || 0 }, { onConflict: "variant_id" });
-        if (inventoryError) {
-          setError(inventoryError.message);
-          setSaving(false);
-          return;
-        }
-      }
-    }
-
-    for (const img of images) {
-      if (!img.url.trim()) continue;
-      if (img.id) {
-        await supabase.from("product_images").update({ url: img.url }).eq("id", img.id);
-      } else {
-        await supabase
-          .from("product_images")
-          .insert({ product_id: productId, url: img.url, is_primary: images.indexOf(img) === 0 });
-      }
-    }
+    const result = await saveProduct(
+      {
+        merchantId: merchant.id,
+        storeId: store.id,
+        categoryId: categoryId || null,
+        name: name.trim(),
+        slug: slugify(name),
+        description: description.trim() || null,
+        basePrice: Number(basePrice),
+        status: targetStatus,
+      },
+      variants
+        .filter((v) => v.price.trim())
+        .map((v, idx) => ({
+          id: v.id,
+          sku: v.sku || null,
+          attributes: parseAttributes(v.attributesText),
+          price: Number(v.price),
+          stock: Number(v.stock) || 0,
+          isDefault: idx === 0,
+        })),
+      images,
+      isNew ? undefined : id,
+    );
 
     setSaving(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
     navigate("/products");
   }
 

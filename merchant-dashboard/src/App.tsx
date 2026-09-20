@@ -8,6 +8,7 @@ import { ResetPassword } from "./pages/ResetPassword";
 import { Dashboard } from "./pages/Dashboard";
 import { Products } from "./pages/Products";
 import { ProductForm } from "./pages/ProductForm";
+import { BulkUpload } from "./pages/BulkUpload";
 import { Orders } from "./pages/Orders";
 import { OrderDetail } from "./pages/OrderDetail";
 import { StoreSettings } from "./pages/StoreSettings";
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/products" element={<Products />} />
           <Route path="/products/:id" element={<ProductForm />} />
+          <Route path="/products-bulk-upload" element={<BulkUpload />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/wallet" element={<Wallet />} />
