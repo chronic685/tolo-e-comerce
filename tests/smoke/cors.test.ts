@@ -15,6 +15,7 @@ const BROWSER_FACING_FUNCTIONS = [
   "delivery-dispatch",
   "settlement-run",
   "commission-calc",
+  "merchant-staff-lookup",
 ];
 
 describe.each(BROWSER_FACING_FUNCTIONS)("CORS: %s", (name) => {

@@ -5,7 +5,15 @@ import { callFunction } from "../helpers.ts";
 // Every one of these functions must authenticate the caller before doing
 // anything else — none of them may perform their protected action, return
 // data, or change state for an unauthenticated or malformed-token request.
-const AUTHENTICATED_FUNCTIONS = ["checkout", "order-status", "confirm-payment", "delivery-dispatch", "settlement-run", "commission-calc"];
+const AUTHENTICATED_FUNCTIONS = [
+  "checkout",
+  "order-status",
+  "confirm-payment",
+  "delivery-dispatch",
+  "settlement-run",
+  "commission-calc",
+  "merchant-staff-lookup",
+];
 
 describe.each(AUTHENTICATED_FUNCTIONS)("authentication: %s", (name) => {
   it("rejects a request with no real session (anon key only) with 401", async () => {

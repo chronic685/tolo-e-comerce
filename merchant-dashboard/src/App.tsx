@@ -13,6 +13,7 @@ import { Orders } from "./pages/Orders";
 import { OrderDetail } from "./pages/OrderDetail";
 import { StoreSettings } from "./pages/StoreSettings";
 import { Wallet } from "./pages/Wallet";
+import { Staff } from "./pages/Staff";
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/store" element={<StoreSettings />} />
+          <Route path="/staff" element={<Staff />} />
         </Route>
       </Route>
     </Routes>

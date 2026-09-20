@@ -1,9 +1,11 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
 import { NewOrderAlert } from "./NewOrderAlert";
 
-const navItems = [
+const BASE_NAV_ITEMS = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/products", label: "Products" },
   { to: "/orders", label: "Orders" },
@@ -15,6 +17,26 @@ export function Layout() {
   const { signOut } = useAuth();
   const { merchant, store } = useMerchant();
   const navigate = useNavigate();
+  const [staffAccountsEnabled, setStaffAccountsEnabled] = useState(false);
+
+  useEffect(() => {
+    // Same platform-wide toggle Staff.tsx itself re-checks — hidden from
+    // the nav here, but the page also gates itself in case Tolo turns this
+    // off while a merchant already has the URL open or bookmarked.
+    supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "merchant_features")
+      .maybeSingle()
+      .then(({ data }) => {
+        const features = data?.value as { staff_accounts_enabled?: boolean } | null;
+        setStaffAccountsEnabled(features?.staff_accounts_enabled ?? false);
+      });
+  }, []);
+
+  const navItems = staffAccountsEnabled
+    ? [...BASE_NAV_ITEMS, { to: "/staff", label: "Staff", end: undefined }]
+    : BASE_NAV_ITEMS;
 
   async function handleSignOut() {
     await signOut();

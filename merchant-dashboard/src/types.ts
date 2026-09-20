@@ -107,6 +107,14 @@ export interface MerchantOrder {
   } | null;
 }
 
+export interface MerchantStaffRow {
+  id: string;
+  role: string;
+  created_at: string;
+  user_id: string;
+  profiles: { full_name: string | null; phone: string | null } | null;
+}
+
 export interface WalletTransaction {
   id: string;
   type: string;
