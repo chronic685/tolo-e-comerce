@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
 import type { AdminProduct } from "../types";
+import { Categories } from "./Categories";
 
 const STATUS_FILTERS = ["all", "submitted", "approved", "published", "paused", "archived", "draft"];
 
@@ -14,7 +16,56 @@ const statusColors: Record<string, string> = {
   archived: "bg-red-100 text-red-800",
 };
 
+// Categories folded in as a sub-tab (same ?tab= pattern as DeliveryOps.tsx/
+// PricingRules.tsx) rather than its own nav entry — it was an 80-line CRUD
+// with no reason for a standalone page. Kept as a genuinely separate tab
+// (not blended into the product list/filters below) so it never visually or
+// functionally collides with STATUS_FILTERS — that's still exactly what it
+// was before, just one tab among two instead of the whole page.
+const TABS = [
+  { key: "products", label: "Products" },
+  { key: "categories", label: "Categories" },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
+
+function isTabKey(value: string | null): value is TabKey {
+  return TABS.some((t) => t.key === value);
+}
+
 export function Products() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const activeTab: TabKey = isTabKey(tabParam) ? tabParam : "products";
+
+  function setTab(tab: TabKey) {
+    setSearchParams(tab === "products" ? {} : { tab });
+  }
+
+  return (
+    <div>
+      <h1 className="text-xl font-bold mb-4">Products</h1>
+      <div className="flex items-center gap-1 border-b mb-4">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+              activeTab === t.key ? "border-navy text-navy" : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "products" && <ProductCatalog />}
+      {activeTab === "categories" && <Categories />}
+    </div>
+  );
+}
+
+function ProductCatalog() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -72,8 +123,7 @@ export function Products() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Products</h1>
+      <div className="flex items-center justify-end mb-4">
         <button
           onClick={handleExport}
           disabled={products.length === 0}

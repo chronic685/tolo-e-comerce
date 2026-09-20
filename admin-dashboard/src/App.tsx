@@ -6,7 +6,6 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Dashboard } from "./pages/Dashboard";
 import { Merchants } from "./pages/Merchants";
-import { Categories } from "./pages/Categories";
 import { Products } from "./pages/Products";
 import { Customers } from "./pages/Customers";
 import { Orders } from "./pages/Orders";
@@ -32,8 +31,9 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/merchants" element={<Merchants />} />
-          <Route path="/categories" element={<Categories />} />
           <Route path="/products" element={<Products />} />
+          {/* Categories folded into the Products page as a tab. */}
+          <Route path="/categories" element={<Navigate to="/products?tab=categories" replace />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/payments" element={<Payments />} />

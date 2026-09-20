@@ -7,7 +7,6 @@ const navItems = [
   { to: "/payments", label: "Payments" },
   { to: "/merchants", label: "Merchants" },
   { to: "/products", label: "Products" },
-  { to: "/categories", label: "Categories" },
   { to: "/customers", label: "Customers" },
   { to: "/delivery-ops", label: "Delivery Ops" },
   { to: "/pricing-rules", label: "Pricing Rules" },
