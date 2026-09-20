@@ -6,6 +6,15 @@ import { useCart } from "../lib/CartContext";
 import { getCurrentLocation } from "../lib/geolocation";
 import type { Address } from "../types";
 
+// Fixed display/default-selection order, matching the admin Settings.tsx
+// toggle order exactly — NOT derived from Object.entries() on the stored
+// JSON. The stored system_settings.payment_methods value's key order isn't
+// guaranteed stable (it drifted to mobile_money-first at some point after
+// being re-saved), which silently made "Mobile money" the pre-selected
+// default radio button regardless of which methods were actually enabled or
+// what a customer intended to pick.
+const PAYMENT_METHOD_ORDER = ["cash_on_delivery", "bank_transfer", "mobile_money"] as const;
+
 export function Checkout() {
   const { user } = useAuth();
   const { items, refresh } = useCart();
@@ -49,9 +58,9 @@ export function Checkout() {
           bank_transfer: "Bank transfer",
           mobile_money: "Mobile money",
         };
-        const enabled = Object.entries(methods)
-          .filter(([, on]) => on)
-          .map(([key]) => [key, labels[key] ?? key] as [string, string]);
+        const enabled = PAYMENT_METHOD_ORDER.filter((key) => methods[key]).map(
+          (key) => [key, labels[key] ?? key] as [string, string],
+        );
         setPaymentMethods(enabled);
         setPaymentProvider(enabled[0]?.[0] ?? null);
       });
