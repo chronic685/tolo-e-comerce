@@ -51,6 +51,7 @@ export function OrderDetail() {
   const [cancellationEnabled, setCancellationEnabled] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
 
   useEffect(() => {
     load();
@@ -100,6 +101,7 @@ export function OrderDetail() {
   }
 
   async function cancelOrder(merchantOrderId: string) {
+    setConfirmingCancelId(null);
     setCancelling(merchantOrderId);
     setCancelError(null);
     const { error } = await supabase.functions.invoke("order-status", {
@@ -168,13 +170,32 @@ export function OrderDetail() {
           {STATUS_COPY[mo.status] && <p className="text-xs text-gray-500 mb-2">{STATUS_COPY[mo.status].detail}</p>}
           {mo.status === "new" && cancellationEnabled && (
             <div className="mb-3">
-              <button
-                onClick={() => cancelOrder(mo.id)}
-                disabled={cancelling === mo.id}
-                className="text-xs border border-red-200 text-red-600 px-3 py-1.5 rounded-md hover:bg-red-50 disabled:opacity-60"
-              >
-                {cancelling === mo.id ? "Cancelling..." : "Cancel order"}
-              </button>
+              {confirmingCancelId === mo.id ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-gray-700">Cancel this order?</span>
+                  <button
+                    onClick={() => cancelOrder(mo.id)}
+                    disabled={cancelling === mo.id}
+                    className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700 disabled:opacity-60"
+                  >
+                    {cancelling === mo.id ? "Cancelling..." : "Yes, cancel"}
+                  </button>
+                  <button
+                    onClick={() => setConfirmingCancelId(null)}
+                    disabled={cancelling === mo.id}
+                    className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    No, keep it
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmingCancelId(mo.id)}
+                  className="text-xs border border-red-200 text-red-600 px-3 py-1.5 rounded-md hover:bg-red-50"
+                >
+                  Cancel order
+                </button>
+              )}
               {cancelError && <p className="text-red-600 text-xs mt-1">{cancelError}</p>}
             </div>
           )}
