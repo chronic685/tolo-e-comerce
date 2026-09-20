@@ -44,12 +44,18 @@ export function Dashboard() {
 
   useEffect(() => {
     async function load() {
+      // Same field escalate_unacknowledged_orders() reads (migration 0033)
+      // and the only one an admin can actually edit (Settings.tsx,
+      // "Escalate to Tolo ops after (minutes)") — the banner's threshold
+      // must agree with it, not the old, orphaned, unwritable
+      // unacknowledged_order_escalation_minutes key.
       const { data: settingRow } = await supabase
         .from("system_settings")
         .select("value")
-        .eq("key", "unacknowledged_order_escalation_minutes")
+        .eq("key", "merchant_new_order_alerts")
         .maybeSingle();
-      const thresholdMinutes = Number(settingRow?.value ?? 15);
+      const alertSettings = settingRow?.value as { escalate_after_minutes?: number } | null;
+      const thresholdMinutes = alertSettings?.escalate_after_minutes ?? 5;
       const cutoff = new Date(Date.now() - thresholdMinutes * 60_000).toISOString();
 
       const [

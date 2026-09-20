@@ -1,0 +1,12 @@
+-- Removes the orphaned unacknowledged_order_escalation_minutes system_settings
+-- key (seeded in 0023_order_acknowledgement.sql). Migration 0033 documented
+-- that this key existed but nothing read or wrote it except a stale
+-- Dashboard.tsx query using its own hardcoded 15 fallback, while
+-- admin-dashboard/src/pages/Orders.tsx separately hardcoded a third,
+-- disagreeing threshold (UNACK_THRESHOLD_MINUTES = 15) of its own. All three
+-- surfaces (Orders.tsx badge, Dashboard.tsx banner, and the
+-- escalate_unacknowledged_orders() cron job) now read the single real,
+-- admin-editable setting instead: system_settings.merchant_new_order_alerts
+-- .escalate_after_minutes. Nothing left reads this key — safe to delete
+-- outright rather than leave a second orphaned setting behind.
+delete from system_settings where key = 'unacknowledged_order_escalation_minutes';

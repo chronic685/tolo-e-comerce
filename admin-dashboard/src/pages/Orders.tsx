@@ -16,11 +16,16 @@ const STATUS_LABELS: Record<string, string> = {
   rejected: "Rejected",
 };
 
-const UNACK_THRESHOLD_MINUTES = 15;
+// Same field the escalate_unacknowledged_orders() cron job reads
+// (migration 0033) and the only one an admin can actually edit
+// (Settings.tsx, "Escalate to Tolo ops after (minutes)") — this client-side
+// heuristic must agree with it, not define its own separate threshold.
+// Default of 5 matches that setting's own seeded default (migration 0026).
+const DEFAULT_ESCALATE_AFTER_MINUTES = 5;
 
-function isUnacknowledged(mo: OrderRow["merchant_orders"][number]) {
+function isUnacknowledged(mo: OrderRow["merchant_orders"][number], thresholdMinutes: number) {
   if (mo.status !== "new" || !mo.notification_sent_at || mo.order_received_at) return false;
-  return Date.now() - new Date(mo.notification_sent_at).getTime() > UNACK_THRESHOLD_MINUTES * 60_000;
+  return Date.now() - new Date(mo.notification_sent_at).getTime() > thresholdMinutes * 60_000;
 }
 
 export function Orders() {
@@ -28,6 +33,7 @@ export function Orders() {
   const onlyUnacknowledged = searchParams.get("filter") === "unacknowledged";
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [escalateAfterMinutes, setEscalateAfterMinutes] = useState(DEFAULT_ESCALATE_AFTER_MINUTES);
 
   useEffect(() => {
     supabase
@@ -42,12 +48,21 @@ export function Orders() {
         setOrders((data as unknown as OrderRow[]) ?? []);
         setLoading(false);
       });
+    supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "merchant_new_order_alerts")
+      .maybeSingle()
+      .then(({ data }) => {
+        const value = data?.value as { escalate_after_minutes?: number } | null;
+        if (value?.escalate_after_minutes != null) setEscalateAfterMinutes(value.escalate_after_minutes);
+      });
   }, []);
 
   if (loading) return <p className="text-gray-500">Loading...</p>;
 
   const visibleOrders = onlyUnacknowledged
-    ? orders.filter((o) => o.merchant_orders.some(isUnacknowledged))
+    ? orders.filter((o) => o.merchant_orders.some((mo) => isUnacknowledged(mo, escalateAfterMinutes)))
     : orders;
 
   function handleExport() {
@@ -60,7 +75,7 @@ export function Orders() {
         created_at: o.created_at,
         merchants: o.merchant_orders.map((mo) => mo.merchants?.business_name ?? "Merchant").join(" | "),
         merchant_statuses: o.merchant_orders.map((mo) => STATUS_LABELS[mo.status] ?? mo.status).join(" | "),
-        has_unacknowledged: o.merchant_orders.some(isUnacknowledged),
+        has_unacknowledged: o.merchant_orders.some((mo) => isUnacknowledged(mo, escalateAfterMinutes)),
       })),
     );
   }
@@ -100,7 +115,7 @@ export function Orders() {
                     className={`text-xs rounded-full px-2 py-0.5 ${
                       mo.escalated_at
                         ? "bg-orange-100 text-orange-900 font-semibold"
-                        : isUnacknowledged(mo)
+                        : isUnacknowledged(mo, escalateAfterMinutes)
                           ? "bg-red-100 text-red-800 font-semibold"
                           : "bg-gray-100"
                     }`}
@@ -109,7 +124,7 @@ export function Orders() {
                     {/* escalated_at is the server-side, authoritative signal (Phase 4) — set once by the
                         escalate_unacknowledged_orders() cron job, independent of anyone having this page open.
                         isUnacknowledged() below is a client-side heuristic warning for orders not escalated yet. */}
-                    {mo.escalated_at ? " — ESCALATED" : isUnacknowledged(mo) && " — UNACKNOWLEDGED"}
+                    {mo.escalated_at ? " — ESCALATED" : isUnacknowledged(mo, escalateAfterMinutes) && " — UNACKNOWLEDGED"}
                   </span>
                 ))}
               </div>
