@@ -1,11 +1,10 @@
 // GET /commission-calc?merchant_id=...&category_id=...
 // Read-only preview of the commission rate that would apply right now
-// (merchant > category > platform > fallback). The authoritative calculation
-// happens inside create_order()/get_commission_rate() at checkout time; this
-// endpoint just lets the merchant dashboard show an estimate beforehand.
+// (merchant > category > platform > fallback) — calls the exact same
+// get_commission_rate() Postgres function create_order() uses at checkout
+// time, so this preview can never silently drift from the real calculation.
 import { serviceClient, userClient } from "../_shared/client.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { resolveCommissionRate } from "../_shared/commission.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -21,9 +20,13 @@ Deno.serve(async (req) => {
     if (!merchantId) return jsonResponse({ error: "merchant_id is required" }, 400);
 
     const db = serviceClient();
-    const rate = await resolveCommissionRate(db, merchantId, categoryId);
+    const { data: rate, error: rateError } = await db.rpc("get_commission_rate", {
+      p_merchant_id: merchantId,
+      p_category_id: categoryId,
+    });
+    if (rateError) return jsonResponse({ error: rateError.message }, 400);
 
-    return jsonResponse({ merchant_id: merchantId, category_id: categoryId, rate_percent: rate });
+    return jsonResponse({ merchant_id: merchantId, category_id: categoryId, rate_percent: Number(rate) });
   } catch (err) {
     return jsonResponse({ error: String(err) }, 500);
   }

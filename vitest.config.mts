@@ -20,5 +20,11 @@ export default defineConfig({
     // Vitest runs test files in worker processes that don't inherit changes
     // made to process.env by this config file — pass it through explicitly.
     env: process.env,
+    // Every test file shares one live database (see tests/README.md — no
+    // isolated test DB exists here), so two files mutating the same QA
+    // fixture row concurrently (e.g. commission_rules for the QA merchant)
+    // can race each other. Running files sequentially costs some wall-clock
+    // time but removes an entire class of cross-file flakiness.
+    fileParallelism: false,
   },
 });

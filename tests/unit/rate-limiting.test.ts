@@ -42,12 +42,21 @@ describe("rate limiting: check_and_record_rate_limit()", () => {
     const keyA = `test:${randomUUID()}`;
     const keyB = `test:${randomUUID()}`;
 
-    for (let i = 0; i < 5; i++) {
-      await db.rpc("check_and_record_rate_limit", { p_key: keyA, p_max_count: 5, p_window_seconds: 60 }).single();
-    }
+    const exhaustion = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        db.rpc("check_and_record_rate_limit", { p_key: keyA, p_max_count: 5, p_window_seconds: 60 }).single(),
+      ),
+    );
+    // Fail loudly on a transient network/RPC error here rather than let a
+    // silently-dropped attempt undercount key A and produce a confusing
+    // assertion mismatch below.
+    expect(exhaustion.every((r) => r.error === null)).toBe(true);
+
     // Key A is now exhausted; key B must be completely unaffected.
-    const { data: aResult } = await db.rpc("check_and_record_rate_limit", { p_key: keyA, p_max_count: 5, p_window_seconds: 60 }).single();
-    const { data: bResult } = await db.rpc("check_and_record_rate_limit", { p_key: keyB, p_max_count: 5, p_window_seconds: 60 }).single();
+    const { data: aResult, error: aError } = await db.rpc("check_and_record_rate_limit", { p_key: keyA, p_max_count: 5, p_window_seconds: 60 }).single();
+    const { data: bResult, error: bError } = await db.rpc("check_and_record_rate_limit", { p_key: keyB, p_max_count: 5, p_window_seconds: 60 }).single();
+    expect(aError).toBeNull();
+    expect(bError).toBeNull();
 
     expect(aResult!.allowed).toBe(false);
     expect(bResult!.allowed).toBe(true);
@@ -57,13 +66,26 @@ describe("rate limiting: check_and_record_rate_limit()", () => {
     const key = `test:${randomUUID()}`;
     // A short window lets this test prove real recovery behavior
     // deterministically and quickly, instead of mocking the clock or
-    // sleeping for a production-length window. 3s (not 1s) gives enough
-    // margin for the exhaustion phase's sequential network round-trips to
-    // reliably land inside a single window before it rolls over.
-    const windowSeconds = 3;
-    for (let i = 0; i < 3; i++) {
-      await db.rpc("check_and_record_rate_limit", { p_key: key, p_max_count: 3, p_window_seconds: windowSeconds }).single();
+    // sleeping for a production-length window. Fixed windows are aligned to
+    // wall-clock boundaries (see check_and_record_rate_limit's
+    // to_timestamp(floor(epoch/window)*window)), so if this test's calls
+    // happened to start right at the tail end of a window, the exhaustion
+    // phase itself could straddle into the next one regardless of how fast
+    // it runs. Rather than fight that with an ever-larger window, wait out
+    // any window that's already more than half spent before starting, so
+    // the whole exhaustion-then-check sequence always has a full window's
+    // worth of margin ahead of it.
+    const windowSeconds = 5;
+    const { data: probe } = await db.rpc("check_and_record_rate_limit", { p_key: `${key}:probe`, p_max_count: 1, p_window_seconds: windowSeconds }).single();
+    if (probe!.retry_after_seconds < windowSeconds / 2) {
+      await new Promise((resolve) => setTimeout(resolve, (probe!.retry_after_seconds + 0.5) * 1000));
     }
+
+    await Promise.all(
+      Array.from({ length: 4 }, () =>
+        db.rpc("check_and_record_rate_limit", { p_key: key, p_max_count: 3, p_window_seconds: windowSeconds }).single(),
+      ),
+    );
     const { data: exhausted } = await db.rpc("check_and_record_rate_limit", { p_key: key, p_max_count: 3, p_window_seconds: windowSeconds }).single();
     expect(exhausted!.allowed).toBe(false);
 

@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, inject, it } from "vitest";
 import { serviceClient } from "../env.ts";
 
-// get_commission_rate() is the AUTHORITATIVE calculation (called from inside
-// create_order() at checkout) — not the same as the JS preview estimate in
-// commission-calc's _shared/commission.ts, which exists only to show the
-// merchant dashboard a number before checkout. These tests exercise the
+// get_commission_rate() is the single authoritative commission-rate
+// resolver — called from inside create_order() at checkout, and (since
+// Phase 3B) also by commission-calc's pre-checkout estimate via RPC, so
+// there is exactly one implementation to test. These tests exercise the
 // function that actually determines money movement.
 //
 // These are integration tests against the real Postgres function, not
