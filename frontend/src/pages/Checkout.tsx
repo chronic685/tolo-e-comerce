@@ -142,7 +142,11 @@ export function Checkout() {
       if (context) {
         try {
           const body = await context.clone().json();
-          if (body?.error) message = body.error;
+          // The rate-limit response carries both a machine-readable "error"
+          // code and a human-readable "message" (checkout/index.ts) — every
+          // other error path only sets "error" as the display string.
+          if (body?.message) message = body.message;
+          else if (body?.error) message = body.error;
         } catch {
           // Non-JSON error body — fall back to the generic message above.
         }

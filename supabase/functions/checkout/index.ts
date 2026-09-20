@@ -50,6 +50,27 @@ Deno.serve(async (req) => {
 
     const db = serviceClient();
 
+    // Rate-limit only after authentication and basic input validation have
+    // passed — an unauthenticated or malformed request must never consume a
+    // real customer's quota, and this check must happen before the
+    // expensive/money-moving create_order() call, not after it.
+    const { data: rateLimitConfig } = await db.rpc("get_rate_limit_config", { p_action: "checkout" }).single();
+    const { data: rateLimit } = await db
+      .rpc("check_and_record_rate_limit", {
+        p_key: `customer:${customerId}:checkout`,
+        p_max_count: rateLimitConfig?.max_count ?? 5,
+        p_window_seconds: rateLimitConfig?.window_seconds ?? 600,
+      })
+      .single();
+
+    if (rateLimit && !rateLimit.allowed) {
+      return jsonResponse(
+        { error: "too_many_requests", message: "Too many requests. Please try again shortly." },
+        429,
+        rateLimit.retry_after_seconds ? { "Retry-After": String(rateLimit.retry_after_seconds) } : undefined,
+      );
+    }
+
     const { data: cart } = await db
       .from("carts")
       .select("id")

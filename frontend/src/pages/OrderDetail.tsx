@@ -94,7 +94,7 @@ export function OrderDetail() {
       comment: comment || null,
     });
     if (!error) setReviewed((prev) => new Set(prev).add(`${merchantOrderId}:${productId}`));
-    return { error: error?.message };
+    return { error: error?.message, code: error?.code };
   }
 
   if (loading) return <p className="text-gray-500">Loading order...</p>;
@@ -198,7 +198,7 @@ function ReviewWidget({
   onSubmit,
 }: {
   alreadyReviewed: boolean;
-  onSubmit: (rating: number, comment: string) => Promise<{ error?: string }>;
+  onSubmit: (rating: number, comment: string) => Promise<{ error?: string; code?: string }>;
 }) {
   const [open, setOpen] = useState(false);
   const [rating, setRating] = useState(0);
@@ -226,10 +226,13 @@ function ReviewWidget({
     }
     setSubmitting(true);
     setError(null);
-    const { error } = await onSubmit(rating, comment);
+    const { error, code } = await onSubmit(rating, comment);
     setSubmitting(false);
     if (error) {
-      setError("Could not submit your review. Please try again.");
+      // PT429 is this project's convention (see migration 0032) for a
+      // database trigger to make PostgREST answer 429 — its message is
+      // already a safe, pre-written string, unlike other DB errors.
+      setError(code === "PT429" ? error : "Could not submit your review. Please try again.");
       return;
     }
     setDone(true);

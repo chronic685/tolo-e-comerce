@@ -34,6 +34,14 @@ export interface QaFixtures {
    * changing state between runs. */
   merchantOrderId: string;
   paymentId: string;
+  /** A SEPARATE merchant_order, already "completed", covering two distinct
+   * products — genuinely review-eligible (unlike merchantOrderId above),
+   * used only by the review rate-limit test so it can exercise a real
+   * successful-then-throttled review sequence instead of only ever hitting
+   * the completion-check RLS rejection. */
+  reviewableMerchantOrderId: string;
+  reviewableProductAId: string;
+  reviewableProductBId: string;
 }
 
 async function findOrCreateUser(db: ReturnType<typeof serviceClient>, email: string, password: string): Promise<string> {
@@ -130,7 +138,7 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
     store = insertResult.data;
   }
 
-  let { data: product } = await db.from("products").select("id").eq("merchant_id", merchantA.id).maybeSingle();
+  let { data: product } = await db.from("products").select("id").eq("merchant_id", merchantA.id).eq("sku", "QA-TEST-001").maybeSingle();
   let variantId: string;
   if (!product) {
     const productInsert = await db
@@ -214,6 +222,80 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
     orderId = merchantOrder.order_id;
   }
 
+  // Two more products, distinct from the one above, so there are enough
+  // genuinely-reviewable (merchant_order_id, product_id) pairs to test the
+  // review rate limiter against real, RLS-eligible inserts rather than
+  // ones that would be rejected regardless (see tests/README.md).
+  async function ensureReviewableProduct(name: string, sku: string): Promise<{ productId: string; variantId: string }> {
+    let { data: existingProduct } = await db.from("products").select("id").eq("merchant_id", merchantA.id).eq("sku", sku).maybeSingle();
+    if (existingProduct) {
+      const { data: variant, error } = await db.from("product_variants").select("id").eq("product_id", existingProduct.id).single();
+      if (error) throw error;
+      return { productId: existingProduct.id, variantId: variant.id };
+    }
+    const productInsert = await db
+      .from("products")
+      .insert({
+        merchant_id: merchantA.id,
+        store_id: store.id,
+        name,
+        slug: `${sku.toLowerCase()}-${merchantA.id.slice(0, 8)}`,
+        base_price: 50,
+        sku,
+        status: "published",
+      })
+      .select("id")
+      .single();
+    if (productInsert.error) throw productInsert.error;
+    const variantInsert = await db
+      .from("product_variants")
+      .insert({ product_id: productInsert.data.id, sku: `${sku}-DEF`, attributes: {}, price: 50, is_default: true })
+      .select("id")
+      .single();
+    if (variantInsert.error) throw variantInsert.error;
+    await db.from("inventory").insert({ variant_id: variantInsert.data.id, stock_quantity: 999999, low_stock_threshold: 1 });
+    return { productId: productInsert.data.id, variantId: variantInsert.data.id };
+  }
+
+  const reviewableA = await ensureReviewableProduct("QA TEST Reviewable Product A — DO NOT USE", "QA-TEST-REVIEW-A");
+  const reviewableB = await ensureReviewableProduct("QA TEST Reviewable Product B — DO NOT USE", "QA-TEST-REVIEW-B");
+
+  let { data: reviewableMerchantOrder } = await db
+    .from("merchant_orders")
+    .select("id, order_id")
+    .eq("merchant_id", merchantA.id)
+    .eq("status", "completed")
+    .limit(1)
+    .maybeSingle();
+
+  let reviewableMerchantOrderId: string;
+  if (!reviewableMerchantOrder) {
+    const { data: newReviewableOrderId, error } = await db.rpc("create_order", {
+      p_customer_id: customerUserId,
+      p_address_id: address.id,
+      p_items: [
+        { variant_id: reviewableA.variantId, quantity: 1 },
+        { variant_id: reviewableB.variantId, quantity: 1 },
+      ],
+    });
+    if (error) throw error;
+    const { data: mo, error: moError } = await db
+      .from("merchant_orders")
+      .select("id")
+      .eq("order_id", newReviewableOrderId as string)
+      .single();
+    if (moError) throw moError;
+    reviewableMerchantOrderId = mo.id;
+    // Reviews require the order to be "completed" (0031_review_completion_check.sql)
+    // — a real order goes through the whole delivery lifecycle to get
+    // there, but for this fixture we only need the end state, not to
+    // replay every intermediate status transition.
+    const { error: updateError } = await db.from("merchant_orders").update({ status: "completed" }).eq("id", reviewableMerchantOrderId);
+    if (updateError) throw updateError;
+  } else {
+    reviewableMerchantOrderId = reviewableMerchantOrder.id;
+  }
+
   let { data: payment } = await db.from("payments").select("id").eq("order_id", orderId).maybeSingle();
   if (!payment) {
     const { data: order, error: orderError } = await db.from("orders").select("total").eq("id", orderId).single();
@@ -238,5 +320,8 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
     variantId,
     merchantOrderId,
     paymentId: payment.id,
+    reviewableMerchantOrderId,
+    reviewableProductAId: reviewableA.productId,
+    reviewableProductBId: reviewableB.productId,
   };
 }
