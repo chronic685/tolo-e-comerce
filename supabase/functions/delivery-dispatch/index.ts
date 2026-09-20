@@ -11,10 +11,19 @@
 // accommodate that later; add a second, separately-authenticated path.
 import { serviceClient, userClient } from "../_shared/client.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { sendNotification } from "../_shared/notify.ts";
 
 const DELIVERY_TO_MERCHANT_ORDER_STATUS: Record<string, string> = {
   picked_up: "picked_up",
   delivered: "delivered",
+};
+
+// Same template-driven pattern as order-status/index.ts — no hardcoded
+// customer-facing strings here, just the event type sendNotification()
+// looks up in notification_templates.
+const CUSTOMER_NOTIFY_EVENTS: Record<string, string> = {
+  picked_up: "order_picked_up",
+  delivered: "order_delivered",
 };
 
 Deno.serve(async (req) => {
@@ -60,6 +69,27 @@ Deno.serve(async (req) => {
         status: moStatus,
         note: `Delivery status: ${status}`,
       });
+
+      const notifyEvent = CUSTOMER_NOTIFY_EVENTS[status];
+      if (notifyEvent) {
+        const [{ data: orderInfo }, { data: merchantOrder }] = await Promise.all([
+          db
+            .from("merchant_orders")
+            .select("orders!inner(customer_id)")
+            .eq("id", delivery.merchant_order_id)
+            .single(),
+          db.from("merchant_orders").select("merchant_id, merchants(business_name)").eq("id", delivery.merchant_order_id).single(),
+        ]);
+        const customerId = (orderInfo as unknown as { orders: { customer_id: string } } | null)?.orders?.customer_id;
+        const merchantName = (merchantOrder as unknown as { merchants: { business_name: string } | null } | null)?.merchants
+          ?.business_name;
+        if (customerId) {
+          await sendNotification(db, customerId, notifyEvent, {
+            order_id_short: delivery.merchant_order_id.slice(0, 8),
+            merchant_name: merchantName ?? "the merchant",
+          });
+        }
+      }
 
       if (moStatus === "delivered") {
         await db.from("merchant_orders").update({ status: "completed" }).eq("id", delivery.merchant_order_id);

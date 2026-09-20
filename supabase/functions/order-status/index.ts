@@ -103,13 +103,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Note: "rejected" is deliberately not in this map yet — that's item #3
-    // from the audit (customer gets no notification on rejection), out of
-    // scope for this pass (Phase 5a is inventory + wallet clawback only).
     const CUSTOMER_NOTIFY_EVENTS: Record<string, string> = {
       accepted: "order_received",
       processing: "order_preparing",
       ready_for_pickup: "order_ready_for_pickup",
+      rejected: "order_rejected",
       cancelled: "order_cancelled",
     };
     const notifyEvent = CUSTOMER_NOTIFY_EVENTS[status];

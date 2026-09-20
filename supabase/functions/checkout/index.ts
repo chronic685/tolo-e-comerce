@@ -25,6 +25,12 @@ function sanitizeOrderError(message: string): { status: number; error: string } 
   if (message.includes("no items")) {
     return { status: 400, error: "Your cart is empty." };
   }
+  if (message.includes("not currently available for orders")) {
+    return { status: 409, error: "One or more stores in your cart are not currently available. Please review your cart." };
+  }
+  if (message.includes("no longer available:")) {
+    return { status: 409, error: "One or more items in your cart are no longer available. Please review your cart." };
+  }
   if (message.includes("Not authorized")) {
     return { status: 403, error: "You are not authorized to perform this action." };
   }
