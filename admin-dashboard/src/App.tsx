@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Login } from "./pages/Login";
@@ -19,9 +19,7 @@ import { AuditLog } from "./pages/AuditLog";
 import { Settings } from "./pages/Settings";
 import { Settlements } from "./pages/Settlements";
 import { Support } from "./pages/Support";
-import { Drivers } from "./pages/Drivers";
-import { Deliveries } from "./pages/Deliveries";
-import { DeliveryZones } from "./pages/DeliveryZones";
+import { DeliveryOps } from "./pages/DeliveryOps";
 import { NotificationTemplates } from "./pages/NotificationTemplates";
 import { InventoryMovements } from "./pages/InventoryMovements";
 
@@ -40,9 +38,11 @@ export default function App() {
           <Route path="/customers" element={<Customers />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/payments" element={<Payments />} />
-          <Route path="/deliveries" element={<Deliveries />} />
-          <Route path="/drivers" element={<Drivers />} />
-          <Route path="/delivery-zones" element={<DeliveryZones />} />
+          <Route path="/delivery-ops" element={<DeliveryOps />} />
+          {/* Old standalone routes — kept as redirects in case anything still links to them directly. */}
+          <Route path="/deliveries" element={<Navigate to="/delivery-ops" replace />} />
+          <Route path="/drivers" element={<Navigate to="/delivery-ops?tab=drivers" replace />} />
+          <Route path="/delivery-zones" element={<Navigate to="/delivery-ops?tab=zones" replace />} />
           <Route path="/commissions" element={<Commissions />} />
           <Route path="/discounts" element={<Discounts />} />
           <Route path="/refunds" element={<Refunds />} />
