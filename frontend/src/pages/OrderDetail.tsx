@@ -49,6 +49,7 @@ export function OrderDetail() {
   const [loading, setLoading] = useState(true);
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
   const [cancellationEnabled, setCancellationEnabled] = useState(true);
+  const [reviewsEnabled, setReviewsEnabled] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
@@ -56,16 +57,19 @@ export function OrderDetail() {
   useEffect(() => {
     load();
     // Same admin-editable toggle FavoritesContext reads (system_settings /
-    // customer_features) — the cancel button must disappear the moment
-    // Tolo turns this off, not just get rejected server-side.
+    // customer_features) — the cancel button and the review widget must
+    // disappear the moment Tolo turns either off, not just get rejected
+    // server-side (reviews_enabled has no server-side enforcement today,
+    // same as favorites_enabled — this is UI-only, matching that precedent).
     supabase
       .from("system_settings")
       .select("value")
       .eq("key", "customer_features")
       .maybeSingle()
       .then(({ data }) => {
-        const features = data?.value as { order_cancellation_enabled?: boolean } | null;
+        const features = data?.value as { order_cancellation_enabled?: boolean; reviews_enabled?: boolean } | null;
         setCancellationEnabled(features?.order_cancellation_enabled ?? true);
+        setReviewsEnabled(features?.reviews_enabled ?? true);
       });
   }, [id]);
 
@@ -217,7 +221,7 @@ export function OrderDetail() {
                   </span>
                   <span>{item.subtotal.toFixed(2)} ETB</span>
                 </div>
-                {mo.status === "completed" && item.product_variants?.product_id && (
+                {reviewsEnabled && mo.status === "completed" && item.product_variants?.product_id && (
                   <ReviewWidget
                     alreadyReviewed={reviewed.has(`${mo.id}:${item.product_variants.product_id}`)}
                     onSubmit={(rating, comment) => submitReview(mo.id, item.product_variants!.product_id, rating, comment)}

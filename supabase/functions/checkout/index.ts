@@ -34,6 +34,12 @@ function sanitizeOrderError(message: string): { status: number; error: string } 
   if (message.includes("Not authorized")) {
     return { status: 403, error: "You are not authorized to perform this action." };
   }
+  // Both of these are already clear, customer-safe text as raised by
+  // create_order() itself (migration 0042) — including the real numbers is
+  // more useful than a generic rewrite, unlike the cases above.
+  if (message.includes("below the minimum order value") || message.includes("too far from one of the stores")) {
+    return { status: 400, error: message };
+  }
   console.error("create_order failed:", message);
   return { status: 400, error: "Could not place your order. Please check your cart and try again." };
 }
@@ -55,6 +61,18 @@ Deno.serve(async (req) => {
     }
 
     const db = serviceClient();
+
+    // Checkout.tsx only ever offers a provider system_settings.payment_methods
+    // has enabled, but that's a frontend convenience, not a security
+    // boundary — nothing previously stopped a direct call from submitting a
+    // provider Tolo has disabled (or one that was never a real option at
+    // all). Same treatment as an invalid value: reject before create_order()
+    // ever reserves stock for it.
+    const { data: paymentMethodsSetting } = await db.from("system_settings").select("value").eq("key", "payment_methods").maybeSingle();
+    const enabledMethods = (paymentMethodsSetting?.value as Record<string, boolean> | null) ?? {};
+    if (!enabledMethods[payment_provider]) {
+      return jsonResponse({ error: "This payment method is not currently available. Please choose another." }, 400);
+    }
 
     // Rate-limit only after authentication and basic input validation have
     // passed — an unauthenticated or malformed request must never consume a

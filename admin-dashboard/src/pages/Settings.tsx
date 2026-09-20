@@ -27,7 +27,6 @@ interface CustomerFeatures {
 
 interface MerchantFeatures {
   self_registration_enabled: boolean;
-  auto_publish_products: boolean;
   bulk_upload_enabled: boolean;
   staff_accounts_enabled: boolean;
   multiple_branches_enabled: boolean;
@@ -62,7 +61,6 @@ const DEFAULTS = {
   } satisfies CustomerFeatures,
   merchant_features: {
     self_registration_enabled: true,
-    auto_publish_products: false,
     bulk_upload_enabled: false,
     staff_accounts_enabled: true,
     multiple_branches_enabled: false,
@@ -78,7 +76,6 @@ const DEFAULTS = {
 
 export function Settings() {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [productPublicationMode, setProductPublicationMode] = useState("approval_required");
   const [minOrderValue, setMinOrderValue] = useState("0");
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethods>(DEFAULTS.payment_methods);
   const [delivery, setDelivery] = useState<DeliverySettings>(DEFAULTS.delivery);
@@ -96,7 +93,6 @@ export function Settings() {
       .select("key, value")
       .in("key", [
         "platform_maintenance_mode",
-        "product_publication_mode",
         "min_order_value",
         "payment_methods",
         "delivery",
@@ -110,9 +106,6 @@ export function Settings() {
           switch (row.key) {
             case "platform_maintenance_mode":
               setMaintenanceMode(Boolean(row.value));
-              break;
-            case "product_publication_mode":
-              setProductPublicationMode(row.value as string);
               break;
             case "min_order_value":
               setMinOrderValue(String(row.value));
@@ -192,25 +185,11 @@ export function Settings() {
 
       <section className="bg-white border rounded-lg p-4">
         <h2 className="font-medium mb-3">Commerce</h2>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-sm font-medium">Product publication</p>
-            <p className="text-xs text-gray-500">Whether merchant products need Tolo approval before going live.</p>
-          </div>
-          <select
-            value={productPublicationMode}
-            onChange={(e) => {
-              setProductPublicationMode(e.target.value);
-              save("product_publication_mode", e.target.value);
-            }}
-            className="border rounded-md px-2 py-1.5 text-sm"
-          >
-            <option value="approval_required">Approval required</option>
-            <option value="auto_publish">Auto-publish</option>
-          </select>
-        </div>
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium">Minimum order value (ETB)</p>
+          <div>
+            <p className="text-sm font-medium">Minimum order value (ETB)</p>
+            <p className="text-xs text-gray-500">Checkout is rejected below this subtotal.</p>
+          </div>
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -353,7 +332,6 @@ export function Settings() {
         {(
           [
             ["self_registration_enabled", "Merchants can self-register"],
-            ["auto_publish_products", "Auto-publish new products"],
             ["bulk_upload_enabled", "Bulk product upload"],
             ["staff_accounts_enabled", "Merchant staff accounts"],
             ["multiple_branches_enabled", "Multiple branches per merchant"],
