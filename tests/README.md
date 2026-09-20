@@ -20,7 +20,7 @@ Run `npm test` from the repo root. Copy `tests/.env.test.example` to `tests/.env
 | Authentication (no/invalid/valid token) | ✅ `smoke/auth.test.ts` |
 | Input validation | ✅ `smoke/input-validation.test.ts` |
 | CORS preflight + real request | ✅ `smoke/cors.test.ts` |
-| Merchant tenant isolation | ✅ `smoke/merchant-authorization.test.ts` (D2/D3/D4 fully; D1 partial — see below) |
+| Merchant tenant isolation | ✅ `smoke/merchant-authorization.test.ts` (D1/D2/D3/D4 fully covered) |
 | Payment anti-spoofing | ✅ `smoke/payment-spoofing.test.ts` |
 | Webhook/confirmation idempotency | ✅ `smoke/payment-spoofing.test.ts` (reuses an existing verified demo payment) |
 | Commission calculation | ✅ `unit/commission.test.ts` |
@@ -29,12 +29,11 @@ Run `npm test` from the repo root. Copy `tests/.env.test.example` to `tests/.env
 
 ### Known gaps (NOT COVERED, and why)
 
-There is **no isolated test database** for this project — it is one live Supabase project, and Docker isn't available in this environment to run `supabase start` locally. Every test here either reads data or performs an action that must be *rejected* (so nothing changes), which is what makes it safe to run repeatedly against the live project. Two specific happy-paths are **not** exercised end-to-end for that reason:
+There is **no isolated test database** for this project — it is one live Supabase project, and Docker isn't available in this environment to run `supabase start` locally. Every test that touches a *shared* fixture either reads data or performs an action that must be *rejected* (so nothing changes); tests that need to exercise a real, successful, state-changing transition instead create their own disposable order via `create_order()` (the real checkout path, not a direct insert) and leave the shared fixtures untouched — see `smoke/merchant-authorization.test.ts`'s D1 test, or any of the Phase 5c/5d `createDisposableOrder` helpers, for the pattern. One happy-path still isn't exercised end-to-end for a different reason:
 
-- **D1** (a merchant successfully accepting their own "new" order) — `order-status` transitions are one-way. Actually calling it successfully would permanently advance the QA fixture order out of `new` and break every other tenant-isolation test on the next run. Only read access for the rightful owner is asserted; the transition-succeeds path needs either a disposable per-run order or a reset mechanism, neither of which exist yet.
 - **The `create_order()` discount clamp** (`least(amount, subtotal)`, preventing a discount larger than the order from producing a negative total) — verified by reading the source directly (see `unit/discount.test.ts`), not by creating a real order through checkout on every test run.
 
-If either of these needs real regression coverage, the honest next step is a disposable-order helper (create via `create_order()`, assert, then there is no delete path today — orders are intentionally append-only/audit-safe) or a local Supabase instance once Docker is available.
+If that needs real regression coverage too, the honest next step is the same disposable-order pattern already used elsewhere in this suite (there is no delete path today — orders are intentionally append-only/audit-safe — so a disposable order is left in a terminal status, not removed).
 
 ### A minor finding, not fixed
 
