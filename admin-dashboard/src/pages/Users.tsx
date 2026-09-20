@@ -10,12 +10,14 @@ export function Users() {
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<StaffProfile[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [reasonPromptId, setReasonPromptId] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
 
   async function load() {
     setLoading(true);
     const { data } = await supabase
       .from("profiles")
-      .select("id, full_name, phone, role, account_status, created_at")
+      .select("id, full_name, phone, role, account_status, suspension_reason, created_at")
       .neq("role", "customer")
       .order("created_at", { ascending: false });
     setStaff((data as StaffProfile[]) ?? []);
@@ -33,7 +35,7 @@ export function Users() {
     }
     const { data } = await supabase
       .from("profiles")
-      .select("id, full_name, phone, role, account_status, created_at")
+      .select("id, full_name, phone, role, account_status, suspension_reason, created_at")
       .or(`full_name.ilike.%${search.trim()}%,phone.ilike.%${search.trim()}%`)
       .limit(10);
     setSearchResults((data as StaffProfile[]) ?? []);
@@ -47,44 +49,86 @@ export function Users() {
     await handleSearch();
   }
 
+  // Same reason-prompt pattern as Merchants.tsx (and now Customers.tsx):
+  // suspending requires a typed reason, stored on profiles.suspension_reason
+  // and audit-logged via profiles_log_change/log_config_change (migration
+  // 0040) — the same mechanism/table as merchant and customer suspensions.
+  // Reactivating stays a single click, matching both.
   async function toggleStatus(p: StaffProfile) {
+    if (p.account_status === "active") {
+      setReasonPromptId(reasonPromptId === p.id ? null : p.id);
+      return;
+    }
     setMessage(null);
-    const next = p.account_status === "active" ? "suspended" : "active";
-    const { error } = await supabase.from("profiles").update({ account_status: next }).eq("id", p.id);
-    setMessage(error ? error.message : `${p.full_name ?? "User"} is now ${next}.`);
+    const { error } = await supabase.from("profiles").update({ account_status: "active" }).eq("id", p.id);
+    setMessage(error ? error.message : `${p.full_name ?? "User"} is now active.`);
+    await load();
+    await handleSearch();
+  }
+
+  async function confirmSuspend(p: StaffProfile) {
+    setMessage(null);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ account_status: "suspended", suspension_reason: reason || null })
+      .eq("id", p.id);
+    setMessage(error ? error.message : `${p.full_name ?? "User"} is now suspended.`);
+    setReasonPromptId(null);
+    setReason("");
     await load();
     await handleSearch();
   }
 
   function RoleRow({ p }: { p: StaffProfile }) {
     return (
-      <div className="p-3 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium">{p.full_name ?? "Unnamed"}</p>
-          <p className="text-xs text-gray-500">{p.phone ?? "—"}</p>
+      <div>
+        <div className="p-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">{p.full_name ?? "Unnamed"}</p>
+            <p className="text-xs text-gray-500">{p.phone ?? "—"}</p>
+            {p.account_status === "suspended" && p.suspension_reason && (
+              <p className="text-xs text-red-600 mt-0.5">Suspended: {p.suspension_reason}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <select
+              value={p.role}
+              onChange={(e) => changeRole(p, e.target.value)}
+              className="border rounded-md px-2 py-1.5 text-xs capitalize"
+            >
+              <option value="customer">customer (remove staff access)</option>
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {r.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => toggleStatus(p)}
+              className={`text-xs px-2 py-1.5 rounded-md border ${
+                p.account_status === "active" ? "hover:bg-gray-50" : "bg-red-50 text-red-700 border-red-200"
+              }`}
+            >
+              {p.account_status === "active" ? "Suspend" : "Reactivate"}
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <select
-            value={p.role}
-            onChange={(e) => changeRole(p, e.target.value)}
-            className="border rounded-md px-2 py-1.5 text-xs capitalize"
-          >
-            <option value="customer">customer (remove staff access)</option>
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {r.replace(/_/g, " ")}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => toggleStatus(p)}
-            className={`text-xs px-2 py-1.5 rounded-md border ${
-              p.account_status === "active" ? "hover:bg-gray-50" : "bg-red-50 text-red-700 border-red-200"
-            }`}
-          >
-            {p.account_status === "active" ? "Suspend" : "Reactivate"}
-          </button>
-        </div>
+        {reasonPromptId === p.id && (
+          <div className="px-3 pb-3 flex gap-2">
+            <input
+              placeholder="Reason for suspension"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="flex-1 border rounded-md px-3 py-1.5 text-sm"
+            />
+            <button
+              onClick={() => confirmSuspend(p)}
+              className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700"
+            >
+              Confirm suspend
+            </button>
+          </div>
+        )}
       </div>
     );
   }

@@ -164,6 +164,7 @@ export interface StaffProfile {
   phone: string | null;
   role: string;
   account_status: "active" | "suspended";
+  suspension_reason: string | null;
   created_at: string;
 }
 
@@ -172,6 +173,7 @@ export interface CustomerProfile {
   full_name: string | null;
   phone: string | null;
   account_status: "active" | "suspended";
+  suspension_reason: string | null;
   created_at: string;
 }
 

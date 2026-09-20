@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
 import type { AuditLogEntry } from "../types";
 
-const ENTITY_FILTERS = ["all", "system_settings", "commission_rules", "discount_rules", "merchants", "products", "profiles"];
+const ENTITY_FILTERS = ["all", "system_settings", "commission_rules", "discount_rules", "financial_adjustments", "merchants", "products", "profiles"];
 
 export function AuditLog() {
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);

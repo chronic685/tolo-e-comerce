@@ -5,7 +5,7 @@ import { exportToCsv } from "../lib/csvExport";
 import type { AdminProduct } from "../types";
 import { Categories } from "./Categories";
 
-const STATUS_FILTERS = ["all", "submitted", "approved", "published", "paused", "archived", "draft"];
+const STATUS_FILTERS = ["all", "submitted", "approved", "published", "paused", "archived", "draft", "rejected"];
 
 const statusColors: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700",
@@ -80,7 +80,15 @@ function ProductCatalog() {
       .select("id, merchant_id, name, slug, sku, base_price, status, rejection_reason, is_featured, created_at, merchants ( business_name ), categories ( name )")
       .order("created_at", { ascending: false })
       .limit(200);
-    if (statusFilter !== "all") query = query.eq("status", statusFilter);
+    // "rejected" isn't its own status — a rejected product falls back to
+    // status='draft' with rejection_reason set (see setStatus's "draft"
+    // branch below). Filtering on that combination surfaces it as its own
+    // category in the UI without changing the underlying status model.
+    if (statusFilter === "rejected") {
+      query = query.eq("status", "draft").not("rejection_reason", "is", null);
+    } else if (statusFilter !== "all") {
+      query = query.eq("status", statusFilter);
+    }
     if (search.trim()) query = query.or(`name.ilike.%${search.trim()}%,sku.ilike.%${search.trim()}%`);
     const { data } = await query;
     setProducts((data as unknown as AdminProduct[]) ?? []);

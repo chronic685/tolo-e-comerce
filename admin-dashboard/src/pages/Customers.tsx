@@ -8,12 +8,14 @@ export function Customers() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [orderCounts, setOrderCounts] = useState<Record<string, number>>({});
+  const [reasonPromptId, setReasonPromptId] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
 
   async function load() {
     setLoading(true);
     let query = supabase
       .from("profiles")
-      .select("id, full_name, phone, account_status, created_at")
+      .select("id, full_name, phone, account_status, suspension_reason, created_at")
       .eq("role", "customer")
       .order("created_at", { ascending: false })
       .limit(100);
@@ -39,9 +41,25 @@ export function Customers() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Same reason-prompt pattern as Merchants.tsx: suspending requires a typed
+  // reason (stored on profiles.suspension_reason, same mechanism as
+  // merchants.suspension_reason, and audit-logged the same way via
+  // profiles_log_change/log_config_change — migration 0040). Reactivating
+  // is still a single click, matching Merchants.tsx (no reason needed to
+  // undo a suspension there either).
   async function toggleStatus(c: CustomerProfile) {
-    const next = c.account_status === "active" ? "suspended" : "active";
-    await supabase.from("profiles").update({ account_status: next }).eq("id", c.id);
+    if (c.account_status === "active") {
+      setReasonPromptId(reasonPromptId === c.id ? null : c.id);
+      return;
+    }
+    await supabase.from("profiles").update({ account_status: "active" }).eq("id", c.id);
+    await load();
+  }
+
+  async function confirmSuspend(c: CustomerProfile) {
+    await supabase.from("profiles").update({ account_status: "suspended", suspension_reason: reason || null }).eq("id", c.id);
+    setReasonPromptId(null);
+    setReason("");
     await load();
   }
 
@@ -92,30 +110,51 @@ export function Customers() {
       ) : (
         <div className="bg-white border rounded-lg divide-y">
           {customers.map((c) => (
-            <div key={c.id} className="p-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">{c.full_name ?? "Unnamed"}</p>
-                <p className="text-xs text-gray-500">
-                  {c.phone ?? "—"} · {orderCounts[c.id] ?? 0} order(s) · joined {new Date(c.created_at).toLocaleDateString()}
-                </p>
+            <div key={c.id}>
+              <div className="p-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">{c.full_name ?? "Unnamed"}</p>
+                  <p className="text-xs text-gray-500">
+                    {c.phone ?? "—"} · {orderCounts[c.id] ?? 0} order(s) · joined {new Date(c.created_at).toLocaleDateString()}
+                  </p>
+                  {c.account_status === "suspended" && c.suspension_reason && (
+                    <p className="text-xs text-red-600 mt-0.5">Suspended: {c.suspension_reason}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full capitalize ${
+                      c.account_status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {c.account_status}
+                  </span>
+                  <button
+                    onClick={() => toggleStatus(c)}
+                    className={`text-xs px-2 py-1.5 rounded-md border ${
+                      c.account_status === "active" ? "hover:bg-gray-50" : "bg-red-50 text-red-700 border-red-200"
+                    }`}
+                  >
+                    {c.account_status === "active" ? "Suspend" : "Reactivate"}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full capitalize ${
-                    c.account_status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
-                  }`}
-                >
-                  {c.account_status}
-                </span>
-                <button
-                  onClick={() => toggleStatus(c)}
-                  className={`text-xs px-2 py-1.5 rounded-md border ${
-                    c.account_status === "active" ? "hover:bg-gray-50" : "bg-red-50 text-red-700 border-red-200"
-                  }`}
-                >
-                  {c.account_status === "active" ? "Suspend" : "Reactivate"}
-                </button>
-              </div>
+              {reasonPromptId === c.id && (
+                <div className="px-3 pb-3 flex gap-2">
+                  <input
+                    placeholder="Reason for suspension"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className="flex-1 border rounded-md px-3 py-1.5 text-sm"
+                  />
+                  <button
+                    onClick={() => confirmSuspend(c)}
+                    className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700"
+                  >
+                    Confirm suspend
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
