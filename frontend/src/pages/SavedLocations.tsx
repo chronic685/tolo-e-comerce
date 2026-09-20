@@ -24,6 +24,7 @@ export function SavedLocations() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) load();
@@ -85,7 +86,11 @@ export function SavedLocations() {
     await supabase.from("addresses").update({ is_default: true }).eq("id", id);
   }
 
+  // Same inline-confirm pattern as OrderDetail.tsx's "Cancel order" button —
+  // the delete call only lives inside this handler, only ever invoked from
+  // the "Yes, delete" button below, never on the first click.
   async function handleDelete(id: string) {
+    setConfirmingDeleteId(null);
     setError(null);
     const { error } = await supabase.from("addresses").delete().eq("id", id);
     if (error) {
@@ -127,11 +132,30 @@ export function SavedLocations() {
                       Set default
                     </button>
                   )}
-                  <button onClick={() => handleDelete(a.id)} className="text-xs text-red-600 font-medium">
-                    Delete
-                  </button>
+                  {confirmingDeleteId !== a.id && (
+                    <button onClick={() => setConfirmingDeleteId(a.id)} className="text-xs text-red-600 font-medium">
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
+              {confirmingDeleteId === a.id && (
+                <div className="flex items-center gap-2 flex-wrap mt-2 pt-2 border-t">
+                  <span className="text-xs text-gray-700">Delete this address?</span>
+                  <button
+                    onClick={() => handleDelete(a.id)}
+                    className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700"
+                  >
+                    Yes, delete
+                  </button>
+                  <button
+                    onClick={() => setConfirmingDeleteId(null)}
+                    className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50"
+                  >
+                    No, keep it
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
