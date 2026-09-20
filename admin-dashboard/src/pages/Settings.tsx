@@ -43,7 +43,7 @@ interface NewOrderAlertSettings {
 interface NotificationChannels {
   push: boolean; // UI-only — no push provider is connected, _shared/notify.ts never checks this
   sms: boolean;
-  email: boolean; // UI-only — no email provider is connected, _shared/notify.ts never checks this
+  email: boolean;
   in_app: boolean;
 }
 
@@ -430,7 +430,7 @@ export function Settings() {
           [
             ["push", "Push notifications", false],
             ["sms", "SMS", true],
-            ["email", "Email", false],
+            ["email", "Email", true],
             ["in_app", "In-app notifications", true],
           ] as const
         ).map(([k, label, available]) => (
