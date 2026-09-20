@@ -11,8 +11,7 @@ import { Products } from "./pages/Products";
 import { Customers } from "./pages/Customers";
 import { Orders } from "./pages/Orders";
 import { Payments } from "./pages/Payments";
-import { Commissions } from "./pages/Commissions";
-import { Discounts } from "./pages/Discounts";
+import { PricingRules } from "./pages/PricingRules";
 import { Refunds } from "./pages/Refunds";
 import { Users } from "./pages/Users";
 import { AuditLog } from "./pages/AuditLog";
@@ -43,8 +42,10 @@ export default function App() {
           <Route path="/deliveries" element={<Navigate to="/delivery-ops" replace />} />
           <Route path="/drivers" element={<Navigate to="/delivery-ops?tab=drivers" replace />} />
           <Route path="/delivery-zones" element={<Navigate to="/delivery-ops?tab=zones" replace />} />
-          <Route path="/commissions" element={<Commissions />} />
-          <Route path="/discounts" element={<Discounts />} />
+          <Route path="/pricing-rules" element={<PricingRules />} />
+          {/* Old standalone routes — kept as redirects in case anything still links to them directly. */}
+          <Route path="/commissions" element={<Navigate to="/pricing-rules?tab=commissions" replace />} />
+          <Route path="/discounts" element={<Navigate to="/pricing-rules" replace />} />
           <Route path="/refunds" element={<Refunds />} />
           <Route path="/settlements" element={<Settlements />} />
           <Route path="/inventory-movements" element={<InventoryMovements />} />

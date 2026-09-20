@@ -30,6 +30,7 @@ export function Discounts() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   async function load() {
     const { data } = await supabase.from("discount_rules").select("*").order("created_at", { ascending: false });
@@ -66,6 +67,54 @@ export function Discounts() {
     return r.scope_id;
   }
 
+  // datetime-local inputs need "YYYY-MM-DDTHH:mm" in the browser's local
+  // time, not the timestamptz ISO string Postgres returns — same conversion
+  // needed either way, just applied when pre-filling an edit instead of only
+  // when a user types a fresh value.
+  function toDatetimeLocal(iso: string | null): string {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function startEdit(r: DiscountRule) {
+    setEditingId(r.id);
+    setForm({
+      name: r.name,
+      description: r.description ?? "",
+      scope_type: r.scope_type === "product" ? "platform" : r.scope_type,
+      scope_id: r.scope_id ?? "",
+      discount_kind: r.discount_kind,
+      amount: String(r.amount),
+      max_discount_amount: r.max_discount_amount != null ? String(r.max_discount_amount) : "",
+      min_order_value: String(r.min_order_value),
+      funded_by: r.funded_by,
+      tolo_share_percent: r.tolo_share_percent != null ? String(r.tolo_share_percent) : "50",
+      usage_limit: r.usage_limit != null ? String(r.usage_limit) : "",
+      per_customer_limit: r.per_customer_limit != null ? String(r.per_customer_limit) : "",
+      first_order_only: r.first_order_only,
+      starts_at: toDatetimeLocal(r.starts_at),
+      ends_at: toDatetimeLocal(r.ends_at),
+    });
+    setError(null);
+    setShowForm(true);
+  }
+
+  function cancelForm() {
+    setEditingId(null);
+    setForm(emptyForm);
+    setShowForm(false);
+    setError(null);
+  }
+
+  // Editing an existing rule only ever changes what future orders resolve —
+  // resolve_best_discount() is read live at order-creation time and its
+  // result is immediately snapshotted onto orders.discount_amount/
+  // discount_rule_id and merchant_orders.discount_amount, plus a
+  // discount_redemptions row. Past orders already carry their own snapshot
+  // and are never recalculated from discount_rules again, so editing here
+  // is safe by construction, not just by convention.
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -79,7 +128,7 @@ export function Discounts() {
     }
     setSaving(true);
 
-    const { error } = await supabase.from("discount_rules").insert({
+    const payload = {
       name: form.name.trim(),
       description: form.description.trim() || null,
       scope_type: form.scope_type,
@@ -95,15 +144,18 @@ export function Discounts() {
       first_order_only: form.first_order_only,
       starts_at: form.starts_at || null,
       ends_at: form.ends_at || null,
-    });
+    };
+
+    const { error } = editingId
+      ? await supabase.from("discount_rules").update(payload).eq("id", editingId)
+      : await supabase.from("discount_rules").insert(payload);
 
     setSaving(false);
     if (error) {
       setError(error.message);
       return;
     }
-    setForm(emptyForm);
-    setShowForm(false);
+    cancelForm();
     await load();
   }
 
@@ -162,7 +214,7 @@ export function Discounts() {
       )}
 
       <button
-        onClick={() => setShowForm((s) => !s)}
+        onClick={() => (showForm ? cancelForm() : setShowForm(true))}
         className="bg-navy text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark mb-4"
       >
         {showForm ? "Cancel" : "+ New discount rule"}
@@ -342,7 +394,7 @@ export function Discounts() {
             disabled={saving}
             className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
           >
-            {saving ? "Creating..." : "Create discount"}
+            {saving ? "Saving..." : editingId ? "Save changes" : "Create discount"}
           </button>
         </form>
       )}
@@ -362,14 +414,19 @@ export function Discounts() {
                     {r.usage_limit ? ` · used ${r.usage_count}/${r.usage_limit}` : ` · used ${r.usage_count}`}
                   </p>
                 </div>
-                <button
-                  onClick={() => toggleActive(r)}
-                  className={`text-xs px-2 py-1 rounded-full border flex-shrink-0 ${
-                    r.is_active ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  {r.is_active ? "Active" : "Inactive"}
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button onClick={() => startEdit(r)} className="text-xs border px-2 py-1 rounded-md hover:bg-gray-50">
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => toggleActive(r)}
+                    className={`text-xs px-2 py-1 rounded-full border ${
+                      r.is_active ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {r.is_active ? "Active" : "Inactive"}
+                  </button>
+                </div>
               </div>
             </div>
           ))
