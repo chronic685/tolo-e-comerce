@@ -13,9 +13,8 @@
 //
 // Hook payload shape (send_sms event): { user: { phone }, sms: { otp } }
 import { jsonResponse } from "../_shared/cors.ts";
+import { isSmsConfigured, sendSms } from "../_shared/sms.ts";
 
-const AT_USERNAME = Deno.env.get("AFRICASTALKING_USERNAME");
-const AT_API_KEY = Deno.env.get("AFRICASTALKING_API_KEY");
 const HOOK_SECRET = Deno.env.get("SEND_SMS_HOOK_SECRET");
 
 const MAX_TIMESTAMP_SKEW_SECONDS = 300;
@@ -58,7 +57,7 @@ async function verifyWebhookSignature(rawBody: string, headers: Headers, secret:
 
 Deno.serve(async (req) => {
   try {
-    if (!AT_USERNAME || !AT_API_KEY || !HOOK_SECRET) {
+    if (!isSmsConfigured() || !HOOK_SECRET) {
       return jsonResponse({ error: "SMS provider is not configured" }, 500);
     }
 
@@ -78,25 +77,9 @@ Deno.serve(async (req) => {
 
     const message = `Your Tolo verification code is ${otp}`;
 
-    const form = new URLSearchParams({
-      username: AT_USERNAME,
-      to: phone.startsWith("+") ? phone : `+${phone}`,
-      message,
-    });
-
-    const res = await fetch("https://api.africastalking.com/version1/messaging", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-        apiKey: AT_API_KEY,
-      },
-      body: form.toString(),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      return jsonResponse({ error: `Africa's Talking error: ${errText}` }, 502);
+    const result = await sendSms(phone, message);
+    if (!result.ok) {
+      return jsonResponse({ error: result.error }, 502);
     }
 
     return jsonResponse({ ok: true });

@@ -41,9 +41,9 @@ interface NewOrderAlertSettings {
 }
 
 interface NotificationChannels {
-  push: boolean;
+  push: boolean; // UI-only — no push provider is connected, _shared/notify.ts never checks this
   sms: boolean;
-  email: boolean;
+  email: boolean; // UI-only — no email provider is connected, _shared/notify.ts never checks this
   in_app: boolean;
 }
 
@@ -428,17 +428,22 @@ export function Settings() {
         </div>
         {(
           [
-            ["push", "Push notifications"],
-            ["sms", "SMS"],
-            ["email", "Email"],
-            ["in_app", "In-app notifications"],
+            ["push", "Push notifications", false],
+            ["sms", "SMS", true],
+            ["email", "Email", false],
+            ["in_app", "In-app notifications", true],
           ] as const
-        ).map(([k, label]) => (
-          <label key={k} className="flex items-center justify-between py-1.5 text-sm">
-            {label}
+        ).map(([k, label, available]) => (
+          <label key={k} className={`flex items-center justify-between py-1.5 text-sm ${available ? "" : "opacity-50"}`}>
+            <span>
+              {label}
+              {!available && <span className="text-xs text-gray-400 ml-1.5">(not yet available — no provider connected)</span>}
+            </span>
             <input
               type="checkbox"
               checked={notificationChannels[k]}
+              disabled={!available}
+              title={available ? undefined : "No provider connected yet — this toggle has no effect"}
               onChange={(e) => setNotificationChannels({ ...notificationChannels, [k]: e.target.checked })}
             />
           </label>
