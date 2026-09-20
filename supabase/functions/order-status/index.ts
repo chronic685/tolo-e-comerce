@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
 
     const { data: mo } = await db
       .from("merchant_orders")
-      .select("id, merchant_id, status")
+      .select("id, order_id, merchant_id, status")
       .eq("id", merchant_order_id)
       .maybeSingle();
 
@@ -82,6 +82,30 @@ Deno.serve(async (req) => {
       note,
     });
 
+    if (status === "rejected" || status === "cancelled") {
+      // The stock reserved at checkout (create_order() -> reserve_stock())
+      // is only ever converted to a real sale on payment confirmation
+      // (finalizePaymentSuccess). Declining or cancelling before that point
+      // must give it back, or reserved_quantity — and therefore
+      // available_quantity — stays permanently inflated for stock that was
+      // never actually sold.
+      const { data: items } = await db
+        .from("order_items")
+        .select("variant_id, quantity")
+        .eq("merchant_order_id", mo.id);
+      for (const item of items ?? []) {
+        await db.rpc("release_stock", {
+          p_variant_id: item.variant_id,
+          p_quantity: item.quantity,
+          p_reference_id: mo.order_id,
+          p_as_sale: false,
+        });
+      }
+    }
+
+    // Note: "rejected" is deliberately not in this map yet — that's item #3
+    // from the audit (customer gets no notification on rejection), out of
+    // scope for this pass (Phase 5a is inventory + wallet clawback only).
     const CUSTOMER_NOTIFY_EVENTS: Record<string, string> = {
       accepted: "order_received",
       processing: "order_preparing",

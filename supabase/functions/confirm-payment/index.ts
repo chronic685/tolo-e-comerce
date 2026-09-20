@@ -33,11 +33,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!payment) return jsonResponse({ error: "Payment not found" }, 404);
-    if (payment.status === "verified") return jsonResponse({ ok: true, already_processed: true });
-    if (payment.status !== "pending") {
-      return jsonResponse({ error: `Cannot confirm a payment in status "${payment.status}"` }, 400);
-    }
 
+    // Authorization runs before any status check — a caller with no
+    // legitimate relationship to this payment must get 403 unconditionally,
+    // not learn (via a 200/already_processed response) whether it happens
+    // to already be verified.
     const { data: profile } = await db.from("profiles").select("role").eq("id", userData.user.id).maybeSingle();
     let authorized = Boolean(profile && ["tolo_finance", "tolo_admin"].includes(profile.role));
 
@@ -64,6 +64,11 @@ Deno.serve(async (req) => {
     }
 
     if (!authorized) return jsonResponse({ error: "Not authorized to confirm this payment" }, 403);
+
+    if (payment.status === "verified") return jsonResponse({ ok: true, already_processed: true });
+    if (payment.status !== "pending") {
+      return jsonResponse({ error: `Cannot confirm a payment in status "${payment.status}"` }, 400);
+    }
 
     await finalizePaymentSuccess(db, payment);
     return jsonResponse({ ok: true });
