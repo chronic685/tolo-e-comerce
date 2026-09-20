@@ -11,6 +11,7 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Orders } from "./pages/Orders";
 import { OrderDetail } from "./pages/OrderDetail";
+import { OrderConfirmation } from "./pages/OrderConfirmation";
 import { Account } from "./pages/Account";
 import { Favorites } from "./pages/Favorites";
 import { Notifications } from "./pages/Notifications";
@@ -31,6 +32,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/orders" element={<Orders />} />
+          <Route path="/orders/:id/confirmation" element={<OrderConfirmation />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/account" element={<Account />} />
           <Route path="/favorites" element={<Favorites />} />

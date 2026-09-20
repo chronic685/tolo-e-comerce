@@ -2,7 +2,16 @@
 // body: { merchant_id: string, period_start: string, period_end: string }
 // Tolo-finance-only. Batches every "completed" merchant_order in the period
 // that isn't already in a settlement into a new settlement + settlement_items,
-// and posts a "settlement" debit to the merchant's wallet ledger.
+// nets in any not-yet-consumed financial_adjustments for the merchant, and
+// posts a "settlement" debit to the merchant's wallet ledger.
+//
+// Phase 5d, item 6: adjustments are one-off corrections (bonus/penalty/etc.)
+// with no period of their own (financial_adjustments has no period_start/end
+// column) — they're picked up by whichever settlement run for that merchant
+// happens next, regardless of when they were created, and are then marked
+// consumed by stamping their settlement_id so a later run never reapplies
+// them. This also means a settlement can now be created from adjustments
+// alone even when there are no eligible merchant_orders in the period.
 import { serviceClient, userClient } from "../_shared/client.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 
@@ -48,11 +57,21 @@ Deno.serve(async (req) => {
 
     const items = (eligible ?? []).filter((mo) => !alreadySettled.has(mo.id));
 
-    if (items.length === 0) {
+    const { data: unsettledAdjustments } = await db
+      .from("financial_adjustments")
+      .select("id, amount")
+      .eq("merchant_id", merchant_id)
+      .is("settlement_id", null);
+
+    const adjustments = unsettledAdjustments ?? [];
+
+    if (items.length === 0 && adjustments.length === 0) {
       return jsonResponse({ ok: true, message: "Nothing to settle for this period" });
     }
 
-    const total = items.reduce((sum, mo) => sum + Number(mo.merchant_payable), 0);
+    const ordersTotal = items.reduce((sum, mo) => sum + Number(mo.merchant_payable), 0);
+    const adjustmentsTotal = adjustments.reduce((sum, a) => sum + Number(a.amount), 0);
+    const total = ordersTotal + adjustmentsTotal;
 
     const { data: settlement, error: settlementError } = await db
       .from("settlements")
@@ -62,13 +81,22 @@ Deno.serve(async (req) => {
 
     if (settlementError) return jsonResponse({ error: settlementError.message }, 400);
 
-    await db.from("settlement_items").insert(
-      items.map((mo) => ({
-        settlement_id: settlement.id,
-        merchant_order_id: mo.id,
-        amount: mo.merchant_payable,
-      })),
-    );
+    if (items.length > 0) {
+      await db.from("settlement_items").insert(
+        items.map((mo) => ({
+          settlement_id: settlement.id,
+          merchant_order_id: mo.id,
+          amount: mo.merchant_payable,
+        })),
+      );
+    }
+
+    if (adjustments.length > 0) {
+      await db
+        .from("financial_adjustments")
+        .update({ settlement_id: settlement.id })
+        .in("id", adjustments.map((a) => a.id));
+    }
 
     await db.rpc("post_wallet_transaction", {
       p_merchant_id: merchant_id,
@@ -78,7 +106,13 @@ Deno.serve(async (req) => {
       p_note: `Settlement ${settlement.id} for ${period_start}..${period_end}`,
     });
 
-    return jsonResponse({ ok: true, settlement_id: settlement.id, total_amount: total, item_count: items.length });
+    return jsonResponse({
+      ok: true,
+      settlement_id: settlement.id,
+      total_amount: total,
+      item_count: items.length,
+      adjustments_netted: adjustments.length,
+    });
   } catch (err) {
     return jsonResponse({ error: String(err) }, 500);
   }

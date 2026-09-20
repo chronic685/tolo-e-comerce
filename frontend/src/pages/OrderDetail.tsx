@@ -48,9 +48,24 @@ export function OrderDetail() {
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
+  const [cancellationEnabled, setCancellationEnabled] = useState(true);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   useEffect(() => {
     load();
+    // Same admin-editable toggle FavoritesContext reads (system_settings /
+    // customer_features) — the cancel button must disappear the moment
+    // Tolo turns this off, not just get rejected server-side.
+    supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "customer_features")
+      .maybeSingle()
+      .then(({ data }) => {
+        const features = data?.value as { order_cancellation_enabled?: boolean } | null;
+        setCancellationEnabled(features?.order_cancellation_enabled ?? true);
+      });
   }, [id]);
 
   async function load() {
@@ -82,6 +97,31 @@ export function OrderDetail() {
       setReviewed(new Set((reviews ?? []).map((r) => `${r.merchant_order_id}:${r.product_id}`)));
     }
     setLoading(false);
+  }
+
+  async function cancelOrder(merchantOrderId: string) {
+    setCancelling(merchantOrderId);
+    setCancelError(null);
+    const { error } = await supabase.functions.invoke("order-status", {
+      body: { merchant_order_id: merchantOrderId, status: "cancelled" },
+    });
+    if (error) {
+      let message = "Could not cancel this order. Please try again.";
+      const context = (error as { context?: Response })?.context;
+      if (context) {
+        try {
+          const body = await context.clone().json();
+          if (body?.error) message = body.error;
+        } catch {
+          // Non-JSON error body — fall back to the generic message above.
+        }
+      }
+      setCancelError(message);
+      setCancelling(null);
+      return;
+    }
+    setCancelling(null);
+    await load();
   }
 
   async function submitReview(merchantOrderId: string, productId: string, rating: number, comment: string) {
@@ -126,6 +166,18 @@ export function OrderDetail() {
             </span>
           </div>
           {STATUS_COPY[mo.status] && <p className="text-xs text-gray-500 mb-2">{STATUS_COPY[mo.status].detail}</p>}
+          {mo.status === "new" && cancellationEnabled && (
+            <div className="mb-3">
+              <button
+                onClick={() => cancelOrder(mo.id)}
+                disabled={cancelling === mo.id}
+                className="text-xs border border-red-200 text-red-600 px-3 py-1.5 rounded-md hover:bg-red-50 disabled:opacity-60"
+              >
+                {cancelling === mo.id ? "Cancelling..." : "Cancel order"}
+              </button>
+              {cancelError && <p className="text-red-600 text-xs mt-1">{cancelError}</p>}
+            </div>
+          )}
           <div className="space-y-1 mb-3">
             {mo.order_items.map((item) => (
               <div key={item.id}>

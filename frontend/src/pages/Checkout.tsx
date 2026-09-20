@@ -161,7 +161,7 @@ export function Checkout() {
     // money has actually moved (see confirm-payment), never assumed here.
     await refresh();
     setPlacing(false);
-    navigate(`/orders/${checkoutData.order_id}`);
+    navigate(`/orders/${checkoutData.order_id}/confirmation`);
   }
 
   if (items.length === 0) {

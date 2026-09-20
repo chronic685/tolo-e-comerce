@@ -13,6 +13,18 @@ const MERCHANT_TRANSITIONS: Record<string, string[]> = {
   processing: ["ready_for_pickup", "cancelled"],
 };
 
+// Phase 5d, item 8: the only customer-initiated transition. Restricted to
+// "new" — before the merchant has accepted (the spec's own "ORDER RECEIVED"
+// commitment moment: see order_received_at below, and the unacknowledged-
+// order escalation timers in migration 0033). MERCHANT_TRANSITIONS itself
+// already draws this line for merchants — "rejected" only exists from "new",
+// while post-acceptance orders only ever move to "cancelled" once real
+// prep/staff/ingredient cost may already be committed. A customer-facing
+// cancel button follows the same boundary rather than opening a new one.
+const CUSTOMER_TRANSITIONS: Record<string, string[]> = {
+  new: ["cancelled"],
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -36,30 +48,54 @@ Deno.serve(async (req) => {
 
     if (!mo) return jsonResponse({ error: "Merchant order not found" }, 404);
 
-    const allowed = MERCHANT_TRANSITIONS[mo.status] ?? [];
-    if (!allowed.includes(status)) {
+    const merchantAllowed = MERCHANT_TRANSITIONS[mo.status] ?? [];
+    const customerAllowed = CUSTOMER_TRANSITIONS[mo.status] ?? [];
+    if (!merchantAllowed.includes(status) && !customerAllowed.includes(status)) {
       return jsonResponse(
         { error: `Cannot move from ${mo.status} to ${status}` },
         400,
       );
     }
 
-    const { data: membership } = await db
-      .from("merchant_staff")
-      .select("id")
-      .eq("merchant_id", mo.merchant_id)
-      .eq("user_id", userData.user.id)
-      .maybeSingle();
+    if (customerAllowed.includes(status)) {
+      const { data: orderRow } = await db
+        .from("orders")
+        .select("customer_id")
+        .eq("id", mo.order_id)
+        .single();
 
-    const { data: owned } = await db
-      .from("merchants")
-      .select("id")
-      .eq("id", mo.merchant_id)
-      .eq("owner_id", userData.user.id)
-      .maybeSingle();
+      if (orderRow?.customer_id !== userData.user.id) {
+        return jsonResponse({ error: "Not authorized for this order" }, 403);
+      }
 
-    if (!membership && !owned) {
-      return jsonResponse({ error: "Not authorized for this merchant" }, 403);
+      const { data: featureSettings } = await db
+        .from("system_settings")
+        .select("value")
+        .eq("key", "customer_features")
+        .maybeSingle();
+      const cancellationEnabled =
+        (featureSettings?.value as { order_cancellation_enabled?: boolean } | null)?.order_cancellation_enabled ?? true;
+      if (!cancellationEnabled) {
+        return jsonResponse({ error: "Order cancellation is currently disabled" }, 403);
+      }
+    } else {
+      const { data: membership } = await db
+        .from("merchant_staff")
+        .select("id")
+        .eq("merchant_id", mo.merchant_id)
+        .eq("user_id", userData.user.id)
+        .maybeSingle();
+
+      const { data: owned } = await db
+        .from("merchants")
+        .select("id")
+        .eq("id", mo.merchant_id)
+        .eq("owner_id", userData.user.id)
+        .maybeSingle();
+
+      if (!membership && !owned) {
+        return jsonResponse({ error: "Not authorized for this merchant" }, 403);
+      }
     }
 
     const update: Record<string, unknown> = { status };

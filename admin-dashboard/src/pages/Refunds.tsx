@@ -87,7 +87,7 @@ export function Refunds() {
   if (loading) return <p className="text-gray-500">Loading...</p>;
 
   const requested = returns.filter((r) => r.status === "requested");
-  const approvedAwaitingRefund = returns.filter((r) => r.status === "approved" && r.refunds.length === 0);
+  const approvedAwaitingRefund = returns.filter((r) => (r.status === "approved" || r.status === "received") && r.refunds.length === 0);
   const withRefunds = returns.filter((r) => r.refunds.length > 0);
 
   return (
@@ -139,6 +139,18 @@ export function Refunds() {
                   <p className="text-sm font-medium">{r.profiles?.full_name ?? "Customer"} · {r.merchant_orders?.merchants?.business_name}</p>
                   <p className="text-xs text-gray-500">{r.reason}</p>
                 </div>
+                {r.status === "approved" && (
+                  <button
+                    onClick={() => setReturnStatus(r, "received")}
+                    title="Confirm the physical item is back with the merchant — restocks inventory"
+                    className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 flex-shrink-0"
+                  >
+                    Mark item received
+                  </button>
+                )}
+                {r.status === "received" && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 flex-shrink-0">Item received · restocked</span>
+                )}
               </div>
               <div className="flex gap-2">
                 <select

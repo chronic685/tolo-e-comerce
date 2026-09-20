@@ -49,12 +49,21 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   "product_variants_customer_price",
   "get_commission_rate",
 
+  // Phase 5d, item 9: mirrors resolve_delivery_fee's nearest-active-zone
+  // lookup but returns only estimated_delivery_minutes -- no fee, no zone
+  // identity -- for the order-confirmation screen. Unlike resolve_delivery_fee
+  // (which decides the actual charged fee and must stay server-only), a
+  // coarse ETA has no pricing information to protect, so it's deliberately
+  // granted to authenticated rather than routed through an Edge Function.
+  "get_estimated_delivery_minutes",
+
   // Trigger functions: PostgREST excludes functions returning "trigger"
   // from its exposed /rpc/ API, and calling one directly would fail anyway
   // (no TG_OP/NEW/OLD outside a real trigger firing) — not a live hole, so
   // deliberately not touched in migration 0035 pending a safer, isolated
   // check of exactly how revoking these interacts with trigger firing.
   "claw_back_wallet_on_refund_completed",
+  "restock_on_return_received",
   "enforce_review_rate_limit",
   "handle_new_user",
   "log_config_change",
