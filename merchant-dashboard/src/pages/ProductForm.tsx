@@ -17,6 +17,16 @@ interface ImageDraft {
   url: string;
 }
 
+// Same rule enforced server-side (migration 0041) — checked here first so a
+// merchant gets an immediate inline error instead of a round-trip failure,
+// but the database trigger is the real guarantee (this check alone could be
+// bypassed by calling the API directly).
+const LISTING_ELIGIBILITY_ERROR = "Products need either 2+ units in stock or a price of at least 1000 ETB to be listed for sale.";
+
+function isEligibleForListing(price: number, stock: number): boolean {
+  return price >= 1000 || stock >= 2;
+}
+
 function slugify(name: string) {
   return name
     .toLowerCase()
@@ -134,6 +144,22 @@ export function ProductForm() {
       setError("Name and base price are required.");
       return;
     }
+
+    // Blocking check on publish/submit only — a merchant must still be able
+    // to save a work-in-progress draft regardless of stock/price. The
+    // product needs every priced variant to individually qualify: there's
+    // no way to hide just one non-qualifying variant while the rest of the
+    // product stays listed, so one failing variant blocks the whole save.
+    if (targetStatus !== "draft") {
+      const pricedVariants = variants.filter((v) => v.price.trim());
+      const allEligible =
+        pricedVariants.length > 0 && pricedVariants.every((v) => isEligibleForListing(Number(v.price), Number(v.stock) || 0));
+      if (!allEligible) {
+        setError(LISTING_ELIGIBILITY_ERROR);
+        return;
+      }
+    }
+
     setSaving(true);
     setError(null);
 
@@ -166,6 +192,12 @@ export function ProductForm() {
       }
     }
 
+    // The listing-eligibility check above is a client-side convenience —
+    // migration 0041 enforces the same rule as a real database trigger on
+    // product_variants/inventory, which is what actually stops a direct API
+    // call from bypassing it. That means these writes can now genuinely
+    // fail (e.g. a stale form re-submitting a since-changed variant), so
+    // their errors have to be surfaced, not silently swallowed like before.
     for (const v of variants) {
       if (!v.price.trim()) continue;
       const variantPayload = {
@@ -177,15 +209,30 @@ export function ProductForm() {
       };
       let variantId = v.id;
       if (variantId) {
-        await supabase.from("product_variants").update(variantPayload).eq("id", variantId);
+        const { error: variantError } = await supabase.from("product_variants").update(variantPayload).eq("id", variantId);
+        if (variantError) {
+          setError(variantError.message);
+          setSaving(false);
+          return;
+        }
       } else {
-        const { data } = await supabase.from("product_variants").insert(variantPayload).select("id").single();
+        const { data, error: variantError } = await supabase.from("product_variants").insert(variantPayload).select("id").single();
+        if (variantError) {
+          setError(variantError.message);
+          setSaving(false);
+          return;
+        }
         variantId = data?.id;
       }
       if (variantId) {
-        await supabase
+        const { error: inventoryError } = await supabase
           .from("inventory")
           .upsert({ variant_id: variantId, stock_quantity: Number(v.stock) || 0 }, { onConflict: "variant_id" });
+        if (inventoryError) {
+          setError(inventoryError.message);
+          setSaving(false);
+          return;
+        }
       }
     }
 

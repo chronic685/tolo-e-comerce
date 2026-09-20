@@ -64,6 +64,9 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   // check of exactly how revoking these interacts with trigger firing.
   "claw_back_wallet_on_refund_completed",
   "restock_on_return_received",
+  "trg_check_listing_on_product_status_change",
+  "trg_check_listing_on_variant_price_change",
+  "trg_check_listing_on_inventory_change",
   "enforce_review_rate_limit",
   "handle_new_user",
   "log_config_change",
