@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { STATUS_COPY } from "../lib/orderStatus";
@@ -18,7 +18,7 @@ interface MerchantOrderRow {
   id: string;
   status: string;
   subtotal: number;
-  merchants: { business_name: string } | null;
+  merchants: { business_name: string; stores: { slug: string } | null } | null;
   order_items: OrderItemRow[];
   order_status_history: { status: string; changed_at: string; note: string | null }[];
 }
@@ -79,7 +79,7 @@ export function OrderDetail() {
          payments ( provider ),
          merchant_orders (
            id, status, subtotal,
-           merchants ( business_name ),
+           merchants ( business_name, stores ( slug ) ),
            order_items ( id, product_name_snapshot, variant_attributes_snapshot, unit_price, quantity, subtotal, product_variants ( product_id ) ),
            order_status_history ( status, changed_at, note )
          )`,
@@ -162,7 +162,13 @@ export function OrderDetail() {
       {order.merchant_orders.map((mo) => (
         <div key={mo.id} className="bg-white border rounded-lg p-4 mb-4">
           <div className="flex justify-between items-center mb-1">
-            <p className="font-medium">{mo.merchants?.business_name}</p>
+            {mo.merchants?.stores ? (
+              <Link to={`/stores/${mo.merchants.stores.slug}`} className="font-medium hover:text-navy hover:underline">
+                {mo.merchants.business_name}
+              </Link>
+            ) : (
+              <p className="font-medium">{mo.merchants?.business_name}</p>
+            )}
             <span className="text-xs bg-emerald-100 text-emerald-800 rounded-full px-2 py-0.5">
               {STATUS_COPY[mo.status]?.label ?? mo.status.replace(/_/g, " ")}
             </span>

@@ -41,6 +41,18 @@ export interface Product {
   stores?: { name: string; slug: string } | null;
 }
 
+export interface StorefrontStore {
+  id: string;
+  merchant_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  logo_url: string | null;
+  banner_url: string | null;
+  status: string;
+  merchants: { status: string } | null;
+}
+
 export interface CartItem {
   id: string;
   cart_id: string;

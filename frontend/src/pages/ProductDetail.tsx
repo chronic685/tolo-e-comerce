@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
@@ -68,7 +68,11 @@ export function ProductDetail() {
       <div>
         <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="text-sm text-gray-500">{product.stores?.name}</p>
+            {product.stores && (
+              <Link to={`/stores/${product.stores.slug}`} className="text-sm text-gray-500 hover:text-navy hover:underline">
+                {product.stores.name}
+              </Link>
+            )}
             <h1 className="text-2xl font-bold mt-1">{product.name}</h1>
           </div>
           {favoritesEnabled && user && (

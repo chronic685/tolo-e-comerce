@@ -11,19 +11,15 @@ export function ProductCard({ product }: { product: Product }) {
   const favorited = isFavorite(product.id);
 
   return (
-    <Link
-      to={`/products/${product.slug}`}
-      className="block bg-white rounded-lg border hover:shadow-md transition-shadow overflow-hidden relative"
-    >
-      <div className="aspect-square bg-gray-100">
-        {image && <img src={image.url} alt={product.name} className="w-full h-full object-cover" />}
-      </div>
+    <div className="block bg-white rounded-lg border hover:shadow-md transition-shadow overflow-hidden relative">
+      <Link to={`/products/${product.slug}`} className="block">
+        <div className="aspect-square bg-gray-100">
+          {image && <img src={image.url} alt={product.name} className="w-full h-full object-cover" />}
+        </div>
+      </Link>
       {enabled && user && (
         <button
-          onClick={(e) => {
-            e.preventDefault();
-            toggleFavorite(product.id);
-          }}
+          onClick={() => toggleFavorite(product.id)}
           aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
           className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center text-lg"
         >
@@ -31,12 +27,21 @@ export function ProductCard({ product }: { product: Product }) {
         </button>
       )}
       <div className="p-3">
-        <p className="text-xs text-gray-500">{product.stores?.name}</p>
-        <h3 className="font-medium text-sm truncate">{product.name}</h3>
-        <div className="mt-1">
-          <span className="font-semibold text-navy">{price.toFixed(2)} ETB</span>
-        </div>
+        {/* A store-name link sitting inside the whole-card link would be
+            invalid nested anchors, so the card is a plain div with two
+            sibling links instead — one to the store, one to the product. */}
+        {product.stores && (
+          <Link to={`/stores/${product.stores.slug}`} className="text-xs text-gray-500 hover:text-navy hover:underline">
+            {product.stores.name}
+          </Link>
+        )}
+        <Link to={`/products/${product.slug}`} className="block">
+          <h3 className="font-medium text-sm truncate">{product.name}</h3>
+          <div className="mt-1">
+            <span className="font-semibold text-navy">{price.toFixed(2)} ETB</span>
+          </div>
+        </Link>
       </div>
-    </Link>
+    </div>
   );
 }
