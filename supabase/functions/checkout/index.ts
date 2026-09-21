@@ -1,5 +1,5 @@
 // POST /checkout
-// body: { address_id: string, payment_provider: string }
+// body: { address_id: string, payment_provider: string, promo_code?: string }
 // Reads the caller's cart, atomically creates the master order + merchant
 // orders + reserves stock (via the create_order() SQL function), then opens
 // a pending payment record. Stock reservations are rolled back automatically
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     }
     const customerId = userData.user.id;
 
-    const { address_id, payment_provider } = await req.json();
+    const { address_id, payment_provider, promo_code } = await req.json();
     if (!address_id || !payment_provider) {
       return jsonResponse({ error: "address_id and payment_provider are required" }, 400);
     }
@@ -112,10 +112,17 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Cart is empty" }, 400);
     }
 
+    // An invalid/inapplicable code is never an error here -- create_order()
+    // (via resolve_best_discount()) just treats it as "no code-based
+    // discount matched" and falls back to the best automatic discount (if
+    // any) or none, exactly like a code that was never sent at all.
+    // Checkout.tsx already gives upfront feedback via validate_discount_code
+    // before a customer gets this far.
     const { data: orderId, error: orderError } = await db.rpc("create_order", {
       p_customer_id: customerId,
       p_address_id: address_id,
       p_items: items,
+      p_code: promo_code || null,
     });
 
     if (orderError) {

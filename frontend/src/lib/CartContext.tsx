@@ -20,7 +20,7 @@ const CART_ITEM_SELECT = `
   product_variants (
     id, sku, attributes, price, discount_price, is_default,
     customer_price:product_variants_customer_price,
-    products ( id, name, slug, merchant_id )
+    products ( id, name, slug, merchant_id, category_id )
   )
 `;
 

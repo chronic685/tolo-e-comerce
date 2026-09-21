@@ -41,7 +41,29 @@ export function Checkout() {
   const [paymentMethods, setPaymentMethods] = useState<[string, string][]>([]);
   const [paymentProvider, setPaymentProvider] = useState<string | null>(null);
 
-  const total = items.reduce((sum, item) => sum + item.product_variants.customer_price * item.quantity, 0);
+  // Dead until this task: system_settings.customer_features.promo_codes_enabled
+  // already existed (admin-dashboard Settings.tsx, migration 0027) with no
+  // customer-facing field anywhere to actually gate.
+  const [promoCodesEnabled, setPromoCodesEnabled] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoStatus, setPromoStatus] = useState<"idle" | "checking" | "valid" | "invalid" | "not_applicable">("idle");
+  const [promoDiscountAmount, setPromoDiscountAmount] = useState<number | null>(null);
+  const [promoRuleName, setPromoRuleName] = useState<string | null>(null);
+
+  const subtotal = items.reduce((sum, item) => sum + item.product_variants.customer_price * item.quantity, 0);
+  const total = subtotal - (promoStatus === "valid" ? (promoDiscountAmount ?? 0) : 0);
+
+  useEffect(() => {
+    supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "customer_features")
+      .maybeSingle()
+      .then(({ data }) => {
+        const features = data?.value as { promo_codes_enabled?: boolean } | null;
+        setPromoCodesEnabled(features?.promo_codes_enabled ?? true);
+      });
+  }, []);
 
   useEffect(() => {
     // Admin can turn payment methods on/off from Settings — disabled methods
@@ -125,6 +147,46 @@ export function Checkout() {
     setShowNewAddress(false);
   }
 
+  function cartScopeIds() {
+    const merchantIds = new Set<string>();
+    const categoryIds = new Set<string>();
+    const productIds = new Set<string>();
+    for (const item of items) {
+      const product = item.product_variants.products;
+      merchantIds.add(product.merchant_id);
+      productIds.add(product.id);
+      if (product.category_id) categoryIds.add(product.category_id);
+    }
+    return { merchantIds: [...merchantIds], categoryIds: [...categoryIds], productIds: [...productIds] };
+  }
+
+  async function handleApplyPromoCode() {
+    const code = promoCode.trim();
+    if (!code) return;
+    setPromoStatus("checking");
+    const { merchantIds, categoryIds, productIds } = cartScopeIds();
+    const { data, error } = await supabase
+      .rpc("validate_discount_code", {
+        p_code: code,
+        p_merchant_ids: merchantIds,
+        p_category_ids: categoryIds,
+        p_product_ids: productIds,
+        p_order_subtotal: subtotal,
+      })
+      .single();
+
+    if (error || !data) {
+      setPromoStatus("invalid");
+      setPromoDiscountAmount(null);
+      setPromoRuleName(null);
+      return;
+    }
+    const result = data as { status: "valid" | "invalid" | "not_applicable"; discount_amount: number | null; rule_name: string | null };
+    setPromoStatus(result.status);
+    setPromoDiscountAmount(result.discount_amount);
+    setPromoRuleName(result.rule_name);
+  }
+
   async function handlePlaceOrder() {
     if (!addressId) {
       setError("Please select or add a delivery address.");
@@ -138,7 +200,7 @@ export function Checkout() {
     setError(null);
 
     const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke("checkout", {
-      body: { address_id: addressId, payment_provider: paymentProvider },
+      body: { address_id: addressId, payment_provider: paymentProvider, promo_code: promoCode.trim() || undefined },
     });
 
     if (checkoutError || !checkoutData) {
@@ -278,11 +340,60 @@ export function Checkout() {
         )}
       </div>
 
-      <div className="bg-white border rounded-lg p-4 mb-4 flex justify-between font-semibold">
-        <span>Total</span>
-        <span>{total.toFixed(2)} ETB</span>
+      {promoCodesEnabled && (
+        <div className="bg-white border rounded-lg p-4 mb-4">
+          <h2 className="font-medium mb-2">Promo code</h2>
+          <div className="flex gap-2">
+            <input
+              placeholder="Enter code"
+              value={promoCode}
+              onChange={(e) => {
+                setPromoCode(e.target.value);
+                setPromoStatus("idle");
+              }}
+              className="flex-1 border rounded-md px-3 py-2 text-sm uppercase placeholder:normal-case"
+            />
+            <button
+              type="button"
+              onClick={handleApplyPromoCode}
+              disabled={!promoCode.trim() || promoStatus === "checking"}
+              className="border-2 border-navy text-navy px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-50 disabled:opacity-60"
+            >
+              {promoStatus === "checking" ? "Checking..." : "Apply"}
+            </button>
+          </div>
+          {promoStatus === "valid" && (
+            <p className="text-emerald-700 text-sm mt-2">
+              "{promoRuleName}" applied — {(promoDiscountAmount ?? 0).toFixed(2)} ETB off.
+            </p>
+          )}
+          {promoStatus === "invalid" && <p className="text-red-600 text-sm mt-2">This code is invalid or has expired.</p>}
+          {promoStatus === "not_applicable" && (
+            <p className="text-orange-600 text-sm mt-2">This code doesn't apply to your current cart.</p>
+          )}
+        </div>
+      )}
+
+      <div className="bg-white border rounded-lg p-4 mb-4 text-sm space-y-1">
+        <div className="flex justify-between">
+          <span>Subtotal</span>
+          <span>{subtotal.toFixed(2)} ETB</span>
+        </div>
+        {promoStatus === "valid" && (
+          <div className="flex justify-between text-emerald-700">
+            <span>Promo discount</span>
+            <span>-{(promoDiscountAmount ?? 0).toFixed(2)} ETB</span>
+          </div>
+        )}
+        <div className="flex justify-between font-semibold border-t pt-1 mt-1">
+          <span>Total</span>
+          <span>{total.toFixed(2)} ETB</span>
+        </div>
       </div>
-      <p className="text-xs text-gray-400 -mt-3 mb-4">Any eligible discount is applied automatically and shown on your order confirmation.</p>
+      <p className="text-xs text-gray-400 -mt-3 mb-4">
+        Delivery fee isn't included yet, and a better automatic discount can still apply instead of a promo code — the final amount is
+        always shown on your order confirmation.
+      </p>
 
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 

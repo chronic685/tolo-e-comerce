@@ -8,6 +8,7 @@ const emptyForm = {
   description: "",
   scope_type: "platform" as DiscountRule["scope_type"],
   scope_id: "",
+  code: "",
   discount_kind: "percent" as DiscountRule["discount_kind"],
   amount: "10",
   max_discount_amount: "",
@@ -85,6 +86,7 @@ export function Discounts() {
       description: r.description ?? "",
       scope_type: r.scope_type === "product" ? "platform" : r.scope_type,
       scope_id: r.scope_id ?? "",
+      code: r.code ?? "",
       discount_kind: r.discount_kind,
       amount: String(r.amount),
       max_discount_amount: r.max_discount_amount != null ? String(r.max_discount_amount) : "",
@@ -133,6 +135,10 @@ export function Discounts() {
       description: form.description.trim() || null,
       scope_type: form.scope_type,
       scope_id: form.scope_type === "platform" ? null : form.scope_id,
+      // Uppercased/trimmed server-side too (normalize_discount_code trigger,
+      // migration 0046) -- doing it here as well just avoids a round-trip
+      // surprise where the list briefly shows what was typed.
+      code: form.code.trim() ? form.code.trim().toUpperCase() : null,
       discount_kind: form.discount_kind,
       amount: Number(form.amount),
       max_discount_amount: form.max_discount_amount ? Number(form.max_discount_amount) : null,
@@ -165,6 +171,7 @@ export function Discounts() {
       rules.map((r) => ({
         id: r.id,
         name: r.name,
+        code: r.code ?? "",
         scope: labelFor(r),
         discount_kind: r.discount_kind,
         amount: r.amount,
@@ -234,6 +241,19 @@ export function Discounts() {
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             className="w-full border rounded-md px-3 py-2 text-sm"
           />
+          <div>
+            <input
+              placeholder="Promo code (optional — leave blank for an automatic discount)"
+              value={form.code}
+              onChange={(e) => setForm({ ...form, code: e.target.value })}
+              className="w-full border rounded-md px-3 py-2 text-sm uppercase placeholder:normal-case"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              {form.code.trim()
+                ? "Only applies when a customer types this code at checkout."
+                : "No code — applies automatically to every eligible cart, same as today."}
+            </p>
+          </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -407,7 +427,12 @@ export function Discounts() {
             <div key={r.id} className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">{r.name}</p>
+                  <p className="text-sm font-medium">
+                    {r.name}
+                    {r.code && (
+                      <span className="ml-2 text-xs font-mono bg-navy-50 text-navy px-1.5 py-0.5 rounded">{r.code}</span>
+                    )}
+                  </p>
                   <p className="text-xs text-gray-500">
                     {labelFor(r)} · {r.discount_kind === "percent" ? `${r.amount}% off` : `${r.amount} ETB off`}
                     {r.min_order_value > 0 ? ` · min ${r.min_order_value} ETB` : ""} · funded by {r.funded_by}

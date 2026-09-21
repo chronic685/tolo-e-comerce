@@ -79,6 +79,7 @@ export interface CartItem {
       name: string;
       slug: string;
       merchant_id: string;
+      category_id: string | null;
     };
   };
 }

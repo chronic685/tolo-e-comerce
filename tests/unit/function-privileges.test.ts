@@ -68,6 +68,15 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   // granted to authenticated rather than routed through an Edge Function.
   "get_estimated_delivery_minutes",
 
+  // Phase 12: promo-code preview for Checkout.tsx (migration 0046).
+  // Deliberately NOT security definer -- discount_rules is already publicly
+  // readable, and this only ever reads the CALLING customer's own
+  // discount_redemptions/orders rows via auth.uid(), which their existing
+  // RLS policies already allow. resolve_best_discount (the function that
+  // actually decides real money) stays revoked/server-only; this is a
+  // separate, narrower read-only preview.
+  "validate_discount_code",
+
   // Trigger functions: PostgREST excludes functions returning "trigger"
   // from its exposed /rpc/ API, and calling one directly would fail anyway
   // (no TG_OP/NEW/OLD outside a real trigger firing) — not a live hole, so
@@ -86,6 +95,7 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   "prevent_role_self_escalation",
   "prevent_status_self_change",
   "set_updated_at",
+  "normalize_discount_code",
 ]);
 
 interface FunctionPrivilegeRow {

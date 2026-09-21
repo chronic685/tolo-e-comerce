@@ -109,6 +109,7 @@ export interface DiscountRule {
   description: string | null;
   scope_type: "platform" | "merchant" | "category" | "product";
   scope_id: string | null;
+  code: string | null;
   discount_kind: "percent" | "fixed";
   amount: number;
   max_discount_amount: number | null;
