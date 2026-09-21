@@ -6,7 +6,7 @@ interface AuthState {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, fullName: string, referralCode?: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<{ error: string | null }>;
@@ -32,11 +32,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  async function signUp(email: string, password: string, fullName: string) {
+  async function signUp(email: string, password: string, fullName: string, referralCode?: string) {
+    // handle_new_user() (migration 0047) reads this back out of
+    // raw_user_meta_data — an unrecognized/malformed code is silently
+    // ignored there rather than blocking signup.
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: { data: { full_name: fullName, referral_code: referralCode || undefined } },
     });
     return { error: error?.message ?? null };
   }

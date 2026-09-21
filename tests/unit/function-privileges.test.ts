@@ -68,6 +68,15 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   // granted to authenticated rather than routed through an Edge Function.
   "get_estimated_delivery_minutes",
 
+  // Phase 13: referral stats for Account.tsx's "Refer a friend" card
+  // (migration 0047). profiles_select_own_or_staff (migration 0014)
+  // restricts profiles SELECT to "id = auth.uid() or staff", so a plain
+  // client query for "people I referred" would silently return nothing --
+  // this is security definer specifically to read across that boundary,
+  // but it only ever returns two aggregate counts scoped to auth.uid()
+  // internally, never another customer's actual row (name/phone/email).
+  "my_referral_stats",
+
   // Phase 12: promo-code preview for Checkout.tsx (migration 0046).
   // Deliberately NOT security definer -- discount_rules is already publicly
   // readable, and this only ever reads the CALLING customer's own

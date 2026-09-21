@@ -23,6 +23,13 @@ export async function finalizePaymentSuccess(db: SupabaseClient, payment: Paymen
       amount: payment.amount,
       order_id_short: payment.order_id.slice(0, 8),
     });
+
+    // Referral "conversion" = the referred customer's first paid order --
+    // the same bright line this function already uses to release stock and
+    // credit the merchant, not just "an order was placed" (see migration
+    // 0047). A no-op for anyone not referred, already rewarded, or whose
+    // paid-order count isn't exactly 1 yet.
+    await db.rpc("process_referral_conversion", { p_customer_id: paidOrder.customer_id });
   }
 
   const { data: merchantOrders } = await db
