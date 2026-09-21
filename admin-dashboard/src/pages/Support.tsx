@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import type { SupportTicket } from "../types";
 
@@ -8,8 +9,11 @@ export function Support() {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase.from("support_tickets").select("*").order("created_at", { ascending: false });
-    setTickets(data ?? []);
+    const { data } = await supabase
+      .from("support_tickets")
+      .select("*, merchant_orders ( order_id, merchants ( business_name ) )")
+      .order("created_at", { ascending: false });
+    setTickets((data as unknown as SupportTicket[]) ?? []);
     setLoading(false);
   }
 
@@ -38,6 +42,14 @@ export function Support() {
                 <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 capitalize">{t.status}</span>
               </div>
               {t.body && <p className="text-sm text-gray-600 mb-2">{t.body}</p>}
+              {t.merchant_orders && (
+                <Link
+                  to={`/orders?order_id=${t.merchant_orders.order_id}`}
+                  className="text-xs text-navy hover:underline mb-2 inline-block"
+                >
+                  📦 Order with {t.merchant_orders.merchants?.business_name ?? "a merchant"} →
+                </Link>
+              )}
               <p className="text-xs text-gray-400 mb-2">{new Date(t.created_at).toLocaleString()}</p>
               <div className="flex gap-2">
                 {t.status !== "resolved" && (

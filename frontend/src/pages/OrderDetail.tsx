@@ -48,6 +48,7 @@ export function OrderDetail() {
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
+  const [reportedMerchantOrders, setReportedMerchantOrders] = useState<Set<string>>(new Set());
   const [cancellationEnabled, setCancellationEnabled] = useState(true);
   const [reviewsEnabled, setReviewsEnabled] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
@@ -100,8 +101,26 @@ export function OrderDetail() {
         .select("merchant_order_id, product_id")
         .in("merchant_order_id", moIds);
       setReviewed(new Set((reviews ?? []).map((r) => `${r.merchant_order_id}:${r.product_id}`)));
+
+      const { data: tickets } = await supabase
+        .from("support_tickets")
+        .select("merchant_order_id")
+        .in("merchant_order_id", moIds);
+      setReportedMerchantOrders(new Set((tickets ?? []).map((t) => t.merchant_order_id as string)));
     }
     setLoading(false);
+  }
+
+  async function reportIssue(merchantOrderId: string, subject: string, body: string) {
+    if (!user) return { error: "Not signed in." };
+    const { error } = await supabase.from("support_tickets").insert({
+      user_id: user.id,
+      merchant_order_id: merchantOrderId,
+      subject,
+      body: body || null,
+    });
+    if (!error) setReportedMerchantOrders((prev) => new Set(prev).add(merchantOrderId));
+    return { error: error?.message };
   }
 
   async function cancelOrder(merchantOrderId: string) {
@@ -244,6 +263,22 @@ export function OrderDetail() {
                 ))}
             </ol>
           </div>
+          {/* Only once something has actually arrived — "item never arrived"
+              and "wrong item" are both post-delivery complaints. Earlier
+              statuses (stuck at ready_for_pickup/picked_up) are already
+              covered by the platform's own escalation/dispatch monitoring,
+              not something a customer needs a dispute ticket for yet; a
+              still-unacknowledged or unfulfilled order has "Cancel order"
+              instead (status === "new" only). */}
+          {(mo.status === "delivered" || mo.status === "completed") && (
+            <div className="border-t pt-2 mt-2">
+              <DisputeWidget
+                alreadyReported={reportedMerchantOrders.has(mo.id)}
+                merchantName={mo.merchants?.business_name ?? "this merchant"}
+                onSubmit={(subject, body) => reportIssue(mo.id, subject, body)}
+              />
+            </div>
+          )}
         </div>
       ))}
 
@@ -351,6 +386,80 @@ function ReviewWidget({
           className="bg-navy text-white text-xs px-3 py-1 rounded-md font-medium disabled:opacity-60"
         >
           {submitting ? "Submitting..." : "Submit review"}
+        </button>
+        <button onClick={() => setOpen(false)} className="text-xs text-gray-500">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Reuses support_tickets' own insert path (same table Support.tsx writes
+// to) rather than a parallel dispute system — just with merchant_order_id
+// pre-filled, so admin triage sees exactly which order/merchant this is
+// about instead of a disconnected blob of text.
+function DisputeWidget({
+  alreadyReported,
+  merchantName,
+  onSubmit,
+}: {
+  alreadyReported: boolean;
+  merchantName: string;
+  onSubmit: (subject: string, body: string) => Promise<{ error?: string }>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [body, setBody] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(alreadyReported);
+  const [error, setError] = useState<string | null>(null);
+
+  if (done) {
+    return <p className="text-xs text-gray-500">You reported an issue with this order — we'll be in touch.</p>;
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="text-xs text-red-600 font-medium">
+        Report an issue (item never arrived, wrong item, etc.)
+      </button>
+    );
+  }
+
+  async function handleSubmit() {
+    if (!body.trim()) {
+      setError("Please describe the issue.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    const { error } = await onSubmit(`Issue with order from ${merchantName}`, body.trim());
+    setSubmitting(false);
+    if (error) {
+      setError("Could not submit your report. Please try again.");
+      return;
+    }
+    setDone(true);
+  }
+
+  return (
+    <div className="bg-red-50 rounded-md p-2">
+      <p className="text-xs font-medium mb-1">What went wrong?</p>
+      <textarea
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        placeholder="e.g. item never arrived, wrong item received..."
+        rows={2}
+        className="w-full border rounded-md px-2 py-1 text-xs mb-1"
+      />
+      {error && <p className="text-red-600 text-xs mb-1">{error}</p>}
+      <div className="flex gap-2">
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="bg-red-600 text-white text-xs px-3 py-1 rounded-md font-medium disabled:opacity-60"
+        >
+          {submitting ? "Submitting..." : "Submit report"}
         </button>
         <button onClick={() => setOpen(false)} className="text-xs text-gray-500">
           Cancel

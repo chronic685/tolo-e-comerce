@@ -255,4 +255,6 @@ export interface SupportTicket {
   body: string | null;
   status: string;
   created_at: string;
+  merchant_order_id: string | null;
+  merchant_orders?: { order_id: string; merchants: { business_name: string } | null } | null;
 }

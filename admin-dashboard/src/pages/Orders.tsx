@@ -28,26 +28,45 @@ function isUnacknowledged(mo: OrderRow["merchant_orders"][number], thresholdMinu
   return Date.now() - new Date(mo.notification_sent_at).getTime() > thresholdMinutes * 60_000;
 }
 
+const ORDER_SELECT = `id, customer_id, total, payment_status, created_at,
+   merchant_orders ( id, merchant_id, status, subtotal, notification_sent_at, order_received_at, escalated_at, merchants ( business_name ) )`;
+
 export function Orders() {
   const [searchParams] = useSearchParams();
   const onlyUnacknowledged = searchParams.get("filter") === "unacknowledged";
+  // Set from a support ticket's "linked order" reference (Support.tsx) —
+  // fetched directly by id rather than relying on the recent-100 list
+  // below, since a disputed order could easily be older than that.
+  const linkedOrderId = searchParams.get("order_id");
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [escalateAfterMinutes, setEscalateAfterMinutes] = useState(DEFAULT_ESCALATE_AFTER_MINUTES);
 
   useEffect(() => {
+    setLoading(true);
+    if (linkedOrderId) {
+      supabase
+        .from("orders")
+        .select(ORDER_SELECT)
+        .eq("id", linkedOrderId)
+        .then(({ data }) => {
+          setOrders((data as unknown as OrderRow[]) ?? []);
+          setLoading(false);
+        });
+      return;
+    }
     supabase
       .from("orders")
-      .select(
-        `id, customer_id, total, payment_status, created_at,
-         merchant_orders ( id, merchant_id, status, subtotal, notification_sent_at, order_received_at, escalated_at, merchants ( business_name ) )`,
-      )
+      .select(ORDER_SELECT)
       .order("created_at", { ascending: false })
       .limit(100)
       .then(({ data }) => {
         setOrders((data as unknown as OrderRow[]) ?? []);
         setLoading(false);
       });
+  }, [linkedOrderId]);
+
+  useEffect(() => {
     supabase
       .from("system_settings")
       .select("value")
@@ -61,9 +80,10 @@ export function Orders() {
 
   if (loading) return <p className="text-gray-500">Loading...</p>;
 
-  const visibleOrders = onlyUnacknowledged
-    ? orders.filter((o) => o.merchant_orders.some((mo) => isUnacknowledged(mo, escalateAfterMinutes)))
-    : orders;
+  const visibleOrders =
+    !linkedOrderId && onlyUnacknowledged
+      ? orders.filter((o) => o.merchant_orders.some((mo) => isUnacknowledged(mo, escalateAfterMinutes)))
+      : orders;
 
   function handleExport() {
     exportToCsv(
@@ -83,7 +103,9 @@ export function Orders() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">{onlyUnacknowledged ? "Unacknowledged Orders" : "All Orders"}</h1>
+        <h1 className="text-xl font-bold">
+          {linkedOrderId ? "Order (from support ticket)" : onlyUnacknowledged ? "Unacknowledged Orders" : "All Orders"}
+        </h1>
         <button
           onClick={handleExport}
           disabled={visibleOrders.length === 0}

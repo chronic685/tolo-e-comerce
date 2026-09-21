@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import type { SupportTicket } from "../types";
@@ -27,9 +28,9 @@ export function Support() {
     setLoading(true);
     const { data } = await supabase
       .from("support_tickets")
-      .select("id, subject, body, status, created_at")
+      .select("id, subject, body, status, created_at, merchant_order_id, merchant_orders ( order_id, merchants ( business_name ) )")
       .order("created_at", { ascending: false });
-    setTickets(data ?? []);
+    setTickets((data as unknown as SupportTicket[]) ?? []);
     setLoading(false);
   }
 
@@ -95,6 +96,11 @@ export function Support() {
                 </span>
               </div>
               {t.body && <p className="text-sm text-gray-600 mt-1">{t.body}</p>}
+              {t.merchant_orders && (
+                <Link to={`/orders/${t.merchant_orders.order_id}`} className="text-xs text-navy hover:underline mt-1 inline-block">
+                  Re: order with {t.merchant_orders.merchants?.business_name ?? "a merchant"} →
+                </Link>
+              )}
               <p className="text-xs text-gray-400 mt-1">{new Date(t.created_at).toLocaleString()}</p>
             </div>
           ))}
