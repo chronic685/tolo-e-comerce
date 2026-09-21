@@ -4,13 +4,19 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
 import { useFavorites } from "../lib/FavoritesContext";
+import { RatingBadge } from "../components/RatingBadge";
 import type { Product } from "../types";
 
+// merchants(...) is only fetched here, not on grid pages (Marketplace.tsx/
+// Storefront.tsx's product list) — a single-product page pays for one
+// merchant's rating once, where a grid of many cards would recompute the
+// same merchant's aggregate once per card for no real benefit.
 const PRODUCT_SELECT = `
   id, merchant_id, store_id, category_id, name, slug, description, base_price, discount_price, status,
   product_variants ( id, sku, attributes, price, discount_price, is_default, customer_price:product_variants_customer_price ),
   product_images ( id, url, is_primary, variant_id ),
-  stores ( name, slug )
+  stores ( name, slug ),
+  merchants ( avg_rating:merchants_avg_rating, review_count:merchants_review_count )
 `;
 
 export function ProductDetail() {
@@ -68,11 +74,14 @@ export function ProductDetail() {
       <div>
         <div className="flex items-start justify-between gap-2">
           <div>
-            {product.stores && (
-              <Link to={`/stores/${product.stores.slug}`} className="text-sm text-gray-500 hover:text-navy hover:underline">
-                {product.stores.name}
-              </Link>
-            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              {product.stores && (
+                <Link to={`/stores/${product.stores.slug}`} className="text-sm text-gray-500 hover:text-navy hover:underline">
+                  {product.stores.name}
+                </Link>
+              )}
+              <RatingBadge avgRating={product.merchants?.avg_rating ?? null} reviewCount={product.merchants?.review_count ?? 0} />
+            </div>
             <h1 className="text-2xl font-bold mt-1">{product.name}</h1>
           </div>
           {favoritesEnabled && user && (

@@ -43,6 +43,17 @@ export interface Product {
    * sort) — no aggregate/average rating column exists anywhere, so this is
    * the raw per-review rows, averaged client-side where needed. */
   reviews?: { rating: number }[];
+  /** Only present on ProductDetail.tsx's single-product fetch — the
+   * merchant-level rating, server-computed (merchants_avg_rating/
+   * merchants_review_count). Not selected on grid pages (Marketplace.tsx/
+   * Storefront.tsx's product list) to avoid re-computing the same
+   * merchant's aggregate once per card. */
+  merchants?: MerchantRating | null;
+}
+
+export interface MerchantRating {
+  avg_rating: number | null;
+  review_count: number;
 }
 
 export interface StorefrontStore {
@@ -54,7 +65,7 @@ export interface StorefrontStore {
   logo_url: string | null;
   banner_url: string | null;
   status: string;
-  merchants: { status: string } | null;
+  merchants: ({ status: string } & MerchantRating) | null;
 }
 
 export interface CartItem {

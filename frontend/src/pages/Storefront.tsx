@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { ProductCard } from "../components/ProductCard";
+import { RatingBadge } from "../components/RatingBadge";
 import type { Product, StorefrontStore } from "../types";
 
 const PRODUCT_SELECT = `
@@ -44,7 +45,10 @@ export function Storefront() {
     setStore(undefined);
     supabase
       .from("stores")
-      .select("id, merchant_id, name, slug, description, logo_url, banner_url, status, merchants ( status )")
+      .select(
+        "id, merchant_id, name, slug, description, logo_url, banner_url, status, " +
+          "merchants ( status, avg_rating:merchants_avg_rating, review_count:merchants_review_count )",
+      )
       .eq("slug", slug)
       .maybeSingle()
       .then(({ data }) => {
@@ -112,7 +116,10 @@ export function Storefront() {
           <img src={store.logo_url} alt={store.name} className="w-16 h-16 rounded-full object-cover border flex-shrink-0" />
         )}
         <div>
-          <h1 className="text-xl font-bold">{store.name}</h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl font-bold">{store.name}</h1>
+            <RatingBadge avgRating={store.merchants?.avg_rating ?? null} reviewCount={store.merchants?.review_count ?? 0} />
+          </div>
           {store.description && <p className="text-sm text-gray-500 mt-0.5">{store.description}</p>}
         </div>
       </div>

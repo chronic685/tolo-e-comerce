@@ -49,6 +49,17 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   "product_variants_customer_price",
   "get_commission_rate",
 
+  // Phase 11: merchant-level rating rolled up from reviews (appear as
+  // avg_rating:merchants_avg_rating / review_count:merchants_review_count
+  // in Storefront.tsx's select string). Unlike the price computed columns
+  // above, these ARE security definer (products_public_select_published
+  // RLS would otherwise silently shrink the rating to only currently-
+  // published products for an anonymous caller) -- but they only ever
+  // return a derived aggregate number, never row data, so there's nothing
+  // sensitive to leak by bypassing RLS for this specific read.
+  "merchants_avg_rating",
+  "merchants_review_count",
+
   // Phase 5d, item 9: mirrors resolve_delivery_fee's nearest-active-zone
   // lookup but returns only estimated_delivery_minutes -- no fee, no zone
   // identity -- for the order-confirmation screen. Unlike resolve_delivery_fee
