@@ -39,6 +39,10 @@ export interface Product {
   product_variants: ProductVariant[];
   product_images: ProductImage[];
   stores?: { name: string; slug: string } | null;
+  /** Only present when explicitly selected (Marketplace.tsx, for the rating
+   * sort) — no aggregate/average rating column exists anywhere, so this is
+   * the raw per-review rows, averaged client-side where needed. */
+  reviews?: { rating: number }[];
 }
 
 export interface StorefrontStore {
