@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
+import { RevenueChart } from "../components/RevenueChart";
 
 interface Stats {
   productCount: number;
@@ -59,6 +60,8 @@ export function Dashboard() {
           <StatCard label="Wallet Balance" value={`${stats.walletBalance.toFixed(2)} ETB`} />
         </div>
       )}
+
+      {merchant && <RevenueChart merchantId={merchant.id} />}
     </div>
   );
 }
