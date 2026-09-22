@@ -6,6 +6,7 @@ interface ConfirmationOrderRow {
   id: string;
   total: number;
   created_at: string;
+  scheduled_for: string | null;
   addresses: { line1: string; city: string; latitude: number | null; longitude: number | null } | null;
 }
 
@@ -28,13 +29,16 @@ export function OrderConfirmation() {
     setLoading(true);
     const { data } = await supabase
       .from("orders")
-      .select("id, total, created_at, addresses ( line1, city, latitude, longitude )")
+      .select("id, total, created_at, scheduled_for, addresses ( line1, city, latitude, longitude )")
       .eq("id", id)
       .maybeSingle();
     const o = data as unknown as ConfirmationOrderRow | null;
     setOrder(o);
 
-    if (o?.addresses?.latitude != null && o.addresses.longitude != null) {
+    // A minutes-away ETA is meaningless (and actively misleading) for an
+    // order scheduled days out — skip the lookup entirely and show the
+    // scheduled time instead, see the render below.
+    if (!o?.scheduled_for && o?.addresses?.latitude != null && o.addresses.longitude != null) {
       const { data: minutes } = await supabase.rpc("get_estimated_delivery_minutes", {
         p_latitude: o.addresses.latitude,
         p_longitude: o.addresses.longitude,
@@ -69,8 +73,14 @@ export function OrderConfirmation() {
           </div>
         )}
         <div className="flex justify-between">
-          <span className="text-gray-500">Estimated delivery</span>
-          <span>{etaMinutes != null ? `~${etaMinutes} min` : "We'll confirm shortly"}</span>
+          <span className="text-gray-500">{order.scheduled_for ? "Scheduled for" : "Estimated delivery"}</span>
+          <span>
+            {order.scheduled_for
+              ? new Date(order.scheduled_for).toLocaleString()
+              : etaMinutes != null
+                ? `~${etaMinutes} min`
+                : "We'll confirm shortly"}
+          </span>
         </div>
       </div>
 

@@ -56,10 +56,17 @@ export function NewOrderAlert() {
   const loadOrder = useCallback(async (merchantOrderId: string) => {
     const { data: mo } = await supabase
       .from("merchant_orders")
-      .select("id, merchant_payable, created_at, status")
+      .select("id, merchant_payable, created_at, status, scheduled_for")
       .eq("id", merchantOrderId)
       .maybeSingle();
     if (!mo || mo.status !== "new") return;
+    // A scheduled order doesn't need the same "drop everything, act now"
+    // full-screen/vibrate/beep treatment a same-day order gets — it still
+    // shows up normally in Orders.tsx (with its scheduled time clearly
+    // labeled), and escalate_unacknowledged_orders() (migration 0048) is
+    // the real backstop that pages Ops if it's still unacknowledged as its
+    // delivery window actually approaches, even if this tab isn't open.
+    if (mo.scheduled_for) return;
 
     const { data: items } = await supabase
       .from("order_items")

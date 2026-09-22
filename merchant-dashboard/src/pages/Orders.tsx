@@ -41,7 +41,10 @@ export function Orders() {
     setLoading(true);
     let query = supabase
       .from("merchant_orders")
-      .select("id, order_id, merchant_id, status, subtotal, commission_amount, merchant_payable, created_at, order_items ( id, product_name_snapshot, quantity )")
+      .select(
+        "id, order_id, merchant_id, status, subtotal, commission_amount, merchant_payable, created_at, scheduled_for, " +
+          "order_items ( id, product_name_snapshot, quantity )",
+      )
       .eq("merchant_id", merchant.id)
       .order("created_at", { ascending: false });
 
@@ -81,6 +84,9 @@ export function Orders() {
               <div>
                 <p className="font-medium text-sm">Order #{o.id.slice(0, 8)}</p>
                 <p className="text-xs text-gray-500">{o.order_items.length} item(s) · {new Date(o.created_at).toLocaleDateString()}</p>
+                {o.scheduled_for && (
+                  <p className="text-xs text-navy font-medium mt-0.5">📅 Scheduled for {new Date(o.scheduled_for).toLocaleString()}</p>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-semibold text-sm">{o.merchant_payable.toFixed(2)} ETB</span>

@@ -50,6 +50,16 @@ export function Checkout() {
   const [promoDiscountAmount, setPromoDiscountAmount] = useState<number | null>(null);
   const [promoRuleName, setPromoRuleName] = useState<string | null>(null);
 
+  // Same dead-toggle situation as promo codes: system_settings.
+  // customer_features.scheduled_orders_enabled existed with no picker
+  // anywhere (migration 0027). Bounds mirror create_order()'s own
+  // validation (system_settings.scheduled_orders, migration 0048) so the
+  // picker doesn't let someone pick a time the server will just reject.
+  const [scheduledOrdersEnabled, setScheduledOrdersEnabled] = useState(false);
+  const [deliveryTiming, setDeliveryTiming] = useState<"now" | "scheduled">("now");
+  const [scheduledFor, setScheduledFor] = useState("");
+  const [scheduleBounds, setScheduleBounds] = useState({ minLeadMinutes: 60, maxAdvanceDays: 7 });
+
   const subtotal = items.reduce((sum, item) => sum + item.product_variants.customer_price * item.quantity, 0);
   const total = subtotal - (promoStatus === "valid" ? (promoDiscountAmount ?? 0) : 0);
 
@@ -60,8 +70,18 @@ export function Checkout() {
       .eq("key", "customer_features")
       .maybeSingle()
       .then(({ data }) => {
-        const features = data?.value as { promo_codes_enabled?: boolean } | null;
+        const features = data?.value as { promo_codes_enabled?: boolean; scheduled_orders_enabled?: boolean } | null;
         setPromoCodesEnabled(features?.promo_codes_enabled ?? true);
+        setScheduledOrdersEnabled(features?.scheduled_orders_enabled ?? false);
+      });
+    supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "scheduled_orders")
+      .maybeSingle()
+      .then(({ data }) => {
+        const bounds = data?.value as { min_lead_minutes?: number; max_advance_days?: number } | null;
+        setScheduleBounds({ minLeadMinutes: bounds?.min_lead_minutes ?? 60, maxAdvanceDays: bounds?.max_advance_days ?? 7 });
       });
   }, []);
 
@@ -147,6 +167,16 @@ export function Checkout() {
     setShowNewAddress(false);
   }
 
+  // datetime-local needs "YYYY-MM-DDTHH:mm" in the browser's local time —
+  // same conversion PricingRules.tsx's admin form already uses for its
+  // starts_at/ends_at fields.
+  function toDatetimeLocal(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  const scheduleMin = toDatetimeLocal(new Date(Date.now() + scheduleBounds.minLeadMinutes * 60_000));
+  const scheduleMax = toDatetimeLocal(new Date(Date.now() + scheduleBounds.maxAdvanceDays * 86_400_000));
+
   function cartScopeIds() {
     const merchantIds = new Set<string>();
     const categoryIds = new Set<string>();
@@ -196,11 +226,21 @@ export function Checkout() {
       setError("No payment method is currently available. Please try again later.");
       return;
     }
+    if (scheduledOrdersEnabled && deliveryTiming === "scheduled" && !scheduledFor) {
+      setError("Please choose a delivery date and time, or switch back to \"Deliver now\".");
+      return;
+    }
     setPlacing(true);
     setError(null);
 
     const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke("checkout", {
-      body: { address_id: addressId, payment_provider: paymentProvider, promo_code: promoCode.trim() || undefined },
+      body: {
+        address_id: addressId,
+        payment_provider: paymentProvider,
+        promo_code: promoCode.trim() || undefined,
+        scheduled_for:
+          scheduledOrdersEnabled && deliveryTiming === "scheduled" && scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
+      },
     });
 
     if (checkoutError || !checkoutData) {
@@ -339,6 +379,48 @@ export function Checkout() {
           ))
         )}
       </div>
+
+      {scheduledOrdersEnabled && (
+        <div className="bg-white border rounded-lg p-4 mb-4">
+          <h2 className="font-medium mb-2">Delivery time</h2>
+          <div className="flex gap-2 mb-2">
+            <button
+              type="button"
+              onClick={() => setDeliveryTiming("now")}
+              className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border ${
+                deliveryTiming === "now" ? "bg-navy text-white border-navy" : "bg-white text-gray-600"
+              }`}
+            >
+              Deliver now
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeliveryTiming("scheduled")}
+              className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border ${
+                deliveryTiming === "scheduled" ? "bg-navy text-white border-navy" : "bg-white text-gray-600"
+              }`}
+            >
+              Schedule for later
+            </button>
+          </div>
+          {deliveryTiming === "scheduled" && (
+            <>
+              <input
+                type="datetime-local"
+                value={scheduledFor}
+                min={scheduleMin}
+                max={scheduleMax}
+                onChange={(e) => setScheduledFor(e.target.value)}
+                className="w-full border rounded-md px-3 py-2 text-sm"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Choose a time at least {scheduleBounds.minLeadMinutes >= 60 ? `${scheduleBounds.minLeadMinutes / 60} hour(s)` : `${scheduleBounds.minLeadMinutes} minutes`} from
+                now, and within {scheduleBounds.maxAdvanceDays} days.
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       {promoCodesEnabled && (
         <div className="bg-white border rounded-lg p-4 mb-4">

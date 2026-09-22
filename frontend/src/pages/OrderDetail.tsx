@@ -31,6 +31,7 @@ interface OrderRow {
   discount_amount: number;
   payment_status: string;
   created_at: string;
+  scheduled_for: string | null;
   addresses: { recipient_name: string; line1: string; city: string; phone: string } | null;
   merchant_orders: MerchantOrderRow[];
   payments: { provider: string }[];
@@ -79,7 +80,7 @@ export function OrderDetail() {
     const { data } = await supabase
       .from("orders")
       .select(
-        `id, subtotal, total, delivery_fee, discount_amount, payment_status, created_at,
+        `id, subtotal, total, delivery_fee, discount_amount, payment_status, created_at, scheduled_for,
          addresses ( recipient_name, line1, city, phone ),
          payments ( provider ),
          merchant_orders (
@@ -168,7 +169,14 @@ export function OrderDetail() {
   return (
     <div className="max-w-2xl">
       <h1 className="text-xl font-bold mb-1">Order #{order.id.slice(0, 8)}</h1>
-      <p className="text-sm text-gray-500 mb-6">{new Date(order.created_at).toLocaleString()}</p>
+      <p className="text-sm text-gray-500 mb-1">{new Date(order.created_at).toLocaleString()}</p>
+      {order.scheduled_for ? (
+        <p className="text-sm font-medium text-navy bg-navy-50 inline-block rounded-md px-2 py-1 mb-5">
+          📅 Scheduled for {new Date(order.scheduled_for).toLocaleString()}
+        </p>
+      ) : (
+        <p className="text-sm text-gray-400 mb-5">Delivered as soon as possible</p>
+      )}
 
       {order.addresses && (
         <div className="bg-white border rounded-lg p-4 mb-4 text-sm">

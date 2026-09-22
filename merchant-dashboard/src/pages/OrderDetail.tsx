@@ -17,6 +17,7 @@ interface MerchantOrderDetail {
   subtotal: number;
   commission_amount: number;
   merchant_payable: number;
+  scheduled_for: string | null;
   order_items: OrderItemRow[];
   orders: {
     addresses: { recipient_name: string; phone: string; line1: string; city: string } | null;
@@ -62,7 +63,7 @@ export function OrderDetail() {
     const { data } = await supabase
       .from("merchant_orders")
       .select(
-        `id, status, subtotal, commission_amount, merchant_payable,
+        `id, status, subtotal, commission_amount, merchant_payable, scheduled_for,
          order_items ( id, product_name_snapshot, variant_attributes_snapshot, unit_price, quantity, subtotal ),
          orders ( addresses ( recipient_name, phone, line1, city ), payments ( id, provider, status ) ),
          order_status_history ( status, changed_at, note )`,
@@ -111,7 +112,12 @@ export function OrderDetail() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-xl font-bold mb-4">Order #{order.id.slice(0, 8)}</h1>
+      <h1 className={`text-xl font-bold ${order.scheduled_for ? "mb-1" : "mb-4"}`}>Order #{order.id.slice(0, 8)}</h1>
+      {order.scheduled_for && (
+        <p className="text-sm font-medium text-navy bg-navy-50 inline-block rounded-md px-2 py-1 mb-4">
+          📅 Scheduled for {new Date(order.scheduled_for).toLocaleString()} — no rush, this doesn't need to be prepared yet
+        </p>
+      )}
 
       {order.orders?.addresses && (
         <div className="bg-white border rounded-lg p-4 mb-4 text-sm">

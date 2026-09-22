@@ -101,6 +101,7 @@ export interface MerchantOrder {
   commission_amount: number;
   merchant_payable: number;
   created_at: string;
+  scheduled_for: string | null;
   order_items: OrderItem[];
   orders: {
     addresses: { recipient_name: string; phone: string; line1: string; city: string } | null;

@@ -1,5 +1,5 @@
 // POST /checkout
-// body: { address_id: string, payment_provider: string, promo_code?: string }
+// body: { address_id: string, payment_provider: string, promo_code?: string, scheduled_for?: string }
 // Reads the caller's cart, atomically creates the master order + merchant
 // orders + reserves stock (via the create_order() SQL function), then opens
 // a pending payment record. Stock reservations are rolled back automatically
@@ -40,6 +40,14 @@ function sanitizeOrderError(message: string): { status: number; error: string } 
   if (message.includes("below the minimum order value") || message.includes("too far from one of the stores")) {
     return { status: 400, error: message };
   }
+  // Same treatment for the scheduled-delivery checks (migration 0048) —
+  // create_order() already writes a specific, safe message for each case.
+  if (
+    message.includes("Scheduled orders are not currently available") ||
+    message.includes("Please choose a delivery time")
+  ) {
+    return { status: 400, error: message };
+  }
   console.error("create_order failed:", message);
   return { status: 400, error: "Could not place your order. Please check your cart and try again." };
 }
@@ -55,9 +63,12 @@ Deno.serve(async (req) => {
     }
     const customerId = userData.user.id;
 
-    const { address_id, payment_provider, promo_code } = await req.json();
+    const { address_id, payment_provider, promo_code, scheduled_for } = await req.json();
     if (!address_id || !payment_provider) {
       return jsonResponse({ error: "address_id and payment_provider are required" }, 400);
+    }
+    if (scheduled_for && Number.isNaN(Date.parse(scheduled_for))) {
+      return jsonResponse({ error: "scheduled_for is not a valid date/time." }, 400);
     }
 
     const db = serviceClient();
@@ -123,6 +134,7 @@ Deno.serve(async (req) => {
       p_address_id: address_id,
       p_items: items,
       p_code: promo_code || null,
+      p_scheduled_for: scheduled_for || null,
     });
 
     if (orderError) {
