@@ -3,6 +3,7 @@ import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Marketplace } from "./pages/Marketplace";
 import { ProductDetail } from "./pages/ProductDetail";
+import { BrowseShops } from "./pages/BrowseShops";
 import { Storefront } from "./pages/Storefront";
 import { Cart } from "./pages/Cart";
 import { Checkout } from "./pages/Checkout";
@@ -25,6 +26,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<Marketplace />} />
         <Route path="/products/:slug" element={<ProductDetail />} />
+        <Route path="/stores" element={<BrowseShops />} />
         <Route path="/stores/:slug" element={<Storefront />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/login" element={<Login />} />

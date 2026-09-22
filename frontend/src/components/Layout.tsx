@@ -56,6 +56,9 @@ export function Layout() {
             <Link to="/" className="hover:text-navy">
               Marketplace
             </Link>
+            <Link to="/stores" className="hover:text-navy">
+              Shops
+            </Link>
             {user && (
               <>
                 <Link to="/orders" className="hover:text-navy">

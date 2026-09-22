@@ -10,8 +10,24 @@ const PRODUCT_SELECT = `
   customer_price:products_customer_price,
   product_variants ( id, sku, attributes, price, discount_price, is_default ),
   product_images ( id, url, is_primary, variant_id ),
-  stores ( name, slug )
+  stores ( name, slug ),
+  categories ( name )
 `;
+
+// One group per distinct category among this store's products, plus an
+// "Uncategorized" group (only shown if non-empty) for anything with a null
+// category_id — a shop mid-way through categorizing its catalog shouldn't
+// have products silently disappear from its own storefront.
+function groupByCategory(products: Product[]): { name: string; products: Product[] }[] {
+  const groups = new Map<string, { name: string; products: Product[] }>();
+  for (const p of products) {
+    const key = p.category_id ?? "__uncategorized__";
+    const name = p.categories?.name ?? "Uncategorized";
+    if (!groups.has(key)) groups.set(key, { name, products: [] });
+    groups.get(key)!.products.push(p);
+  }
+  return [...groups.values()];
+}
 
 // A storefront is only shown as open when BOTH the store's own status
 // (merchant-controlled, via merchant-dashboard Store Settings) and the
@@ -74,6 +90,8 @@ export function Storefront() {
       });
   }, [store]);
 
+  const categoryGroups = groupByCategory(products);
+
   if (store === undefined) return <p className="text-gray-500">Loading...</p>;
 
   // A slug that matches nothing is a genuine 404 — an invalid/mistyped link.
@@ -128,6 +146,23 @@ export function Storefront() {
         <p className="text-gray-500">Loading products...</p>
       ) : products.length === 0 ? (
         <p className="text-gray-500">This store doesn't have any products listed yet.</p>
+      ) : categoryGroups.length > 1 ? (
+        <div className="space-y-6">
+          {categoryGroups.map((group) => (
+            <details key={group.name} open className="group">
+              <summary className="cursor-pointer font-semibold text-sm mb-3 list-none flex items-center gap-1.5">
+                <span className="text-gray-400 group-open:rotate-90 transition-transform inline-block">▸</span>
+                {group.name}
+                <span className="text-gray-400 font-normal">({group.products.length})</span>
+              </summary>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {group.products.map((p) => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
+            </details>
+          ))}
+        </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {products.map((p) => (

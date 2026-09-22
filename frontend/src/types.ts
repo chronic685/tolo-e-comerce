@@ -28,6 +28,9 @@ export interface Product {
   merchant_id: string;
   store_id: string;
   category_id: string | null;
+  /** Only present where explicitly selected (Storefront.tsx, for grouping
+   * a shop's products by category). */
+  categories?: { name: string } | null;
   name: string;
   slug: string;
   description: string | null;
