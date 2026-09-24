@@ -192,22 +192,32 @@ export function Users() {
       return;
     }
     setMessage(null);
-    const { error } = await supabase.from("profiles").update({ account_status: "active" }).eq("id", p.id);
-    setMessage(error ? error.message : `${p.full_name ?? "User"} is now active.`);
-    if (error) return;
+    const { error } = await supabase.functions.invoke("admin-set-account-status", {
+      body: { user_id: p.id, status: "active" },
+    });
+    if (error) {
+      setMessage(await edgeFunctionError(error));
+      return;
+    }
+    setMessage(`${p.full_name ?? "User"} is now active and can sign in again.`);
     applyProfileChange(p, { account_status: "active", suspension_reason: null });
   }
 
+  // Goes through admin-set-account-status: besides flipping account_status
+  // (which cuts data access through RLS immediately), it bans the login so
+  // the account can't sign in again or refresh its session.
   async function confirmSuspend(p: StaffProfile) {
     setMessage(null);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ account_status: "suspended", suspension_reason: reason || null })
-      .eq("id", p.id);
-    setMessage(error ? error.message : `${p.full_name ?? "User"} is now suspended.`);
+    const { error } = await supabase.functions.invoke("admin-set-account-status", {
+      body: { user_id: p.id, status: "suspended", reason: reason || null },
+    });
     setReasonPromptId(null);
     setReason("");
-    if (error) return;
+    if (error) {
+      setMessage(await edgeFunctionError(error));
+      return;
+    }
+    setMessage(`${p.full_name ?? "User"} is suspended and can no longer sign in.`);
     applyProfileChange(p, { account_status: "suspended", suspension_reason: reason || null });
   }
 
@@ -360,7 +370,7 @@ export function Users() {
             </select>
             <button
               onClick={() => toggleStatus(p)}
-              disabled={!editable}
+              disabled={!editable || p.id === user?.id || isProtected}
               className={`text-xs px-2 py-1.5 rounded-md border disabled:opacity-50 ${
                 p.account_status === "active" ? "hover:bg-gray-50" : "bg-red-50 text-red-700 border-red-200"
               }`}
