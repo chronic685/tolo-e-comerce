@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, inject, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
-import { env, serviceClient, signIn } from "../env.ts";
+import { env, functionUrl, serviceClient, signIn } from "../env.ts";
 
 // Migration 0049: per-staff page-level access control. Migration 0050 split
 // what used to be a single "super admin = role tolo_admin" concept into two
@@ -330,5 +330,91 @@ describe("admin page permissions and account tiers", () => {
       // session first is what makes this disposable row cleanable again.
       await superClient.from("profiles").update({ admin_tier: null }).eq("id", created.user!.id);
     }
+  });
+
+  // Migration 0051: the checklist, not role, decides database access.
+  describe("page checklist drives data access (migration 0051)", () => {
+    it("role tolo_admin with only the Support page gets no finance access", async () => {
+      const adminToken = await signIn(env.qaStaffEmail, env.qaStaffPassword);
+      const staff = await createDisposableStaff("tolo_admin", ["support"], adminToken);
+      const client = authedClient(await signIn(staff.email, DISPOSABLE_PASSWORD));
+
+      const { count: realPayments } = await db.from("payments").select("id", { count: "exact", head: true });
+      expect(realPayments ?? 0).toBeGreaterThan(0); // otherwise the checks below prove nothing
+
+      const { data: payments, error: paymentsError } = await client.from("payments").select("id").limit(5);
+      expect(paymentsError).toBeNull();
+      expect(payments).toEqual([]);
+
+      const { data: settlements } = await client.from("settlements").select("id").limit(5);
+      expect(settlements).toEqual([]);
+
+      const { error: commissionError } = await client
+        .from("commission_rules")
+        .insert({ scope_type: "platform", rate_percent: 1, is_active: false });
+      expect(commissionError?.message).toMatch(/row-level security/);
+
+      const { data: onSupport } = await client.rpc("has_admin_page", { p_keys: ["support"] });
+      const { data: onSettlements } = await client.rpc("has_admin_page", { p_keys: ["settlements"] });
+      expect(onSupport).toBe(true);
+      expect(onSettlements).toBe(false);
+    });
+
+    it("the Refunds page grants refunds but not settlements or payments", async () => {
+      const adminToken = await signIn(env.qaStaffEmail, env.qaStaffPassword);
+      const staff = await createDisposableStaff("tolo_ops", ["refunds"], adminToken);
+      const client = authedClient(await signIn(staff.email, DISPOSABLE_PASSWORD));
+
+      const { data: canRefunds } = await client.rpc("has_admin_page", { p_keys: ["refunds"] });
+      expect(canRefunds).toBe(true);
+      const { data: payments } = await client.from("payments").select("id").limit(5);
+      expect(payments).toEqual([]);
+      const { data: settlements } = await client.from("settlements").select("id").limit(5);
+      expect(settlements).toEqual([]);
+    });
+
+    it("settlement-run follows the checklist: 403 without the Settlements page, past auth with it", async () => {
+      const adminToken = await signIn(env.qaStaffEmail, env.qaStaffPassword);
+      const without = await createDisposableStaff("tolo_finance", ["payments"], adminToken);
+      const withPage = await createDisposableStaff("tolo_support", ["settlements"], adminToken);
+
+      async function call(email: string) {
+        const token = await signIn(email, DISPOSABLE_PASSWORD);
+        return fetch(functionUrl("settlement-run"), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, apikey: env.anonKey, "Content-Type": "application/json" },
+          body: JSON.stringify({}), // missing fields: 400 once past the auth check
+        });
+      }
+
+      // Role tolo_finance used to be enough on its own.
+      expect((await call(without.email)).status).toBe(403);
+      expect((await call(withPage.email)).status).toBe(400);
+    });
+
+    it("a suspended staff account loses its pages even with a valid token", async () => {
+      const adminToken = await signIn(env.qaStaffEmail, env.qaStaffPassword);
+      const staff = await createDisposableStaff("tolo_ops", ["orders"], adminToken);
+      const client = authedClient(await signIn(staff.email, DISPOSABLE_PASSWORD));
+
+      const { data: before } = await client.rpc("has_admin_page", { p_keys: ["orders"] });
+      expect(before).toBe(true);
+
+      const admin = authedClient(adminToken);
+      const { error } = await admin
+        .from("profiles")
+        .update({ account_status: "suspended", suspension_reason: "QA test" })
+        .eq("id", staff.id);
+      expect(error).toBeNull();
+
+      const { data: after } = await client.rpc("has_admin_page", { p_keys: ["orders"] });
+      expect(after).toBe(false);
+    });
+
+    it("a customer can never satisfy has_admin_page", async () => {
+      const client = authedClient(await signIn(env.qaCustomerEmail, env.qaCustomerPassword));
+      const { data } = await client.rpc("has_admin_page", { p_keys: ["orders", "payments", "settings"] });
+      expect(data).toBe(false);
+    });
   });
 });

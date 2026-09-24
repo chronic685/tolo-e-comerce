@@ -23,6 +23,7 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   // clauses across most tables. RLS predicates run as the querying role, so
   // anon/authenticated must keep EXECUTE or every RLS-protected query breaks.
   "is_tolo_admin",
+  "has_admin_page",
   "is_tolo_finance",
   "is_tolo_marketing",
   "is_tolo_merchant_verification",

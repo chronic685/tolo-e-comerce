@@ -1,6 +1,6 @@
 // POST /settlement-run
 // body: { merchant_id: string, period_start: string, period_end: string }
-// Tolo-finance-only. Batches every "completed" merchant_order in the period
+// Admins, or staff with the Settlements page. Batches every "completed" merchant_order in the period
 // that isn't already in a settlement into a new settlement + settlement_items,
 // nets in any not-yet-consumed financial_adjustments for the merchant, and
 // posts a "settlement" debit to the merchant's wallet ledger.
@@ -23,17 +23,14 @@ Deno.serve(async (req) => {
     const { data: userData, error: authError } = await authed.auth.getUser();
     if (authError || !userData?.user) return jsonResponse({ error: "Not authenticated" }, 401);
 
-    const db = serviceClient();
-
-    const { data: profile } = await db
-      .from("profiles")
-      .select("role")
-      .eq("id", userData.user.id)
-      .single();
-
-    if (!profile || !["tolo_finance", "tolo_admin"].includes(profile.role)) {
+    // Same rule RLS applies (migration 0051): admin tier, or the Settlements
+    // page on an active staff account's checklist.
+    const { data: allowed } = await authed.rpc("has_admin_page", { p_keys: ["settlements"] });
+    if (allowed !== true) {
       return jsonResponse({ error: "Not authorized" }, 403);
     }
+
+    const db = serviceClient();
 
     const { merchant_id, period_start, period_end } = await req.json();
     if (!merchant_id || !period_start || !period_end) {

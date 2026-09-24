@@ -5,7 +5,7 @@
 // The customer's own "it succeeded" claim is never enough (External
 // Integrations spec section 14), so this requires a human who can actually
 // verify the money moved: the merchant for cash (they physically collect
-// it), or Tolo finance for bank/mobile-money transfers (they reconcile
+// it), or Tolo staff with the Payments page for bank/mobile-money transfers (they reconcile
 // against the real bank/telco statement).
 import { serviceClient, userClient } from "../_shared/client.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
@@ -38,8 +38,10 @@ Deno.serve(async (req) => {
     // legitimate relationship to this payment must get 403 unconditionally,
     // not learn (via a 200/already_processed response) whether it happens
     // to already be verified.
-    const { data: profile } = await db.from("profiles").select("role").eq("id", userData.user.id).maybeSingle();
-    let authorized = Boolean(profile && ["tolo_finance", "tolo_admin"].includes(profile.role));
+    // Staff side: same rule RLS applies (migration 0051) -- admin tier, or
+    // the Payments page on an active staff account's checklist.
+    const { data: hasPaymentsPage } = await authed.rpc("has_admin_page", { p_keys: ["payments"] });
+    let authorized = hasPaymentsPage === true;
 
     if (!authorized && MERCHANT_CONFIRMABLE_PROVIDERS.has(payment.provider)) {
       const { data: merchantOrders } = await db.from("merchant_orders").select("merchant_id").eq("order_id", payment.order_id);

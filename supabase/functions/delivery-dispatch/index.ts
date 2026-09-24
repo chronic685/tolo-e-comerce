@@ -34,13 +34,14 @@ Deno.serve(async (req) => {
     const { data: userData, error: authError } = await authed.auth.getUser();
     if (authError || !userData?.user) return jsonResponse({ error: "Not authenticated" }, 401);
 
-    const db = serviceClient();
-
-    const { data: profile } = await db.from("profiles").select("role").eq("id", userData.user.id).maybeSingle();
-    const staffRoles = ["tolo_ops", "tolo_admin", "tolo_finance", "tolo_marketing", "tolo_support", "tolo_merchant_verification"];
-    if (!profile || !staffRoles.includes(profile.role)) {
+    // Same rule RLS applies (migration 0051): admin tier, or the Delivery Ops
+    // page on an active staff account's checklist.
+    const { data: allowed } = await authed.rpc("has_admin_page", { p_keys: ["delivery_ops"] });
+    if (allowed !== true) {
       return jsonResponse({ error: "Not authorized" }, 403);
     }
+
+    const db = serviceClient();
 
     const { delivery_id, status, driver_id, location, note } = await req.json();
     if (!delivery_id || !status) {
