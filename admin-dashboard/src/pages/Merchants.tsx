@@ -60,10 +60,21 @@ export function Merchants() {
     }
     if (status === "rejected") payload.rejection_reason = reasonText ?? null;
     if (status === "suspended") payload.suspension_reason = reasonText ?? null;
-    await supabase.from("merchants").update(payload).eq("id", m.id);
+    const { error } = await supabase.from("merchants").update(payload).eq("id", m.id);
     setReasonPromptId(null);
     setReason("");
-    await load();
+    if (error) return;
+    // Was `await load()` -- setLoading(true) inside it wipes the whole list
+    // to "Loading..." for what should be one row's status changing. The
+    // list is also filtered by status (the STATUS_FILTERS tabs), so a
+    // merchant that no longer matches the active filter (e.g. approved
+    // while viewing "registered") is removed rather than left showing the
+    // wrong status under the wrong tab.
+    setMerchants((prev) =>
+      statusFilter !== "all" && status !== statusFilter
+        ? prev.filter((merchant) => merchant.id !== m.id)
+        : prev.map((merchant) => (merchant.id === m.id ? { ...merchant, ...payload, status } : merchant)),
+    );
   }
 
   async function toggleExpand(m: Merchant) {

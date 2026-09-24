@@ -1,28 +1,15 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
-
-const navItems = [
-  { to: "/", label: "Dashboard", end: true },
-  { to: "/orders", label: "Orders" },
-  { to: "/payments", label: "Payments" },
-  { to: "/merchants", label: "Merchants" },
-  { to: "/products", label: "Products" },
-  { to: "/customers", label: "Customers" },
-  { to: "/delivery-ops", label: "Delivery Ops" },
-  { to: "/pricing-rules", label: "Pricing Rules" },
-  { to: "/refunds", label: "Refunds" },
-  { to: "/settlements", label: "Settlements" },
-  { to: "/inventory-movements", label: "Inventory Movements" },
-  { to: "/notification-templates", label: "Notification Templates" },
-  { to: "/support", label: "Support" },
-  { to: "/users", label: "Users & Roles" },
-  { to: "/audit-log", label: "Audit Log" },
-  { to: "/settings", label: "Settings" },
-];
+import { ADMIN_PAGES } from "../lib/adminPages";
 
 export function Layout() {
-  const { role, signOut } = useAuth();
+  const { role, hasAccess, signOut } = useAuth();
   const navigate = useNavigate();
+  // Nav only ever shows pages this staff member can actually open (super
+  // admins see everything regardless of their own permissions list) — this
+  // is a convenience, not the enforcement; PageGuard on each route is what
+  // actually stops a direct URL visit.
+  const navItems = ADMIN_PAGES.filter((item) => !item.hiddenFromNav && hasAccess(item.key));
 
   async function handleSignOut() {
     await signOut();
@@ -53,6 +40,14 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
+        <NavLink
+          to="/account/password"
+          className={({ isActive }) =>
+            `block px-4 py-2 text-sm border-t border-navy-light/40 ${isActive ? "bg-navy text-white" : "text-slate-300 hover:bg-navy"}`
+          }
+        >
+          Change password
+        </NavLink>
         <button onClick={handleSignOut} className="px-4 py-3 text-sm text-left text-slate-300 hover:bg-navy border-t border-navy-light/40">
           Sign out
         </button>

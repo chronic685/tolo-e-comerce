@@ -67,16 +67,18 @@ export function SavedLocations() {
     e.preventDefault();
     if (!user) return;
     setError(null);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("addresses")
-      .insert({ customer_id: user.id, ...form, country: "ET", is_default: addresses.length === 0 });
+      .insert({ customer_id: user.id, ...form, country: "ET", is_default: addresses.length === 0 })
+      .select()
+      .single();
     if (error) {
       setError("Could not save this location. Please try again.");
       return;
     }
+    setAddresses((prev) => [...prev, data as Address]);
     setForm(EMPTY_FORM);
     setShowForm(false);
-    load();
   }
 
   async function handleSetDefault(id: string) {

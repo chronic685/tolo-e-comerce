@@ -31,24 +31,35 @@ export function Refunds() {
     load();
   }, []);
 
+  // Was `await load()` after each mutation below -- load() sets
+  // loading=true, and the WHOLE page (all three sections) is gated behind
+  // `if (loading) return <p>Loading...</p>` above, so every single status
+  // click flashed the entire Returns & Refunds page. Each is patched into
+  // `returns` (and its nested `refunds`, for the refund-status case)
+  // directly instead.
   async function setReturnStatus(r: ReturnRow, status: ReturnRow["status"]) {
-    await supabase.from("returns").update({ status }).eq("id", r.id);
-    await load();
+    const { error } = await supabase.from("returns").update({ status }).eq("id", r.id);
+    if (error) return;
+    setReturns((prev) => prev.map((row) => (row.id === r.id ? { ...row, status } : row)));
   }
 
   async function issueRefund(r: ReturnRow) {
     const amount = Number(refundAmounts[r.id] ?? r.merchant_orders?.subtotal ?? 0);
     if (!amount || amount <= 0) return;
-    await supabase.from("refunds").insert({ return_id: r.id, amount, status: "pending" });
-    await load();
+    // .select().single() for the server-generated id/status the nested
+    // refunds list needs, rather than re-fetching the whole page to find it.
+    const { data, error } = await supabase.from("refunds").insert({ return_id: r.id, amount, status: "pending" }).select().single();
+    if (error) return;
+    setReturns((prev) => prev.map((row) => (row.id === r.id ? { ...row, refunds: [...row.refunds, data] } : row)));
   }
 
   async function setRefundStatus(refundId: string, status: string) {
-    await supabase
-      .from("refunds")
-      .update({ status, processed_at: status === "completed" || status === "failed" ? new Date().toISOString() : null })
-      .eq("id", refundId);
-    await load();
+    const processed_at = status === "completed" || status === "failed" ? new Date().toISOString() : null;
+    const { error } = await supabase.from("refunds").update({ status, processed_at }).eq("id", refundId);
+    if (error) return;
+    setReturns((prev) =>
+      prev.map((row) => ({ ...row, refunds: row.refunds.map((f) => (f.id === refundId ? { ...f, status, processed_at } : f)) })),
+    );
   }
 
   function handleExport() {

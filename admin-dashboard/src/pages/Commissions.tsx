@@ -39,15 +39,15 @@ export function Commissions() {
       scope_id: scopeType === "platform" ? null : scopeId || null,
       rate_percent: Number(rate),
     };
-    const { error } = editingId
-      ? await supabase.from("commission_rules").update(payload).eq("id", editingId)
-      : await supabase.from("commission_rules").insert(payload);
+    const { data, error } = editingId
+      ? await supabase.from("commission_rules").update(payload).eq("id", editingId).select().single()
+      : await supabase.from("commission_rules").insert(payload).select().single();
     if (error) {
       setError(error.message);
       return;
     }
+    setRules((prev) => (editingId ? prev.map((r) => (r.id === editingId ? data : r)) : [...prev, data]));
     resetForm();
-    await load();
   }
 
   function startEdit(r: CommissionRule) {
@@ -66,8 +66,9 @@ export function Commissions() {
   }
 
   async function toggleActive(r: CommissionRule) {
-    await supabase.from("commission_rules").update({ is_active: !r.is_active }).eq("id", r.id);
-    await load();
+    const { error } = await supabase.from("commission_rules").update({ is_active: !r.is_active }).eq("id", r.id);
+    if (error) return;
+    setRules((prev) => prev.map((rule) => (rule.id === r.id ? { ...rule, is_active: !rule.is_active } : rule)));
   }
 
   function labelFor(r: CommissionRule) {

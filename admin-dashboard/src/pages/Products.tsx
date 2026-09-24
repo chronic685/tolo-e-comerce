@@ -100,16 +100,37 @@ function ProductCatalog() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
 
+  // Was `await load()` after both mutations below -- setLoading(true)
+  // inside it wipes the whole filtered list to "Loading..." for a single
+  // row's status/featured flag changing. The list is also filtered by
+  // status, so a product that no longer matches the active filter (e.g.
+  // approved while viewing "submitted") is removed rather than left
+  // showing under the wrong tab; the "rejected" filter is really
+  // status='draft' + a rejection_reason, so that combined condition is
+  // checked the same way load()'s query itself does.
+  function matchesStatusFilter(status: string, rejectionReason: string | null): boolean {
+    if (statusFilter === "all") return true;
+    if (statusFilter === "rejected") return status === "draft" && rejectionReason != null;
+    return status === statusFilter;
+  }
+
   async function setStatus(p: AdminProduct, status: AdminProduct["status"], reason?: string) {
-    await supabase.from("products").update({ status, rejection_reason: reason ?? null }).eq("id", p.id);
+    const rejection_reason = reason ?? null;
+    const { error } = await supabase.from("products").update({ status, rejection_reason }).eq("id", p.id);
     setRejectingId(null);
     setRejectReason("");
-    await load();
+    if (error) return;
+    setProducts((prev) =>
+      matchesStatusFilter(status, rejection_reason)
+        ? prev.map((prod) => (prod.id === p.id ? { ...prod, status, rejection_reason } : prod))
+        : prev.filter((prod) => prod.id !== p.id),
+    );
   }
 
   async function toggleFeatured(p: AdminProduct) {
-    await supabase.from("products").update({ is_featured: !p.is_featured }).eq("id", p.id);
-    await load();
+    const { error } = await supabase.from("products").update({ is_featured: !p.is_featured }).eq("id", p.id);
+    if (error) return;
+    setProducts((prev) => prev.map((prod) => (prod.id === p.id ? { ...prod, is_featured: !prod.is_featured } : prod)));
   }
 
   function handleExport() {

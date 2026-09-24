@@ -35,20 +35,33 @@ export function Deliveries() {
     supabase.from("drivers").select("*").eq("is_active", true).then(({ data }) => setDrivers(data ?? []));
   }, []);
 
+  // Was `await load()` after every mutation — load() sets loading=true
+  // first, which unmounts the entire list behind a bare "Loading..." (see
+  // the `if (loading) return ...` below), flashing the whole page for what
+  // should be a one-row update. Patching the affected row into state
+  // directly avoids both the network round-trip and the flash; the
+  // optimistic patch only applies once the call is confirmed to have
+  // succeeded, so a failed request leaves the row exactly as it was rather
+  // than lying about the outcome.
   async function assignDriver(delivery: Delivery, driverId: string) {
     setBusyId(delivery.id);
-    await supabase.functions.invoke("delivery-dispatch", {
+    const { error } = await supabase.functions.invoke("delivery-dispatch", {
       body: { delivery_id: delivery.id, status: "assigned", driver_id: driverId },
     });
     setBusyId(null);
-    await load();
+    if (error) return;
+    const driver = drivers.find((d) => d.id === driverId);
+    setDeliveries((prev) =>
+      prev.map((d) => (d.id === delivery.id ? { ...d, status: "assigned", driver_id: driverId, drivers: driver ? { full_name: driver.full_name } : d.drivers } : d)),
+    );
   }
 
   async function advanceStatus(delivery: Delivery, status: string) {
     setBusyId(delivery.id);
-    await supabase.functions.invoke("delivery-dispatch", { body: { delivery_id: delivery.id, status } });
+    const { error } = await supabase.functions.invoke("delivery-dispatch", { body: { delivery_id: delivery.id, status } });
     setBusyId(null);
-    await load();
+    if (error) return;
+    setDeliveries((prev) => prev.map((d) => (d.id === delivery.id ? { ...d, status } : d)));
   }
 
   if (loading) return <p className="text-gray-500">Loading...</p>;

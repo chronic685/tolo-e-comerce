@@ -61,8 +61,9 @@ export function Products() {
 
   async function togglePause(p: Product) {
     const next = p.status === "published" ? "paused" : "published";
-    await supabase.from("products").update({ status: next }).eq("id", p.id);
-    load();
+    const { error } = await supabase.from("products").update({ status: next }).eq("id", p.id);
+    if (error) return;
+    setProducts((prev) => prev.map((prod) => (prod.id === p.id ? { ...prod, status: next } : prod)));
   }
 
   if (!store) {

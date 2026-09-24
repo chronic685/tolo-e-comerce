@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  frontend-apps:
+    name: Lint, typecheck, build (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [frontend, merchant-dashboard, admin-dashboard]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+      - run: npm ci
+        working-directory: ${{ matrix.app }}
+      - run: npm run lint
+        working-directory: ${{ matrix.app }}
+      - run: npm run build
+        working-directory: ${{ matrix.app }}
+
+  backend-tests:
+    name: Regression & security smoke tests (local Supabase)
+    runs-on: ubuntu-latest
+    # Runs against a throwaway Supabase started inside this runner, never the
+    # live project: no Supabase URL/key secrets are referenced anywhere in
+    # this job, and tests/env.ts refuses a non-local SUPABASE_URL under CI.
+    env:
+      # Fixed credentials for accounts that only ever exist in the local
+      # database below -- not secrets.
+      QA_MERCHANT_A_EMAIL: qa-merchant-a@ci.local
+      QA_MERCHANT_A_PASSWORD: ci-merchant-a-password
+      QA_MERCHANT_B_EMAIL: qa-merchant-b@ci.local
+      QA_MERCHANT_B_PASSWORD: ci-merchant-b-password
+      QA_CUSTOMER_EMAIL: qa-customer@ci.local
+      QA_CUSTOMER_PASSWORD: ci-customer-password
+      QA_STAFF_EMAIL: qa-staff@ci.local
+      QA_STAFF_PASSWORD: ci-staff-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Applies every migration in supabase/migrations, then supabase/seed.sql.
+      - name: Start local Supabase
+        run: npx supabase start
+
+      - name: Point the tests at the local stack
+        run: |
+          npx supabase status -o env > supabase.env
+          set -a; . ./supabase.env; set +a
+          {
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "DB_URL=$DB_URL"
+          } >> "$GITHUB_ENV"
+          rm supabase.env
+
+      - name: Serve Edge Functions locally
+        run: |
+          npx supabase functions serve > functions.log 2>&1 &
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS "$SUPABASE_URL/functions/v1/order-status" || true)
+            [ "$code" = "200" ] && echo "Edge Functions ready" && exit 0
+            sleep 2
+          done
+          echo "Edge Functions never became ready:"; cat functions.log; exit 1
+
+      - name: Bootstrap QA staff admin (local database only)
+        run: bash tests/ci/bootstrap-local-db.sh
+
+      - run: npm test
+
+      - name: Edge Function logs
+        if: failure()
+        run: cat functions.log || true

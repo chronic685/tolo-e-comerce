@@ -8,6 +8,7 @@ interface AuthState {
   loading: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<{ error: string | null }>;
   updatePassword: (password: string) => Promise<{ error: string | null }>;
@@ -46,6 +47,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   }
 
+  // Redirect-based: this only returns an error for something that fails
+  // before the browser ever leaves the page (e.g. the provider isn't
+  // enabled in Supabase). The actual session is established after Google
+  // redirects back to redirectTo, picked up by the onAuthStateChange
+  // listener above — same as every other auth path here, no separate
+  // callback handling needed.
+  async function signInWithGoogle() {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/` },
+    });
+    return { error: error?.message ?? null };
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
   }
@@ -70,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user: session?.user ?? null, session, loading, signUp, signIn, signOut, requestPasswordReset, updatePassword }}
+      value={{ user: session?.user ?? null, session, loading, signUp, signIn, signInWithGoogle, signOut, requestPasswordReset, updatePassword }}
     >
       {children}
     </AuthContext.Provider>

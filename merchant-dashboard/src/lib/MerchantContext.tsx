@@ -8,6 +8,12 @@ interface MerchantState {
   store: Store | null;
   loading: boolean;
   refresh: () => Promise<void>;
+  // Patches the cached store in place (e.g. after StoreSettings.tsx saves)
+  // without the network round-trip + app-wide "Loading..." flash refresh()
+  // causes — MerchantGate.tsx (wrapping every authenticated route) is
+  // gated on this context's own `loading`, so refresh() was blanking the
+  // entire app for something as small as a name/description edit.
+  setStoreLocal: (store: Store) => void;
 }
 
 const MerchantContext = createContext<MerchantState | undefined>(undefined);
@@ -57,7 +63,7 @@ export function MerchantProvider({ children }: { children: ReactNode }) {
     refresh();
   }, [refresh]);
 
-  return <MerchantContext.Provider value={{ merchant, store, loading, refresh }}>{children}</MerchantContext.Provider>;
+  return <MerchantContext.Provider value={{ merchant, store, loading, refresh, setStoreLocal: setStore }}>{children}</MerchantContext.Provider>;
 }
 
 export function useMerchant() {

@@ -34,19 +34,27 @@ export function Categories() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim()) return;
-    const { error } = await supabase.from("categories").insert({ name: newName.trim(), slug: slugify(newName) });
+    // .select().single() gets the server-assigned id/created_at/sort_order
+    // back in the same round trip, so the new row can be appended directly
+    // instead of re-fetching the whole list to find it again.
+    const { data, error } = await supabase
+      .from("categories")
+      .insert({ name: newName.trim(), slug: slugify(newName) })
+      .select()
+      .single();
     if (error) {
       setError(error.message);
       return;
     }
+    setCategories((prev) => [...prev, data as Category]);
     setNewName("");
     setError(null);
-    await load();
   }
 
   async function toggleActive(c: Category) {
-    await supabase.from("categories").update({ is_active: !c.is_active }).eq("id", c.id);
-    await load();
+    const { error } = await supabase.from("categories").update({ is_active: !c.is_active }).eq("id", c.id);
+    if (error) return;
+    setCategories((prev) => prev.map((cat) => (cat.id === c.id ? { ...cat, is_active: !cat.is_active } : cat)));
   }
 
   function startEdit(c: Category) {
@@ -70,9 +78,9 @@ export function Categories() {
       setError(error.message);
       return;
     }
+    setCategories((prev) => prev.map((cat) => (cat.id === c.id ? { ...cat, name, slug: slugify(name) } : cat)));
     setEditingId(null);
     setError(null);
-    await load();
   }
 
   async function confirmDelete(c: Category) {
@@ -94,9 +102,9 @@ export function Categories() {
       setDeleteTarget(null);
       return;
     }
+    setCategories((prev) => prev.filter((cat) => cat.id !== deleteTarget.category.id));
     setDeleteTarget(null);
     setError(null);
-    await load();
   }
 
   return (

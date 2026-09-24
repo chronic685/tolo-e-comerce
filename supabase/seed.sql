@@ -1,9 +1,6 @@
-insert into commission_rules (scope_type, rate_percent, is_active)
-values ('platform', 10, true);
-
-insert into categories (name, slug) values
-  ('Electronics', 'electronics'),
-  ('Fashion', 'fashion'),
-  ('Home & Living', 'home-living'),
-  ('Beauty & Health', 'beauty-health'),
-  ('Groceries', 'groceries');
+-- Intentionally empty. Runs only on local/CI databases (`supabase start` /
+-- `db reset`), never on the live project, so anything here would make those
+-- databases differ from production. The base categories come from
+-- 0018_mock_data.sql and the platform commission rule (5%) from
+-- 0021_commission_markup_model.sql; test fixtures are created by
+-- tests/fixtures/ensureQaFixtures.ts.

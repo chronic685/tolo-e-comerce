@@ -49,14 +49,27 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     return productIds.has(productId);
   }
 
+  // Was `await refresh()` -- a full re-fetch of every favorited product id
+  // just to reflect the one id this call already added or removed. Heart
+  // icons render on every ProductCard sharing this same context (Marketplace,
+  // Storefront, ProductDetail), so this ran on every single favorite click
+  // anywhere in the app; patching the Set directly is exact, since the
+  // outcome is fully known from which branch ran.
   async function toggleFavorite(productId: string) {
     if (!user) return;
     if (productIds.has(productId)) {
-      await supabase.from("customer_favorites").delete().eq("customer_id", user.id).eq("product_id", productId);
+      const { error } = await supabase.from("customer_favorites").delete().eq("customer_id", user.id).eq("product_id", productId);
+      if (error) return;
+      setProductIds((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
     } else {
-      await supabase.from("customer_favorites").insert({ customer_id: user.id, product_id: productId });
+      const { error } = await supabase.from("customer_favorites").insert({ customer_id: user.id, product_id: productId });
+      if (error) return;
+      setProductIds((prev) => new Set(prev).add(productId));
     }
-    await refresh();
   }
 
   return (

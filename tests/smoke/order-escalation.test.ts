@@ -243,9 +243,16 @@ describe("order escalation: escalate_unacknowledged_orders()", () => {
         .gte("created_at", new Date(Date.now() - 60_000).toISOString())
     ).count!;
 
-    const recipientCount = (
-      await db.from("profiles").select("id", { count: "exact", head: true }).in("role", ["tolo_ops", "tolo_admin"]).eq("account_status", "active")
-    ).count!;
+    // Same recipient rule as escalate_unacknowledged_orders() (migration
+    // 0051): active admins, plus active staff with the Orders page.
+    const { data: activeProfiles } = await db
+      .from("profiles")
+      .select("role, admin_tier, permissions")
+      .eq("account_status", "active")
+      .or("admin_tier.not.is.null,permissions.cs.[\"orders\"]");
+    const recipientCount = (activeProfiles ?? []).filter(
+      (p) => p.admin_tier !== null || (String(p.role).startsWith("tolo_") && (p.permissions as string[]).includes("orders")),
+    ).length;
 
     // Two "workers" racing to claim the same overdue order.
     await Promise.all([runEscalationJob(), runEscalationJob()]);
@@ -264,7 +271,7 @@ describe("order escalation: escalate_unacknowledged_orders()", () => {
     // escalation happened, not two — proves the atomic UPDATE ... WHERE
     // escalated_at IS NULL claim let only one of the two concurrent runs
     // win this specific row. (There can legitimately be more than one
-    // recipient — every active tolo_ops/tolo_admin account gets notified —
+    // recipient — every active admin and Orders-page staff member is notified —
     // so the invariant is "one escalation's worth", not literally "1".)
     expect(afterCount - beforeCount).toBe(recipientCount);
   });

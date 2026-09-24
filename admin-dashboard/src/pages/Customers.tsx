@@ -52,15 +52,18 @@ export function Customers() {
       setReasonPromptId(reasonPromptId === c.id ? null : c.id);
       return;
     }
-    await supabase.from("profiles").update({ account_status: "active" }).eq("id", c.id);
-    await load();
+    const { error } = await supabase.from("profiles").update({ account_status: "active" }).eq("id", c.id);
+    if (error) return;
+    setCustomers((prev) => prev.map((cust) => (cust.id === c.id ? { ...cust, account_status: "active", suspension_reason: null } : cust)));
   }
 
   async function confirmSuspend(c: CustomerProfile) {
-    await supabase.from("profiles").update({ account_status: "suspended", suspension_reason: reason || null }).eq("id", c.id);
+    const suspension_reason = reason || null;
+    const { error } = await supabase.from("profiles").update({ account_status: "suspended", suspension_reason }).eq("id", c.id);
     setReasonPromptId(null);
     setReason("");
-    await load();
+    if (error) return;
+    setCustomers((prev) => prev.map((cust) => (cust.id === c.id ? { ...cust, account_status: "suspended", suspension_reason } : cust)));
   }
 
   function handleExport() {

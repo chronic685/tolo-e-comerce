@@ -31,12 +31,23 @@ export function NotificationTemplates() {
       .update({ title_template: d.title, body_template: d.body })
       .eq("id", t.id);
     setMessage(error ? error.message : `Saved "${t.event_type}".`);
-    await load();
+    if (error) return;
+    setTemplates((prev) => prev.map((tpl) => (tpl.id === t.id ? { ...tpl, title_template: d.title, body_template: d.body } : tpl)));
+    // Clears this row's draft now that it matches the saved value, so
+    // `dirty` goes back to false and the Save button disappears again --
+    // previously implicit in the full re-fetch, which re-derived every
+    // draft from fresh server data.
+    setEditing((prev) => {
+      const next = { ...prev };
+      delete next[t.id];
+      return next;
+    });
   }
 
   async function toggleEnabled(t: NotificationTemplate) {
-    await supabase.from("notification_templates").update({ enabled: !t.enabled }).eq("id", t.id);
-    await load();
+    const { error } = await supabase.from("notification_templates").update({ enabled: !t.enabled }).eq("id", t.id);
+    if (error) return;
+    setTemplates((prev) => prev.map((tpl) => (tpl.id === t.id ? { ...tpl, enabled: !tpl.enabled } : tpl)));
   }
 
   if (loading) return <p className="text-gray-500">Loading...</p>;

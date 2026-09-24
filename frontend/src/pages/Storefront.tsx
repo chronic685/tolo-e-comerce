@@ -91,6 +91,13 @@ export function Storefront() {
   }, [store]);
 
   const categoryGroups = groupByCategory(products);
+  // logo_url first; if the shop hasn't set one, fall back to its most
+  // recently added product's photo (products is already ordered by
+  // created_at desc, so products[0] is that product — no extra query
+  // needed). null if neither exists, rendered as the same neutral gray box
+  // ProductCard.tsx already uses in place of a generic placeholder image
+  // (there isn't one anywhere in this codebase to reuse).
+  const storePhoto = store?.logo_url ?? products[0]?.product_images.find((i) => i.is_primary)?.url ?? products[0]?.product_images[0]?.url ?? null;
 
   if (store === undefined) return <p className="text-gray-500">Loading...</p>;
 
@@ -130,9 +137,9 @@ export function Storefront() {
         </div>
       )}
       <div className="flex items-center gap-4 mb-6">
-        {store.logo_url && (
-          <img src={store.logo_url} alt={store.name} className="w-16 h-16 rounded-full object-cover border flex-shrink-0" />
-        )}
+        <div className="w-16 h-16 rounded-full bg-gray-100 border flex-shrink-0 overflow-hidden">
+          {storePhoto && <img src={storePhoto} alt={store.name} className="w-full h-full object-cover" />}
+        </div>
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold">{store.name}</h1>

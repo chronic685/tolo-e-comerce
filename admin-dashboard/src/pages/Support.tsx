@@ -22,8 +22,9 @@ export function Support() {
   }, []);
 
   async function setStatus(t: SupportTicket, status: string) {
-    await supabase.from("support_tickets").update({ status }).eq("id", t.id);
-    await load();
+    const { error } = await supabase.from("support_tickets").update({ status }).eq("id", t.id);
+    if (error) return;
+    setTickets((prev) => prev.map((ticket) => (ticket.id === t.id ? { ...ticket, status } : ticket)));
   }
 
   if (loading) return <p className="text-gray-500">Loading...</p>;

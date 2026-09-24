@@ -187,6 +187,12 @@ declare
 begin
   select id into v_merchant_id from merchants where business_name = 'Habesha Electronics';
 
+  -- No demo data on a fresh database (see 0018_mock_data.sql) -- nothing to rebuild.
+  if v_merchant_id is null then
+    raise notice '0021: demo merchant not present, skipping demo order rebuild';
+    return;
+  end if;
+
   select o.id into v_old_order_id
   from orders o
   where o.customer_id = v_customer_user

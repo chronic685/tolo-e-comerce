@@ -71,6 +71,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     refresh();
   }, [refresh]);
 
+  // All three mutations below were `await refresh()` -- refresh() sets
+  // loading=true, and Cart.tsx renders `if (loading) return <p>Loading
+  // cart...</p>` while that's true, so every quantity +/- click (the most
+  // frequent interaction on this page) wiped the entire cart. Each is
+  // patched into `items` directly instead; addItem/updateQuantity use
+  // .select(CART_ITEM_SELECT) on the write itself to get the row (with its
+  // joined product/variant data) back in the same round trip rather than a
+  // second full-list fetch.
   async function addItem(variantId: string, quantity: number) {
     const cartId = await getOrCreateCart();
     if (!cartId) return;
@@ -83,14 +91,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
 
     if (existing) {
-      await supabase
+      const { data, error } = await supabase
         .from("cart_items")
         .update({ quantity: existing.quantity + quantity })
-        .eq("id", existing.id);
+        .eq("id", existing.id)
+        .select(CART_ITEM_SELECT)
+        .single();
+      if (error) return;
+      setItems((prev) => prev.map((item) => (item.id === existing.id ? (data as unknown as CartItem) : item)));
     } else {
-      await supabase.from("cart_items").insert({ cart_id: cartId, variant_id: variantId, quantity });
+      const { data, error } = await supabase
+        .from("cart_items")
+        .insert({ cart_id: cartId, variant_id: variantId, quantity })
+        .select(CART_ITEM_SELECT)
+        .single();
+      if (error) return;
+      setItems((prev) => [...prev, data as unknown as CartItem]);
     }
-    await refresh();
   }
 
   async function updateQuantity(itemId: string, quantity: number) {
@@ -98,13 +115,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
       await removeItem(itemId);
       return;
     }
-    await supabase.from("cart_items").update({ quantity }).eq("id", itemId);
-    await refresh();
+    const { error } = await supabase.from("cart_items").update({ quantity }).eq("id", itemId);
+    if (error) return;
+    setItems((prev) => prev.map((item) => (item.id === itemId ? { ...item, quantity } : item)));
   }
 
   async function removeItem(itemId: string) {
-    await supabase.from("cart_items").delete().eq("id", itemId);
-    await refresh();
+    const { error } = await supabase.from("cart_items").delete().eq("id", itemId);
+    if (error) return;
+    setItems((prev) => prev.filter((item) => item.id !== itemId));
   }
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);

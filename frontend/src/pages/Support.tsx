@@ -39,15 +39,22 @@ export function Support() {
     if (!user || !subject.trim()) return;
     setSubmitting(true);
     setError(null);
-    const { error } = await supabase.from("support_tickets").insert({ user_id: user.id, subject, body: body || null });
+    const { data, error } = await supabase
+      .from("support_tickets")
+      .insert({ user_id: user.id, subject, body: body || null })
+      .select("id, subject, body, status, created_at, merchant_order_id")
+      .single();
     setSubmitting(false);
     if (error) {
       setError("Could not submit your ticket. Please try again.");
       return;
     }
+    // A brand-new ticket never has a merchant_order_id from this form (no
+    // "report an issue" flow attaches one here), so merchant_orders is
+    // always null for it -- safe to construct locally without a re-fetch.
+    setTickets((prev) => [{ ...data, merchant_orders: null }, ...prev]);
     setSubject("");
     setBody("");
-    load();
   }
 
   return (
