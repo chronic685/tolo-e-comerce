@@ -13,8 +13,19 @@ function required(name: string): string {
   return value;
 }
 
+// CI must only ever run against the throwaway local Supabase the workflow
+// starts (see .github/workflows/ci.yml), so refuse any other URL there --
+// even if someone adds live-project secrets back to the workflow later.
+function supabaseUrl(): string {
+  const url = required("SUPABASE_URL");
+  if (process.env.CI === "true" && !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/.test(url)) {
+    throw new Error(`Refusing to run tests in CI against a non-local Supabase (${url}).`);
+  }
+  return url;
+}
+
 export const env = {
-  supabaseUrl: required("SUPABASE_URL"),
+  supabaseUrl: supabaseUrl(),
   anonKey: required("SUPABASE_ANON_KEY"),
   serviceRoleKey: required("SUPABASE_SERVICE_ROLE_KEY"),
   qaMerchantAEmail: required("QA_MERCHANT_A_EMAIL"),

@@ -12,9 +12,9 @@ if (existsSync(localEnvFile)) {
 export default defineConfig({
   test: {
     globalSetup: ["./tests/globalSetup.ts"],
-    // Every test in this suite talks to the real deployed Supabase project
-    // over the network (there is no local/offline Supabase available in
-    // this environment — see tests/README.md) — allow enough time for that.
+    // Locally this suite talks to the real deployed Supabase project over
+    // the network (no Docker here, see tests/README.md); CI uses a local
+    // Supabase started in the runner. Allow enough time for the network case.
     testTimeout: 20_000,
     hookTimeout: 30_000,
     // Vitest runs test files in worker processes that don't inherit changes
