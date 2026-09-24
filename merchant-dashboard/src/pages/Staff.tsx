@@ -97,21 +97,29 @@ export function Staff() {
     if (!merchant || !found) return;
     setAdding(true);
     setAddError(null);
-    const { error } = await supabase.from("merchant_staff").insert({ merchant_id: merchant.id, user_id: found.id, role });
+    const { data, error } = await supabase
+      .from("merchant_staff")
+      .insert({ merchant_id: merchant.id, user_id: found.id, role })
+      .select("id, created_at")
+      .single();
     setAdding(false);
     if (error) {
       setAddError(error.message);
       return;
     }
+    // `found` already has the full_name/phone this row's profiles embed
+    // would return, from the phone-number search above — no need to
+    // re-fetch the whole staff list just to get them back.
+    setStaff((prev) => [...prev, { id: data.id, role, created_at: data.created_at, user_id: found.id, profiles: { full_name: found.full_name, phone: found.phone } }]);
     setPhone("");
     setFound(undefined);
     setRole("store_manager");
-    await load();
   }
 
   async function handleRemove(staffId: string) {
-    await supabase.from("merchant_staff").delete().eq("id", staffId);
-    await load();
+    const { error } = await supabase.from("merchant_staff").delete().eq("id", staffId);
+    if (error) return;
+    setStaff((prev) => prev.filter((s) => s.id !== staffId));
   }
 
   if (featureLoading) return <p className="text-gray-500">Loading...</p>;

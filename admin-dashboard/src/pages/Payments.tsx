@@ -49,7 +49,12 @@ export function Payments() {
       setError("Could not confirm this payment. Please try again.");
       return;
     }
-    load();
+    // Was `load()` -- setLoading(true) inside it wipes the whole list to
+    // "Loading..." for one payment's status changing. `filter` is applied
+    // client-side at render time (not a server query param), so patching
+    // status here re-filters correctly on the next render with no extra
+    // fetch needed.
+    setPayments((prev) => prev.map((p) => (p.id === payment.id ? { ...p, status: "verified" } : p)));
   }
 
   function handleExport() {

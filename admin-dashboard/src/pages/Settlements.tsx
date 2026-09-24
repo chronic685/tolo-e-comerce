@@ -46,18 +46,23 @@ export function Settlements() {
   async function handleAddAdjustment(e: React.FormEvent) {
     e.preventDefault();
     if (!adjMerchantId || !adjAmount || !adjReason.trim()) return;
-    const { error } = await supabase.from("financial_adjustments").insert({
-      merchant_id: adjMerchantId,
-      type: adjType,
-      amount: Number(adjAmount),
-      reason: adjReason.trim(),
-    });
+    const { data, error } = await supabase
+      .from("financial_adjustments")
+      .insert({
+        merchant_id: adjMerchantId,
+        type: adjType,
+        amount: Number(adjAmount),
+        reason: adjReason.trim(),
+      })
+      .select("id, merchant_id, order_id, settlement_id, type, amount, reason, created_at")
+      .single();
     if (!error) {
+      const merchant = merchants.find((m) => m.id === adjMerchantId);
+      setAdjustments((prev) => [{ ...data, merchants: merchant ? { business_name: merchant.business_name } : null }, ...prev]);
       setAdjMerchantId("");
       setAdjAmount("");
       setAdjReason("");
       setShowAdjustmentForm(false);
-      await loadAdjustments();
     }
   }
 
@@ -77,7 +82,27 @@ export function Settlements() {
       return;
     }
     setMessage(data?.message ?? `Settled ${data?.total_amount ?? 0} ETB across ${data?.item_count ?? 0} order(s).`);
-    await load();
+    // The function's response only carries totals, not the full settlement
+    // row -- everything else needed to render one (period, merchant name,
+    // default status) is already in hand from the form + the merchants
+    // list already loaded, so no need to re-fetch the whole settlements
+    // list just to add this one.
+    if (data?.settlement_id) {
+      const merchant = merchants.find((m) => m.id === merchantId);
+      setSettlements((prev) => [
+        {
+          id: data.settlement_id,
+          merchant_id: merchantId,
+          period_start: periodStart,
+          period_end: periodEnd,
+          total_amount: data.total_amount ?? 0,
+          status: "pending",
+          created_at: new Date().toISOString(),
+          merchants: merchant ? { business_name: merchant.business_name } : null,
+        },
+        ...prev,
+      ]);
+    }
   }
 
   function handleExport() {

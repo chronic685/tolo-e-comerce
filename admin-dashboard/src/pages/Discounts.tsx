@@ -57,8 +57,9 @@ export function Discounts() {
   }
 
   async function toggleActive(r: DiscountRule) {
-    await supabase.from("discount_rules").update({ is_active: !r.is_active }).eq("id", r.id);
-    await load();
+    const { error } = await supabase.from("discount_rules").update({ is_active: !r.is_active }).eq("id", r.id);
+    if (error) return;
+    setRules((prev) => prev.map((rule) => (rule.id === r.id ? { ...rule, is_active: !rule.is_active } : rule)));
   }
 
   function labelFor(r: DiscountRule) {
@@ -152,17 +153,21 @@ export function Discounts() {
       ends_at: form.ends_at || null,
     };
 
-    const { error } = editingId
-      ? await supabase.from("discount_rules").update(payload).eq("id", editingId)
-      : await supabase.from("discount_rules").insert(payload);
+    // .select().single() either way, so the confirmed server row (with its
+    // generated id/created_at for a new rule, or the normalized code from
+    // normalize_discount_code for an edit) can be patched/prepended
+    // directly instead of re-fetching the whole list afterward.
+    const { data, error } = editingId
+      ? await supabase.from("discount_rules").update(payload).eq("id", editingId).select().single()
+      : await supabase.from("discount_rules").insert(payload).select().single();
 
     setSaving(false);
     if (error) {
       setError(error.message);
       return;
     }
+    setRules((prev) => (editingId ? prev.map((r) => (r.id === editingId ? (data as DiscountRule) : r)) : [data as DiscountRule, ...prev]));
     cancelForm();
-    await load();
   }
 
   function handleExport() {

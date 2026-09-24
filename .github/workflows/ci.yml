@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  frontend-apps:
+    name: Lint, typecheck, build (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [frontend, merchant-dashboard, admin-dashboard]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+      - run: npm ci
+        working-directory: ${{ matrix.app }}
+      - run: npm run lint
+        working-directory: ${{ matrix.app }}
+      - run: npm run build
+        working-directory: ${{ matrix.app }}
+
+  backend-tests:
+    name: Regression & security smoke tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          QA_MERCHANT_A_EMAIL: ${{ secrets.QA_MERCHANT_A_EMAIL }}
+          QA_MERCHANT_A_PASSWORD: ${{ secrets.QA_MERCHANT_A_PASSWORD }}
+          QA_MERCHANT_B_EMAIL: ${{ secrets.QA_MERCHANT_B_EMAIL }}
+          QA_MERCHANT_B_PASSWORD: ${{ secrets.QA_MERCHANT_B_PASSWORD }}
+          QA_CUSTOMER_EMAIL: ${{ secrets.QA_CUSTOMER_EMAIL }}
+          QA_CUSTOMER_PASSWORD: ${{ secrets.QA_CUSTOMER_PASSWORD }}
+          QA_STAFF_EMAIL: ${{ secrets.QA_STAFF_EMAIL }}
+          QA_STAFF_PASSWORD: ${{ secrets.QA_STAFF_PASSWORD }}

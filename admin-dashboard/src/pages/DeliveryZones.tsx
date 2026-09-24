@@ -31,8 +31,9 @@ export function DeliveryZones() {
   }, []);
 
   async function toggleActive(z: DeliveryZone) {
-    await supabase.from("delivery_zones").update({ is_active: !z.is_active }).eq("id", z.id);
-    await load();
+    const { error } = await supabase.from("delivery_zones").update({ is_active: !z.is_active }).eq("id", z.id);
+    if (error) return;
+    setZones((prev) => prev.map((zone) => (zone.id === z.id ? { ...zone, is_active: !zone.is_active } : zone)));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -43,25 +44,29 @@ export function DeliveryZones() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from("delivery_zones").insert({
-      name: form.name.trim(),
-      description: form.description.trim() || null,
-      center_latitude: Number(form.center_latitude),
-      center_longitude: Number(form.center_longitude),
-      radius_km: Number(form.radius_km),
-      delivery_fee: Number(form.delivery_fee),
-      free_delivery_threshold: form.free_delivery_threshold ? Number(form.free_delivery_threshold) : null,
-      max_distance_km: form.max_distance_km ? Number(form.max_distance_km) : null,
-      estimated_delivery_minutes: form.estimated_delivery_minutes ? Number(form.estimated_delivery_minutes) : null,
-    });
+    const { data, error } = await supabase
+      .from("delivery_zones")
+      .insert({
+        name: form.name.trim(),
+        description: form.description.trim() || null,
+        center_latitude: Number(form.center_latitude),
+        center_longitude: Number(form.center_longitude),
+        radius_km: Number(form.radius_km),
+        delivery_fee: Number(form.delivery_fee),
+        free_delivery_threshold: form.free_delivery_threshold ? Number(form.free_delivery_threshold) : null,
+        max_distance_km: form.max_distance_km ? Number(form.max_distance_km) : null,
+        estimated_delivery_minutes: form.estimated_delivery_minutes ? Number(form.estimated_delivery_minutes) : null,
+      })
+      .select()
+      .single();
     setSaving(false);
     if (error) {
       setError(error.message);
       return;
     }
+    setZones((prev) => [data as DeliveryZone, ...prev]);
     setForm(emptyForm);
     setShowForm(false);
-    await load();
   }
 
   return (

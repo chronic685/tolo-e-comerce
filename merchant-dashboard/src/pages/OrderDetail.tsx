@@ -78,6 +78,13 @@ export function OrderDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Both handlers below were `await load()` -- a full re-fetch of every
+  // joined table on this page for a change we already know the outcome of.
+  // handleTransition also appends a status-history entry locally: the
+  // order-status function inserts one server-side, and the confirmed
+  // transition (this exact status, right now) is the same thing it would
+  // have written, so the "Status history" list stays complete without
+  // waiting on a re-fetch to see it.
   async function handleTransition(status: string) {
     setBusy(true);
     setError(null);
@@ -89,7 +96,11 @@ export function OrderDetail() {
       setError(error.message);
       return;
     }
-    await load();
+    setOrder((prev) =>
+      prev
+        ? { ...prev, status, order_status_history: [...prev.order_status_history, { status, changed_at: new Date().toISOString(), note: null }] }
+        : prev,
+    );
   }
 
   async function handleConfirmCash(paymentId: string) {
@@ -103,7 +114,11 @@ export function OrderDetail() {
       setError("Could not confirm this payment. Please try again.");
       return;
     }
-    await load();
+    setOrder((prev) =>
+      prev && prev.orders
+        ? { ...prev, orders: { ...prev.orders, payments: prev.orders.payments.map((p) => (p.id === paymentId ? { ...p, status: "verified" } : p)) } }
+        : prev,
+    );
   }
 
   if (!order) return <p className="text-gray-500">Loading...</p>;

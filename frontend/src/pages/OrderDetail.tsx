@@ -147,7 +147,28 @@ export function OrderDetail() {
       return;
     }
     setCancelling(null);
-    await load();
+    // Was `await load()` -- setLoading(true) inside it wipes the whole page
+    // (`if (loading) return <p>Loading order...</p>`) for one merchant
+    // order's status changing. The order-status function inserts a status-
+    // history row server-side for this exact transition; appending the
+    // same thing locally keeps that list complete without re-fetching
+    // everything to see it.
+    setOrder((prev) =>
+      prev
+        ? {
+            ...prev,
+            merchant_orders: prev.merchant_orders.map((mo) =>
+              mo.id === merchantOrderId
+                ? {
+                    ...mo,
+                    status: "cancelled",
+                    order_status_history: [...mo.order_status_history, { status: "cancelled", changed_at: new Date().toISOString(), note: null }],
+                  }
+                : mo,
+            ),
+          }
+        : prev,
+    );
   }
 
   async function submitReview(merchantOrderId: string, productId: string, rating: number, comment: string) {

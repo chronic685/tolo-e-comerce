@@ -19,19 +19,20 @@ export function Drivers() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!form.full_name.trim() || !form.phone.trim()) return;
-    const { error } = await supabase.from("drivers").insert(form);
+    const { data, error } = await supabase.from("drivers").insert(form).select().single();
     if (error) {
       setError(error.message);
       return;
     }
+    setDrivers((prev) => [...prev, data as Driver]);
     setForm({ full_name: "", phone: "", vehicle_type: "", vehicle_plate: "" });
     setError(null);
-    await load();
   }
 
   async function toggleActive(d: Driver) {
-    await supabase.from("drivers").update({ is_active: !d.is_active }).eq("id", d.id);
-    await load();
+    const { error } = await supabase.from("drivers").update({ is_active: !d.is_active }).eq("id", d.id);
+    if (error) return;
+    setDrivers((prev) => prev.map((driver) => (driver.id === d.id ? { ...driver, is_active: !driver.is_active } : driver)));
   }
 
   return (
