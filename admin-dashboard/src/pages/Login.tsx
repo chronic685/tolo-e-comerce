@@ -98,11 +98,18 @@ export function Login() {
                 className="w-full border rounded-md px-3 py-2 text-sm"
               />
               {error && <p className="text-red-600 text-sm">{error}</p>}
-              <div className="text-right">
-                <Link to="/forgot-password" className="text-xs text-navy font-medium">
-                  Forgot password?
-                </Link>
-              </div>
+              {/* Reset links go by email, and username accounts
+                  ({username}@staff.internal) have no inbox -- so the link
+                  only shows while what's typed could be a real email. */}
+              {(identifier.trim() === "" || identifier.includes("@")) ? (
+                <div className="text-right">
+                  <Link to="/forgot-password" className="text-xs text-navy font-medium">
+                    Forgot password?
+                  </Link>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 text-right">Forgot your password? Ask an admin to reset your account.</p>
+              )}
               <button
                 type="submit"
                 disabled={loading}

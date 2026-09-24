@@ -40,6 +40,14 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
+        <NavLink
+          to="/account/password"
+          className={({ isActive }) =>
+            `block px-4 py-2 text-sm border-t border-navy-light/40 ${isActive ? "bg-navy text-white" : "text-slate-300 hover:bg-navy"}`
+          }
+        >
+          Change password
+        </NavLink>
         <button onClick={handleSignOut} className="px-4 py-3 text-sm text-left text-slate-300 hover:bg-navy border-t border-navy-light/40">
           Sign out
         </button>

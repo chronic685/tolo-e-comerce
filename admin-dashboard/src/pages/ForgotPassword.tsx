@@ -28,6 +28,12 @@ export function ForgotPassword() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (cooldown > 0) return;
+    // Someone who types their synthetic address directly would otherwise get
+    // "check your email" for an inbox that doesn't exist.
+    if (email.trim().toLowerCase().endsWith("@staff.internal")) {
+      setError("Username accounts can't reset by email. Ask an admin to reset your account.");
+      return;
+    }
     setLoading(true);
     setError(null);
     const { error } = await requestPasswordReset(email);

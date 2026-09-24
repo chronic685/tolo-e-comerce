@@ -21,6 +21,7 @@ import { Support } from "./pages/Support";
 import { DeliveryOps } from "./pages/DeliveryOps";
 import { NotificationTemplates } from "./pages/NotificationTemplates";
 import { InventoryMovements } from "./pages/InventoryMovements";
+import { ChangePassword } from "./pages/ChangePassword";
 
 export default function App() {
   return (
@@ -30,6 +31,8 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
+          {/* Every signed-in account, whatever its page checklist -- not a PageGuard page. */}
+          <Route path="/account/password" element={<ChangePassword />} />
           <Route
             path="/"
             element={
