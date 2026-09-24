@@ -30,6 +30,15 @@ declare
   v_merchant_order_id uuid;
   v_payment_id uuid;
 begin
+  -- The demo auth users only exist in the original project. On a fresh
+  -- database (local dev, CI) there's nothing to attach this data to, so skip
+  -- it rather than fail every later migration.
+  if not exists (select 1 from auth.users where id = v_merchant_user)
+     or not exists (select 1 from auth.users where id = v_customer_user) then
+    raise notice '0018_mock_data: demo users not present, skipping demo data';
+    return;
+  end if;
+
   select id into v_category_id from categories where slug = 'electronics';
 
   -- Merchant + store
