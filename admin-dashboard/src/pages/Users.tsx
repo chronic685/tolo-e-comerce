@@ -45,7 +45,7 @@ const EMPTY_CREATE_FORM = {
 };
 
 export function Users() {
-  const { isAdmin, isSuperAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin, user } = useAuth();
   const [staff, setStaff] = useState<StaffProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -60,6 +60,15 @@ export function Users() {
   const [createForm, setCreateForm] = useState(EMPTY_CREATE_FORM);
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  // Username stays read-only until focused: Chrome autofills the signed-in
+  // admin's own saved login into a username field on page load and ignores
+  // autocomplete="off" there, but never fills a read-only field.
+  const [usernameUnlocked, setUsernameUnlocked] = useState(false);
+
+  const [credEdit, setCredEdit] = useState<{ id: string; mode: "username" | "password" } | null>(null);
+  const [credValue, setCredValue] = useState("");
+  const [credError, setCredError] = useState<string | null>(null);
+  const [credSaving, setCredSaving] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -113,6 +122,55 @@ export function Users() {
   // demote, or edit another admin or the super admin account" at all.
   function canManage(p: StaffProfile): boolean {
     return isSuperAdmin || (isAdmin && p.admin_tier === null);
+  }
+
+  // Mirrors admin-update-staff's rules, which are the real enforcement: never
+  // your own row (that's the Change password page), never the super admin,
+  // and admin-tier rows only for the super admin.
+  function canEditCredentials(p: StaffProfile): boolean {
+    if (!isAdmin || p.id === user?.id || p.role === "customer" || p.admin_tier === "super_admin") return false;
+    return isSuperAdmin || p.admin_tier === null;
+  }
+
+  function openCredEdit(p: StaffProfile, mode: "username" | "password") {
+    const same = credEdit?.id === p.id && credEdit.mode === mode;
+    setCredEdit(same ? null : { id: p.id, mode });
+    setCredValue(!same && mode === "username" ? (p.username ?? "") : "");
+    setCredError(null);
+  }
+
+  async function saveCredentials(p: StaffProfile) {
+    if (!credEdit) return;
+    const value = credEdit.mode === "username" ? credValue.trim() : credValue;
+    const problem =
+      credEdit.mode === "username"
+        ? (usernameProblem(value) ?? (value ? null : "Enter a username."))
+        : value.length < 8
+          ? "Password must be at least 8 characters."
+          : null;
+    if (problem) {
+      setCredError(problem);
+      return;
+    }
+    setCredSaving(true);
+    setCredError(null);
+    const { data, error } = await supabase.functions.invoke("admin-update-staff", {
+      body: { user_id: p.id, [credEdit.mode]: value },
+    });
+    setCredSaving(false);
+    if (error) {
+      setCredError(await edgeFunctionError(error));
+      return;
+    }
+    const name = p.full_name ?? p.username ?? "Account";
+    if (credEdit.mode === "username") {
+      applyProfileChange(p, { username: data.username });
+      setMessage(`${name} now signs in as "${data.username}".`);
+    } else {
+      setMessage(`Password reset for ${name}. Share the new password with them securely.`);
+    }
+    setCredEdit(null);
+    setCredValue("");
   }
 
   async function changeRole(p: StaffProfile, role: string) {
@@ -255,8 +313,13 @@ export function Users() {
     setMessage(`Account "${data.username}" created.`);
   }
 
-  function RoleRow({ p }: { p: StaffProfile }) {
+  // A render function, not a nested component: a component declared inside
+  // Users() is a new type on every render, so React remounted each row on
+  // every keystroke and text inputs inside it (suspend reason, username,
+  // password) lost focus after one character.
+  function renderRow(p: StaffProfile) {
     const editable = canManage(p);
+    const credEditable = canEditCredentials(p);
     const isProtected = p.admin_tier === "super_admin";
     return (
       <div>
@@ -314,6 +377,22 @@ export function Users() {
                 {p.admin_tier === "admin" ? "Revoke admin" : "Grant admin"}
               </button>
             )}
+            {credEditable && p.username && (
+              <button
+                onClick={() => openCredEdit(p, "username")}
+                className="text-xs px-2 py-1.5 rounded-md border hover:bg-gray-50"
+              >
+                Edit username
+              </button>
+            )}
+            {credEditable && (
+              <button
+                onClick={() => openCredEdit(p, "password")}
+                className="text-xs px-2 py-1.5 rounded-md border hover:bg-gray-50"
+              >
+                Reset password
+              </button>
+            )}
             {editable && p.role !== "customer" && !isProtected && (
               <button
                 onClick={() => setDeleteConfirmId(deleteConfirmId === p.id ? null : p.id)}
@@ -339,6 +418,68 @@ export function Users() {
               Confirm suspend
             </button>
           </div>
+        )}
+        {credEdit?.id === p.id && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              saveCredentials(p);
+            }}
+            autoComplete="off"
+            className="px-3 pb-3"
+          >
+            <div className="flex gap-2">
+              {credEdit.mode === "username" ? (
+                <input
+                  name="edit-staff-username"
+                  aria-label="New username"
+                  placeholder="New username"
+                  value={credValue}
+                  onChange={(e) => setCredValue(e.target.value.toLowerCase())}
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  autoFocus
+                  className="flex-1 border rounded-md px-3 py-1.5 text-sm"
+                />
+              ) : (
+                <input
+                  type="password"
+                  name="edit-staff-password"
+                  aria-label="New password"
+                  placeholder="New password (min. 8 characters)"
+                  value={credValue}
+                  onChange={(e) => setCredValue(e.target.value)}
+                  autoComplete="new-password"
+                  autoFocus
+                  className="flex-1 border rounded-md px-3 py-1.5 text-sm"
+                />
+              )}
+              <button
+                type="submit"
+                disabled={credSaving}
+                className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
+              >
+                {credSaving ? "Saving..." : credEdit.mode === "username" ? "Save username" : "Set password"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setCredEdit(null)}
+                className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+            {credError ? (
+              <p className="text-xs text-red-600 mt-1">{credError}</p>
+            ) : (
+              <p className="text-xs text-gray-400 mt-1">
+                {credEdit.mode === "username"
+                  ? "3–31 characters: lowercase letters, numbers, . _ - (no @). They sign in with the new name right away."
+                  : "Takes effect immediately; their old password stops working."}
+              </p>
+            )}
+          </form>
         )}
         {deleteConfirmId === p.id && (
           <div className="px-3 pb-3 flex items-center gap-2">
@@ -398,7 +539,13 @@ export function Users() {
         <h1 className="text-xl font-bold">Users &amp; Roles</h1>
         {isAdmin && (
           <button
-            onClick={() => (showCreateForm ? setShowCreateForm(false) : setShowCreateForm(true))}
+            onClick={() => {
+              // Always opens blank -- never with what was typed last time.
+              setCreateForm(EMPTY_CREATE_FORM);
+              setCreateError(null);
+              setUsernameUnlocked(false);
+              setShowCreateForm(!showCreateForm);
+            }}
             className="bg-navy text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark"
           >
             {showCreateForm ? "Cancel" : "+ New account"}
@@ -412,7 +559,7 @@ export function Users() {
       {message && <p className="text-sm bg-navy-50 text-navy rounded-md px-3 py-2 mb-4">{message}</p>}
 
       {showCreateForm && isAdmin && (
-        <form onSubmit={handleCreate} className="bg-white border rounded-lg p-4 mb-4 space-y-3">
+        <form onSubmit={handleCreate} autoComplete="off" className="bg-white border rounded-lg p-4 mb-4 space-y-3">
           <h2 className="font-medium text-sm">Create account</h2>
           <p className="text-xs text-gray-400">
             No email required — this account signs in with just the username and password below.
@@ -421,11 +568,16 @@ export function Users() {
             <div>
               <input
                 placeholder="Username"
+                name="new-staff-username"
                 value={createForm.username}
                 // Lowercased as typed: the server lowercases anyway, so this
                 // shows exactly what they'll sign in with.
                 onChange={(e) => setCreateForm({ ...createForm, username: e.target.value.toLowerCase() })}
+                readOnly={!usernameUnlocked}
+                onFocus={() => setUsernameUnlocked(true)}
+                autoComplete="off"
                 autoCapitalize="none"
+                spellCheck={false}
                 aria-invalid={usernameProblem(createForm.username.trim()) !== null}
                 className={`w-full border rounded-md px-3 py-2 text-sm ${
                   usernameProblem(createForm.username.trim()) ? "border-red-400" : ""
@@ -441,8 +593,10 @@ export function Users() {
               <input
                 type="password"
                 placeholder="Password"
+                name="new-staff-password"
                 value={createForm.password}
                 onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                autoComplete="new-password"
                 className="w-full border rounded-md px-3 py-2 text-sm"
               />
               <p
@@ -541,7 +695,7 @@ export function Users() {
       {searchResults.length > 0 && (
         <div className="bg-white border rounded-lg divide-y mb-6">
           {searchResults.map((p) => (
-            <RoleRow key={p.id} p={p} />
+            <div key={p.id}>{renderRow(p)}</div>
           ))}
         </div>
       )}
@@ -554,7 +708,7 @@ export function Users() {
       ) : (
         <div className="bg-white border rounded-lg divide-y">
           {staff.map((p) => (
-            <RoleRow key={p.id} p={p} />
+            <div key={p.id}>{renderRow(p)}</div>
           ))}
         </div>
       )}
