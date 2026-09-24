@@ -102,6 +102,7 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   "notify_merchant_status_change",
   "prevent_ledger_mutation",
   "prevent_role_self_escalation",
+  "prevent_admin_account_deletion",
   "prevent_status_self_change",
   "set_updated_at",
   "normalize_discount_code",

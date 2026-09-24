@@ -166,6 +166,9 @@ export interface StaffProfile {
   role: string;
   account_status: "active" | "suspended";
   suspension_reason: string | null;
+  permissions: string[];
+  admin_tier: "admin" | "super_admin" | null;
+  username: string | null;
   created_at: string;
 }
 
