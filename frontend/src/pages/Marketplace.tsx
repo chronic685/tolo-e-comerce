@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { PackageSearch } from "lucide-react";
+import { EmptyState, SkeletonRows } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { ProductCard } from "../components/ProductCard";
 import type { Category, Product } from "../types";
@@ -172,9 +174,9 @@ export function Marketplace() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Loading products...</p>
+        <SkeletonRows count={4} />
       ) : products.length === 0 ? (
-        <p className="text-gray-500">No products found.</p>
+        <EmptyState icon={PackageSearch} title="No products found" description="Try adjusting your search or filters." />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {products.map((p) => (

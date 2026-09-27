@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { exportToCsv } from "../lib/csvExport";
+import { ExportCsvButton, SkeletonRows } from "@tolo/ui";
 import type { Merchant, MerchantDocument } from "../types";
 
 const STATUS_FILTERS = ["all", "registered", "under_review", "active", "suspended", "rejected", "closed"];
@@ -130,13 +131,7 @@ export function Merchants() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Merchants</h1>
-        <button
-          onClick={handleExport}
-          disabled={merchants.length === 0}
-          className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-40"
-        >
-          ⬇ Export CSV
-        </button>
+        <ExportCsvButton onExport={handleExport} disabled={merchants.length === 0} />
       </div>
 
       <div className="flex gap-2 mb-4 flex-wrap">
@@ -154,7 +149,7 @@ export function Merchants() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Loading...</p>
+        <SkeletonRows />
       ) : merchants.length === 0 ? (
         <p className="text-gray-500">No merchants in this view.</p>
       ) : (

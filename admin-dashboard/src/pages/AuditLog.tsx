@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
+import { ExportCsvButton, SkeletonRows } from "@tolo/ui";
 import type { AuditLogEntry } from "../types";
 
 const ENTITY_FILTERS = ["all", "system_settings", "commission_rules", "discount_rules", "financial_adjustments", "merchants", "products", "profiles"];
@@ -48,13 +49,7 @@ export function AuditLog() {
     <div className="max-w-4xl">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Audit Log</h1>
-        <button
-          onClick={handleExport}
-          disabled={entries.length === 0}
-          className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-40"
-        >
-          ⬇ Export CSV
-        </button>
+        <ExportCsvButton onExport={handleExport} disabled={entries.length === 0} />
       </div>
 
       <div className="flex gap-2 mb-4 flex-wrap">
@@ -72,7 +67,7 @@ export function AuditLog() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Loading...</p>
+        <SkeletonRows />
       ) : entries.length === 0 ? (
         <p className="text-gray-500">No matching audit entries.</p>
       ) : (

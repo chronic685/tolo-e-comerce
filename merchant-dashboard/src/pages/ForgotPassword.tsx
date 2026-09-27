@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -8,7 +9,6 @@ export function ForgotPassword() {
   const { requestPasswordReset } = useAuth();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
@@ -29,11 +29,10 @@ export function ForgotPassword() {
     e.preventDefault();
     if (cooldown > 0) return;
     setLoading(true);
-    setError(null);
     const { error } = await requestPasswordReset(email);
     setLoading(false);
     if (error && !/user not found/i.test(error)) {
-      setError("We couldn't complete the request. Please try again.");
+      toast.error("We couldn't complete the request. Please try again.");
       return;
     }
     setSent(true);
@@ -78,7 +77,6 @@ export function ForgotPassword() {
           required
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
-        {error && <p className="text-red-600 text-sm">{error}</p>}
         <button
           type="submit"
           disabled={loading}

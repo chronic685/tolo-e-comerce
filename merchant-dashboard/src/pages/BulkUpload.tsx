@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ArrowLeft, ChevronRight, Download } from "lucide-react";
+import { SkeletonPage, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import { buildCsv, downloadCsv, parseCsvToObjects } from "../lib/csv";
@@ -64,7 +66,6 @@ export function BulkUpload() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [rows, setRows] = useState<BulkRow[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [parseError, setParseError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [results, setResults] = useState<RowResult[] | null>(null);
 
@@ -183,13 +184,12 @@ export function BulkUpload() {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
-    setParseError(null);
     setResults(null);
 
     const text = await file.text();
     const objects = parseCsvToObjects(text);
     if (objects.length === 0) {
-      setParseError("This file has no data rows — check it matches the template.");
+      toast.error("This file has no data rows — check it matches the template.");
       setRows([]);
       return;
     }
@@ -248,7 +248,7 @@ export function BulkUpload() {
     setImporting(false);
   }
 
-  if (featureLoading) return <p className="text-gray-500">Loading...</p>;
+  if (featureLoading) return <SkeletonPage />;
 
   if (!featureEnabled) {
     return (
@@ -257,8 +257,9 @@ export function BulkUpload() {
         <p className="text-gray-600 text-sm">
           Bulk product upload isn't available on your account yet. Contact Tolo support if you'd like it enabled.
         </p>
-        <Link to="/products" className="text-navy text-sm font-medium mt-4 inline-block">
-          ← Back to products
+        <Link to="/products" className="text-navy text-sm font-medium mt-4 inline-flex items-center gap-1">
+          <ArrowLeft className="w-4 h-4" />
+          Back to products
         </Link>
       </div>
     );
@@ -274,8 +275,9 @@ export function BulkUpload() {
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Bulk upload products</h1>
-        <Link to="/products" className="text-navy text-sm font-medium">
-          ← Back to products
+        <Link to="/products" className="text-navy text-sm font-medium inline-flex items-center gap-1">
+          <ArrowLeft className="w-4 h-4" />
+          Back to products
         </Link>
       </div>
 
@@ -288,8 +290,9 @@ export function BulkUpload() {
           <code>image_url</code> is optional: paste a direct image link and it's attached as-is, the same as pasting a URL in the normal
           product form — nothing is re-uploaded or re-hosted.
         </p>
-        <button onClick={handleDownloadTemplate} className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50">
-          ⬇ Download CSV template
+        <button onClick={handleDownloadTemplate} className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 inline-flex items-center gap-1">
+          <Download className="w-4 h-4" />
+          Download CSV template
         </button>
       </div>
 
@@ -297,7 +300,6 @@ export function BulkUpload() {
         <h2 className="font-medium text-sm mb-2">2. Upload your CSV</h2>
         <input type="file" accept=".csv,text/csv" onChange={handleFileChange} className="text-sm" />
         {fileName && <p className="text-xs text-gray-500 mt-2">{fileName}</p>}
-        {parseError && <p className="text-red-600 text-sm mt-2">{parseError}</p>}
       </div>
 
       {rows.length > 0 && !results && (
@@ -374,8 +376,9 @@ export function BulkUpload() {
               </div>
             ))}
           </div>
-          <Link to="/products" className="text-navy text-sm font-medium mt-4 inline-block">
-            View products →
+          <Link to="/products" className="text-navy text-sm font-medium mt-4 inline-flex items-center gap-1">
+            View products
+            <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
       )}

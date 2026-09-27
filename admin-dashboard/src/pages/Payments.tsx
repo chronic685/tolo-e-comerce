@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
+import { ExportCsvButton, SkeletonRows, toast } from "@tolo/ui";
 import type { Payment } from "../types";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -23,7 +24,6 @@ export function Payments() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("pending");
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -42,11 +42,10 @@ export function Payments() {
 
   async function handleConfirm(payment: Payment) {
     setConfirmingId(payment.id);
-    setError(null);
     const { error } = await supabase.functions.invoke("confirm-payment", { body: { payment_id: payment.id } });
     setConfirmingId(null);
     if (error) {
-      setError("Could not confirm this payment. Please try again.");
+      toast.error("Could not confirm this payment. Please try again.");
       return;
     }
     // Was `load()` -- setLoading(true) inside it wipes the whole list to
@@ -74,15 +73,13 @@ export function Payments() {
 
   const filtered = filter === "all" ? payments : payments.filter((p) => p.status === filter);
 
-  if (loading) return <p className="text-gray-500">Loading...</p>;
+  if (loading) return <SkeletonRows />;
 
   return (
     <div className="max-w-4xl">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Payments</h1>
-        <button onClick={handleExport} disabled={payments.length === 0} className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-40">
-          ⬇ Export CSV
-        </button>
+        <ExportCsvButton onExport={handleExport} disabled={payments.length === 0} />
       </div>
 
       <div className="flex gap-2 mb-4 flex-wrap">
@@ -96,8 +93,6 @@ export function Payments() {
           </button>
         ))}
       </div>
-
-      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
       {filtered.length === 0 ? (
         <p className="text-gray-500 text-sm">No {filter !== "all" ? filter : ""} payments.</p>

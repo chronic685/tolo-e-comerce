@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Users } from "lucide-react";
+import { EmptyState, SkeletonPage, SkeletonRows, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
@@ -38,12 +40,10 @@ export function Staff() {
 
   const [phone, setPhone] = useState("");
   const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
   const [found, setFound] = useState<FoundProfile | null | undefined>(undefined); // undefined = not searched yet
   const [alreadyStaff, setAlreadyStaff] = useState(false);
   const [role, setRole] = useState<(typeof ASSIGNABLE_ROLES)[number]>("store_manager");
   const [adding, setAdding] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
 
   useEffect(() => {
     // Platform-wide toggle (admin-dashboard Settings.tsx, merchant_features
@@ -81,12 +81,11 @@ export function Staff() {
   async function handleSearch() {
     if (!phone.trim()) return;
     setSearching(true);
-    setSearchError(null);
     setFound(undefined);
     const { data, error } = await supabase.functions.invoke("merchant-staff-lookup", { body: { phone: phone.trim() } });
     setSearching(false);
     if (error || !data) {
-      setSearchError("Could not search for that phone number. Please try again.");
+      toast.error("Could not search for that phone number. Please try again.");
       return;
     }
     setFound(data.profile ?? null);
@@ -96,7 +95,6 @@ export function Staff() {
   async function handleAdd() {
     if (!merchant || !found) return;
     setAdding(true);
-    setAddError(null);
     const { data, error } = await supabase
       .from("merchant_staff")
       .insert({ merchant_id: merchant.id, user_id: found.id, role })
@@ -104,7 +102,7 @@ export function Staff() {
       .single();
     setAdding(false);
     if (error) {
-      setAddError(error.message);
+      toast.error(error.message);
       return;
     }
     // `found` already has the full_name/phone this row's profiles embed
@@ -122,7 +120,7 @@ export function Staff() {
     setStaff((prev) => prev.filter((s) => s.id !== staffId));
   }
 
-  if (featureLoading) return <p className="text-gray-500">Loading...</p>;
+  if (featureLoading) return <SkeletonPage />;
 
   if (!featureEnabled) {
     return (
@@ -167,8 +165,6 @@ export function Staff() {
               {searching ? "Searching..." : "Search"}
             </button>
           </div>
-          {searchError && <p className="text-red-600 text-xs mb-2">{searchError}</p>}
-
           {found === null && <p className="text-xs text-gray-500 mb-2">No Tolo account found with that phone number.</p>}
 
           {found && (
@@ -202,17 +198,18 @@ export function Staff() {
               )}
             </div>
           )}
-          {addError && <p className="text-red-600 text-xs mt-2">{addError}</p>}
         </div>
       )}
 
-      <div className="bg-white border rounded-lg divide-y">
-        {loading ? (
-          <p className="text-gray-500 text-sm p-4">Loading...</p>
-        ) : staff.length === 0 ? (
-          <p className="text-gray-500 text-sm p-4">No staff yet.</p>
-        ) : (
-          staff.map((s) => (
+      {loading ? (
+        <SkeletonRows count={3} />
+      ) : staff.length === 0 ? (
+        <div className="bg-white border rounded-lg">
+          <EmptyState icon={Users} title="No staff yet" description="People you add will show up here." />
+        </div>
+      ) : (
+        <div className="bg-white border rounded-lg divide-y">
+          {staff.map((s) => (
             <div key={s.id} className="p-3 flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium">{s.profiles?.full_name ?? "Unnamed"}</p>
@@ -226,9 +223,9 @@ export function Staff() {
                 </button>
               )}
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

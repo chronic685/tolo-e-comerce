@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Package, ChevronRight } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { SkeletonRows } from "@tolo/ui";
 import type { SupportTicket } from "../types";
 
 export function Support() {
@@ -27,12 +29,12 @@ export function Support() {
     setTickets((prev) => prev.map((ticket) => (ticket.id === t.id ? { ...ticket, status } : ticket)));
   }
 
-  if (loading) return <p className="text-gray-500">Loading...</p>;
-
   return (
     <div className="max-w-2xl">
       <h1 className="text-xl font-bold mb-4">Support Tickets</h1>
-      {tickets.length === 0 ? (
+      {loading ? (
+        <SkeletonRows />
+      ) : tickets.length === 0 ? (
         <p className="text-gray-500">No support tickets.</p>
       ) : (
         <div className="bg-white border rounded-lg divide-y">
@@ -46,9 +48,11 @@ export function Support() {
               {t.merchant_orders && (
                 <Link
                   to={`/orders?order_id=${t.merchant_orders.order_id}`}
-                  className="text-xs text-navy hover:underline mb-2 inline-block"
+                  className="inline-flex items-center gap-1 text-xs text-navy hover:underline mb-2"
                 >
-                  📦 Order with {t.merchant_orders.merchants?.business_name ?? "a merchant"} →
+                  <Package className="w-4 h-4" />
+                  Order with {t.merchant_orders.merchants?.business_name ?? "a merchant"}
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </Link>
               )}
               <p className="text-xs text-gray-400 mb-2">{new Date(t.created_at).toLocaleString()}</p>

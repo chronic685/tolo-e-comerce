@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { toast } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 
 export function Login() {
@@ -10,17 +11,15 @@ export function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setError(null);
     const { error } = await signIn(email, password);
     setLoading(false);
     if (error) {
-      setError(error);
+      toast.error(error);
       return;
     }
     navigate(from, { replace: true });
@@ -46,7 +45,6 @@ export function Login() {
           required
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
-        {error && <p className="text-red-600 text-sm">{error}</p>}
         <div className="text-right">
           <Link to="/forgot-password" className="text-xs text-navy font-medium">
             Forgot password?

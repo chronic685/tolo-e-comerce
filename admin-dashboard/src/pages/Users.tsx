@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { ADMIN_PAGES } from "../lib/adminPages";
+import { SkeletonRows, toast } from "@tolo/ui";
 import type { StaffProfile } from "../types";
 
 const ROLES = ["tolo_ops", "tolo_finance", "tolo_admin", "tolo_marketing", "tolo_support", "tolo_merchant_verification"];
@@ -50,7 +51,6 @@ export function Users() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<StaffProfile[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
   const [reasonPromptId, setReasonPromptId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -58,7 +58,6 @@ export function Users() {
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState(EMPTY_CREATE_FORM);
-  const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   // Username stays read-only until focused: Chrome autofills the signed-in
   // admin's own saved login into a username field on page load and ignores
@@ -165,19 +164,21 @@ export function Users() {
     const name = p.full_name ?? p.username ?? "Account";
     if (credEdit.mode === "username") {
       applyProfileChange(p, { username: data.username });
-      setMessage(`${name} now signs in as "${data.username}".`);
+      toast.success(`${name} now signs in as "${data.username}".`);
     } else {
-      setMessage(`Password reset for ${name}. Share the new password with them securely.`);
+      toast.success(`Password reset for ${name}. Share the new password with them securely.`);
     }
     setCredEdit(null);
     setCredValue("");
   }
 
   async function changeRole(p: StaffProfile, role: string) {
-    setMessage(null);
     const { error } = await supabase.from("profiles").update({ role }).eq("id", p.id);
-    setMessage(error ? error.message : `${p.full_name ?? "User"} is now ${role.replace(/_/g, " ")}.`);
-    if (error) return;
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`${p.full_name ?? "User"} is now ${role.replace(/_/g, " ")}.`);
     applyProfileChange(p, { role });
   }
 
@@ -191,15 +192,14 @@ export function Users() {
       setReasonPromptId(reasonPromptId === p.id ? null : p.id);
       return;
     }
-    setMessage(null);
     const { error } = await supabase.functions.invoke("admin-set-account-status", {
       body: { user_id: p.id, status: "active" },
     });
     if (error) {
-      setMessage(await edgeFunctionError(error));
+      toast.error(await edgeFunctionError(error));
       return;
     }
-    setMessage(`${p.full_name ?? "User"} is now active and can sign in again.`);
+    toast.success(`${p.full_name ?? "User"} is now active and can sign in again.`);
     applyProfileChange(p, { account_status: "active", suspension_reason: null });
   }
 
@@ -207,17 +207,16 @@ export function Users() {
   // (which cuts data access through RLS immediately), it bans the login so
   // the account can't sign in again or refresh its session.
   async function confirmSuspend(p: StaffProfile) {
-    setMessage(null);
     const { error } = await supabase.functions.invoke("admin-set-account-status", {
       body: { user_id: p.id, status: "suspended", reason: reason || null },
     });
     setReasonPromptId(null);
     setReason("");
     if (error) {
-      setMessage(await edgeFunctionError(error));
+      toast.error(await edgeFunctionError(error));
       return;
     }
-    setMessage(`${p.full_name ?? "User"} is suspended and can no longer sign in.`);
+    toast.success(`${p.full_name ?? "User"} is suspended and can no longer sign in.`);
     applyProfileChange(p, { account_status: "suspended", suspension_reason: reason || null });
   }
 
@@ -229,10 +228,9 @@ export function Users() {
   // in the first place (see RoleRow below).
   async function updatePermissions(p: StaffProfile, pageKey: string, checked: boolean) {
     const next = checked ? [...p.permissions, pageKey] : p.permissions.filter((k) => k !== pageKey);
-    setMessage(null);
     const { error } = await supabase.from("profiles").update({ permissions: next }).eq("id", p.id);
     if (error) {
-      setMessage(error.message);
+      toast.error(error.message);
       return;
     }
     applyProfileChange(p, { permissions: next });
@@ -244,11 +242,10 @@ export function Users() {
   // structurally regardless). Super-admin-only in the UI; the DB trigger
   // enforces the same thing either way.
   async function updateAdminTier(p: StaffProfile, grant: boolean) {
-    setMessage(null);
     const admin_tier = grant ? "admin" : null;
     const { error } = await supabase.from("profiles").update({ admin_tier }).eq("id", p.id);
     if (error) {
-      setMessage(error.message);
+      toast.error(error.message);
       return;
     }
     applyProfileChange(p, { admin_tier });
@@ -256,33 +253,31 @@ export function Users() {
 
   async function handleDelete(p: StaffProfile) {
     setDeleting(true);
-    setMessage(null);
     const { error } = await supabase.functions.invoke("admin-delete-staff", { body: { user_id: p.id } });
     setDeleting(false);
     setDeleteConfirmId(null);
     if (error) {
-      setMessage(`Could not delete this account: ${await edgeFunctionError(error)}`);
+      toast.error(`Could not delete this account: ${await edgeFunctionError(error)}`);
       return;
     }
     setStaff((prev) => prev.filter((row) => row.id !== p.id));
     setSearchResults((prev) => prev.filter((row) => row.id !== p.id));
-    setMessage(`${p.full_name ?? p.username ?? "Account"} deleted.`);
+    toast.success(`${p.full_name ?? p.username ?? "Account"} deleted.`);
   }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    setCreateError(null);
     if (!createForm.username.trim() || !createForm.password) {
-      setCreateError("Username and password are required.");
+      toast.error("Username and password are required.");
       return;
     }
     const problem = usernameProblem(createForm.username.trim());
     if (problem) {
-      setCreateError(problem);
+      toast.error(problem);
       return;
     }
     if (createForm.password.length < 8) {
-      setCreateError("Password must be at least 8 characters.");
+      toast.error("Password must be at least 8 characters.");
       return;
     }
     setCreating(true);
@@ -298,7 +293,7 @@ export function Users() {
     });
     setCreating(false);
     if (error || !data?.id) {
-      setCreateError(error ? await edgeFunctionError(error) : "Could not create this account. Please try again.");
+      toast.error(error ? await edgeFunctionError(error) : "Could not create this account. Please try again.");
       return;
     }
     // The Edge Function's response only carries {id, username} -- everything
@@ -320,7 +315,7 @@ export function Users() {
     setStaff((prev) => [newProfile, ...prev]);
     setCreateForm(EMPTY_CREATE_FORM);
     setShowCreateForm(false);
-    setMessage(`Account "${data.username}" created.`);
+    toast.success(`Account "${data.username}" created.`);
   }
 
   // A render function, not a nested component: a component declared inside
@@ -552,7 +547,6 @@ export function Users() {
             onClick={() => {
               // Always opens blank -- never with what was typed last time.
               setCreateForm(EMPTY_CREATE_FORM);
-              setCreateError(null);
               setUsernameUnlocked(false);
               setShowCreateForm(!showCreateForm);
             }}
@@ -566,7 +560,6 @@ export function Users() {
         Admin and super admin accounts can create, edit, and delete staff accounts and their page access. Only the super admin can create,
         delete, or edit another admin-tier account — regular staff never see these controls, even with Users &amp; Roles access.
       </p>
-      {message && <p className="text-sm bg-navy-50 text-navy rounded-md px-3 py-2 mb-4">{message}</p>}
 
       {showCreateForm && isAdmin && (
         <form onSubmit={handleCreate} autoComplete="off" className="bg-white border rounded-lg p-4 mb-4 space-y-3">
@@ -672,7 +665,6 @@ export function Users() {
               </div>
             </div>
           )}
-          {createError && <p className="text-red-600 text-sm">{createError}</p>}
           <button
             type="submit"
             disabled={creating}
@@ -712,7 +704,7 @@ export function Users() {
 
       <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Current Tolo Staff</h2>
       {loading ? (
-        <p className="text-gray-500">Loading...</p>
+        <SkeletonRows />
       ) : staff.length === 0 ? (
         <p className="text-gray-500 text-sm">No staff accounts yet.</p>
       ) : (

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { Calendar } from "lucide-react";
+import { SkeletonPage, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 
 interface OrderItemRow {
@@ -57,7 +59,6 @@ export function OrderDetail() {
   const { id } = useParams();
   const [order, setOrder] = useState<MerchantOrderDetail | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function load() {
     const { data } = await supabase
@@ -87,13 +88,12 @@ export function OrderDetail() {
   // waiting on a re-fetch to see it.
   async function handleTransition(status: string) {
     setBusy(true);
-    setError(null);
     const { error } = await supabase.functions.invoke("order-status", {
       body: { merchant_order_id: id, status },
     });
     setBusy(false);
     if (error) {
-      setError(error.message);
+      toast.error(error.message);
       return;
     }
     setOrder((prev) =>
@@ -105,13 +105,12 @@ export function OrderDetail() {
 
   async function handleConfirmCash(paymentId: string) {
     setBusy(true);
-    setError(null);
     const { error } = await supabase.functions.invoke("confirm-payment", {
       body: { payment_id: paymentId },
     });
     setBusy(false);
     if (error) {
-      setError("Could not confirm this payment. Please try again.");
+      toast.error("Could not confirm this payment. Please try again.");
       return;
     }
     setOrder((prev) =>
@@ -121,7 +120,7 @@ export function OrderDetail() {
     );
   }
 
-  if (!order) return <p className="text-gray-500">Loading...</p>;
+  if (!order) return <SkeletonPage />;
 
   const actions = TRANSITIONS[order.status] ?? [];
 
@@ -129,8 +128,9 @@ export function OrderDetail() {
     <div className="max-w-xl">
       <h1 className={`text-xl font-bold ${order.scheduled_for ? "mb-1" : "mb-4"}`}>Order #{order.id.slice(0, 8)}</h1>
       {order.scheduled_for && (
-        <p className="text-sm font-medium text-navy bg-navy-50 inline-block rounded-md px-2 py-1 mb-4">
-          📅 Scheduled for {new Date(order.scheduled_for).toLocaleString()} — no rush, this doesn't need to be prepared yet
+        <p className="text-sm font-medium text-navy bg-navy-50 inline-flex items-center gap-1.5 rounded-md px-2 py-1 mb-4">
+          <Calendar className="w-4 h-4" />
+          Scheduled for {new Date(order.scheduled_for).toLocaleString()} — no rush, this doesn't need to be prepared yet
         </p>
       )}
 
@@ -192,8 +192,6 @@ export function OrderDetail() {
           )}
         </div>
       )}
-
-      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
       {actions.length > 0 && (
         <div className="flex gap-2 mb-4">

@@ -14,12 +14,19 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "workspaces": [
+    "frontend",
+    "merchant-dashboard",
+    "admin-dashboard",
+    "packages/*"
+  ],
   "bugs": {
     "url": "https://github.com/chronic685/tolo-e-comerce/issues"
   },
   "homepage": "https://github.com/chronic685/tolo-e-comerce#readme",
   "devDependencies": {
     "@supabase/supabase-js": "^2.116.0",
+    "playwright": "^1.63.0",
     "supabase": "^2.117.0",
     "vitest": "^5.0.1"
   }

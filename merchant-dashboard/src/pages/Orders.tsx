@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Calendar, Inbox } from "lucide-react";
+import { EmptyState, SkeletonRows } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import type { MerchantOrder } from "../types";
@@ -74,9 +76,9 @@ export function Orders() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Loading...</p>
+        <SkeletonRows />
       ) : orders.length === 0 ? (
-        <p className="text-gray-500">No orders in this view.</p>
+        <EmptyState icon={Inbox} title="No orders in this view" description="Orders matching this filter will show up here." />
       ) : (
         <div className="bg-white border rounded-lg divide-y">
           {orders.map((o) => (
@@ -85,7 +87,10 @@ export function Orders() {
                 <p className="font-medium text-sm">Order #{o.id.slice(0, 8)}</p>
                 <p className="text-xs text-gray-500">{o.order_items.length} item(s) · {new Date(o.created_at).toLocaleDateString()}</p>
                 {o.scheduled_for && (
-                  <p className="text-xs text-navy font-medium mt-0.5">📅 Scheduled for {new Date(o.scheduled_for).toLocaleString()}</p>
+                  <p className="text-xs text-navy font-medium mt-0.5 inline-flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Scheduled for {new Date(o.scheduled_for).toLocaleString()}
+                  </p>
                 )}
               </div>
               <div className="flex items-center gap-3">

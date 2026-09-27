@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { MapPin, Heart, Bell, LifeBuoy, LogOut, PartyPopper } from "lucide-react";
+import { Skeleton, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 
@@ -12,11 +14,11 @@ interface ReferralReward {
 }
 
 export function Account() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   const [referralsEnabled, setReferralsEnabled] = useState(false);
   const [referralCode, setReferralCode] = useState<string | null>(null);
@@ -86,6 +88,11 @@ export function Account() {
 
   const referralLink = referralCode ? `${window.location.origin}/signup?ref=${referralCode}` : null;
 
+  async function handleSignOut() {
+    await signOut();
+    navigate("/");
+  }
+
   async function handleCopyLink() {
     if (!referralLink) return;
     await navigator.clipboard.writeText(referralLink);
@@ -97,10 +104,10 @@ export function Account() {
     e.preventDefault();
     if (!user) return;
     setSaving(true);
-    setMessage(null);
     const { error } = await supabase.from("profiles").update({ full_name: fullName, phone }).eq("id", user.id);
     setSaving(false);
-    setMessage(error ? error.message : "Saved. This phone number will be used automatically at checkout.");
+    if (error) toast.error(error.message);
+    else toast.success("Saved. This phone number will be used automatically at checkout.");
   }
 
   return (
@@ -126,7 +133,6 @@ export function Account() {
           />
           <p className="text-xs text-gray-400 mt-1">Used automatically for delivery — you won't be asked again at checkout.</p>
         </div>
-        {message && <p className="text-sm text-emerald-700">{message}</p>}
         <button
           type="submit"
           disabled={saving}
@@ -174,34 +180,49 @@ export function Account() {
               {rewards.length > 0 && (
                 <div className="mt-3 pt-3 border-t space-y-1">
                   {rewards.map((r) => (
-                    <p key={r.code} className="text-sm text-emerald-700">
-                      🎉 You earned {r.discount_kind === "percent" ? `${r.amount}% off` : `${r.amount} ETB off`} — use code{" "}
-                      <span className="font-mono font-medium">{r.code}</span> at checkout.
+                    <p key={r.code} className="text-sm text-emerald-700 flex items-start gap-1.5">
+                      <PartyPopper className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      <span>
+                        You earned {r.discount_kind === "percent" ? `${r.amount}% off` : `${r.amount} ETB off`} — use code{" "}
+                        <span className="font-mono font-medium">{r.code}</span> at checkout.
+                      </span>
                     </p>
                   ))}
                 </div>
               )}
             </>
           ) : (
-            <p className="text-sm text-gray-400">Loading your referral link...</p>
+            <Skeleton className="h-9 w-full" />
           )}
         </div>
       )}
 
       <div className="bg-white border rounded-lg mt-4 divide-y">
-        <Link to="/locations" className="block px-4 py-3 text-sm hover:bg-gray-50">
+        <Link to="/locations" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
+          <MapPin className="w-4 h-4 text-gray-400" />
           Saved locations
         </Link>
-        <Link to="/favorites" className="block px-4 py-3 text-sm hover:bg-gray-50">
+        <Link to="/favorites" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
+          <Heart className="w-4 h-4 text-gray-400" />
           Favorites
         </Link>
-        <Link to="/notifications" className="block px-4 py-3 text-sm hover:bg-gray-50">
+        <Link to="/notifications" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
+          <Bell className="w-4 h-4 text-gray-400" />
           Notifications
         </Link>
-        <Link to="/support" className="block px-4 py-3 text-sm hover:bg-gray-50">
+        <Link to="/support" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
+          <LifeBuoy className="w-4 h-4 text-gray-400" />
           Support
         </Link>
       </div>
+
+      <button
+        onClick={handleSignOut}
+        className="flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 bg-white border rounded-lg mt-4 w-full"
+      >
+        <LogOut className="w-4 h-4" />
+        Sign out
+      </button>
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Receipt } from "lucide-react";
+import { EmptyState } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import type { WalletTransaction } from "../types";
@@ -40,7 +42,7 @@ export function Wallet() {
 
       <div className="bg-white border rounded-lg divide-y">
         {transactions.length === 0 ? (
-          <p className="text-gray-500 p-4 text-sm">No transactions yet.</p>
+          <EmptyState icon={Receipt} title="No transactions yet" description="Wallet activity from sales and payouts will show up here." />
         ) : (
           transactions.map((t) => (
             <div key={t.id} className="flex justify-between items-center p-4">

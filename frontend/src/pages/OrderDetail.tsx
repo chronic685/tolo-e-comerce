@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { Calendar, CheckCircle2, Star } from "lucide-react";
+import { SkeletonPage, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { STATUS_COPY } from "../lib/orderStatus";
@@ -53,7 +55,6 @@ export function OrderDetail() {
   const [cancellationEnabled, setCancellationEnabled] = useState(true);
   const [reviewsEnabled, setReviewsEnabled] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
-  const [cancelError, setCancelError] = useState<string | null>(null);
   const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -127,7 +128,6 @@ export function OrderDetail() {
   async function cancelOrder(merchantOrderId: string) {
     setConfirmingCancelId(null);
     setCancelling(merchantOrderId);
-    setCancelError(null);
     const { error } = await supabase.functions.invoke("order-status", {
       body: { merchant_order_id: merchantOrderId, status: "cancelled" },
     });
@@ -142,13 +142,13 @@ export function OrderDetail() {
           // Non-JSON error body — fall back to the generic message above.
         }
       }
-      setCancelError(message);
+      toast.error(message);
       setCancelling(null);
       return;
     }
     setCancelling(null);
     // Was `await load()` -- setLoading(true) inside it wipes the whole page
-    // (`if (loading) return <p>Loading order...</p>`) for one merchant
+    // (`if (loading) return <SkeletonPage />`) for one merchant
     // order's status changing. The order-status function inserts a status-
     // history row server-side for this exact transition; appending the
     // same thing locally keeps that list complete without re-fetching
@@ -184,7 +184,7 @@ export function OrderDetail() {
     return { error: error?.message, code: error?.code };
   }
 
-  if (loading) return <p className="text-gray-500">Loading order...</p>;
+  if (loading) return <SkeletonPage />;
   if (!order) return <p className="text-gray-500">Order not found.</p>;
 
   return (
@@ -192,8 +192,9 @@ export function OrderDetail() {
       <h1 className="text-xl font-bold mb-1">Order #{order.id.slice(0, 8)}</h1>
       <p className="text-sm text-gray-500 mb-1">{new Date(order.created_at).toLocaleString()}</p>
       {order.scheduled_for ? (
-        <p className="text-sm font-medium text-navy bg-navy-50 inline-block rounded-md px-2 py-1 mb-5">
-          📅 Scheduled for {new Date(order.scheduled_for).toLocaleString()}
+        <p className="text-sm font-medium text-navy bg-navy-50 inline-flex items-center gap-1.5 rounded-md px-2 py-1 mb-5">
+          <Calendar className="w-3.5 h-3.5" />
+          Scheduled for {new Date(order.scheduled_for).toLocaleString()}
         </p>
       ) : (
         <p className="text-sm text-gray-400 mb-5">Delivered as soon as possible</p>
@@ -254,7 +255,6 @@ export function OrderDetail() {
                   Cancel order
                 </button>
               )}
-              {cancelError && <p className="text-red-600 text-xs mt-1">{cancelError}</p>}
             </div>
           )}
           <div className="space-y-1 mb-3">
@@ -352,10 +352,14 @@ function ReviewWidget({
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(alreadyReviewed);
-  const [error, setError] = useState<string | null>(null);
 
   if (done) {
-    return <p className="text-xs text-emerald-700 mt-0.5">✓ You reviewed this product</p>;
+    return (
+      <p className="text-xs text-emerald-700 mt-0.5 inline-flex items-center gap-1">
+        <CheckCircle2 className="w-3.5 h-3.5" />
+        You reviewed this product
+      </p>
+    );
   }
 
   if (!open) {
@@ -368,18 +372,17 @@ function ReviewWidget({
 
   async function handleSubmit() {
     if (rating === 0) {
-      setError("Please select a star rating.");
+      toast.error("Please select a star rating.");
       return;
     }
     setSubmitting(true);
-    setError(null);
     const { error, code } = await onSubmit(rating, comment);
     setSubmitting(false);
     if (error) {
       // PT429 is this project's convention (see migration 0032) for a
       // database trigger to make PostgREST answer 429 — its message is
       // already a safe, pre-written string, unlike other DB errors.
-      setError(code === "PT429" ? error : "Could not submit your review. Please try again.");
+      toast.error(code === "PT429" ? error : "Could not submit your review. Please try again.");
       return;
     }
     setDone(true);
@@ -389,14 +392,8 @@ function ReviewWidget({
     <div className="mt-1 mb-1 bg-navy-50 rounded-md p-2">
       <div className="flex gap-0.5 mb-1">
         {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => setRating(n)}
-            className={`text-lg leading-none ${n <= rating ? "text-orange-500" : "text-gray-300"}`}
-            aria-label={`${n} star`}
-          >
-            ★
+          <button key={n} type="button" onClick={() => setRating(n)} className="leading-none" aria-label={`${n} star`}>
+            <Star className={`w-5 h-5 ${n <= rating ? "fill-orange-500 text-orange-500" : "text-gray-300"}`} />
           </button>
         ))}
       </div>
@@ -407,7 +404,6 @@ function ReviewWidget({
         rows={2}
         className="w-full border rounded-md px-2 py-1 text-xs mb-1"
       />
-      {error && <p className="text-red-600 text-xs mb-1">{error}</p>}
       <div className="flex gap-2">
         <button
           onClick={handleSubmit}
@@ -441,7 +437,6 @@ function DisputeWidget({
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(alreadyReported);
-  const [error, setError] = useState<string | null>(null);
 
   if (done) {
     return <p className="text-xs text-gray-500">You reported an issue with this order — we'll be in touch.</p>;
@@ -457,15 +452,14 @@ function DisputeWidget({
 
   async function handleSubmit() {
     if (!body.trim()) {
-      setError("Please describe the issue.");
+      toast.error("Please describe the issue.");
       return;
     }
     setSubmitting(true);
-    setError(null);
     const { error } = await onSubmit(`Issue with order from ${merchantName}`, body.trim());
     setSubmitting(false);
     if (error) {
-      setError("Could not submit your report. Please try again.");
+      toast.error("Could not submit your report. Please try again.");
       return;
     }
     setDone(true);
@@ -481,7 +475,6 @@ function DisputeWidget({
         rows={2}
         className="w-full border rounded-md px-2 py-1 text-xs mb-1"
       />
-      {error && <p className="text-red-600 text-xs mb-1">{error}</p>}
       <div className="flex gap-2">
         <button
           onClick={handleSubmit}

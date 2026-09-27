@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ChevronRight, LifeBuoy } from "lucide-react";
+import { EmptyState, SkeletonRows, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import type { SupportTicket } from "../types";
@@ -18,7 +20,6 @@ export function Support() {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) load();
@@ -38,7 +39,6 @@ export function Support() {
     e.preventDefault();
     if (!user || !subject.trim()) return;
     setSubmitting(true);
-    setError(null);
     const { data, error } = await supabase
       .from("support_tickets")
       .insert({ user_id: user.id, subject, body: body || null })
@@ -46,7 +46,7 @@ export function Support() {
       .single();
     setSubmitting(false);
     if (error) {
-      setError("Could not submit your ticket. Please try again.");
+      toast.error("Could not submit your ticket. Please try again.");
       return;
     }
     // A brand-new ticket never has a merchant_order_id from this form (no
@@ -77,7 +77,6 @@ export function Support() {
           rows={3}
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
-        {error && <p className="text-red-600 text-sm">{error}</p>}
         <button
           type="submit"
           disabled={submitting || !subject.trim()}
@@ -89,9 +88,9 @@ export function Support() {
 
       <h2 className="font-medium text-sm mb-2">Your tickets</h2>
       {loading ? (
-        <p className="text-gray-500 text-sm">Loading...</p>
+        <SkeletonRows count={3} />
       ) : tickets.length === 0 ? (
-        <p className="text-gray-500 text-sm">You haven't contacted support yet.</p>
+        <EmptyState icon={LifeBuoy} title="No support tickets yet" description="Need help? Use the form above to reach us." />
       ) : (
         <div className="space-y-2">
           {tickets.map((t) => (
@@ -104,8 +103,12 @@ export function Support() {
               </div>
               {t.body && <p className="text-sm text-gray-600 mt-1">{t.body}</p>}
               {t.merchant_orders && (
-                <Link to={`/orders/${t.merchant_orders.order_id}`} className="text-xs text-navy hover:underline mt-1 inline-block">
-                  Re: order with {t.merchant_orders.merchants?.business_name ?? "a merchant"} →
+                <Link
+                  to={`/orders/${t.merchant_orders.order_id}`}
+                  className="text-xs text-navy hover:underline mt-1 inline-flex items-center gap-1"
+                >
+                  Re: order with {t.merchant_orders.merchants?.business_name ?? "a merchant"}
+                  <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
                 </Link>
               )}
               <p className="text-xs text-gray-400 mt-1">{new Date(t.created_at).toLocaleString()}</p>

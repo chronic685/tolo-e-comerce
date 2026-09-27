@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
+import { ExportCsvButton, toast } from "@tolo/ui";
 import type { Category, DiscountRule, Merchant } from "../types";
 
 const emptyForm = {
@@ -28,7 +29,6 @@ export function Discounts() {
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [discountsEnabled, setDiscountsEnabled] = useState(true);
   const [form, setForm] = useState(emptyForm);
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -100,7 +100,6 @@ export function Discounts() {
       starts_at: toDatetimeLocal(r.starts_at),
       ends_at: toDatetimeLocal(r.ends_at),
     });
-    setError(null);
     setShowForm(true);
   }
 
@@ -108,7 +107,6 @@ export function Discounts() {
     setEditingId(null);
     setForm(emptyForm);
     setShowForm(false);
-    setError(null);
   }
 
   // Editing an existing rule only ever changes what future orders resolve —
@@ -120,13 +118,12 @@ export function Discounts() {
   // is safe by construction, not just by convention.
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     if (!form.name.trim()) {
-      setError("Name is required.");
+      toast.error("Name is required.");
       return;
     }
     if (form.scope_type !== "platform" && !form.scope_id) {
-      setError("Select a merchant or category for this scope.");
+      toast.error("Select a merchant or category for this scope.");
       return;
     }
     setSaving(true);
@@ -163,7 +160,7 @@ export function Discounts() {
 
     setSaving(false);
     if (error) {
-      setError(error.message);
+      toast.error(error.message);
       return;
     }
     setRules((prev) => (editingId ? prev.map((r) => (r.id === editingId ? (data as DiscountRule) : r)) : [data as DiscountRule, ...prev]));
@@ -196,13 +193,7 @@ export function Discounts() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Discounts &amp; Promotions</h1>
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleExport}
-            disabled={rules.length === 0}
-            className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-40"
-          >
-            ⬇ Export CSV
-          </button>
+          <ExportCsvButton onExport={handleExport} disabled={rules.length === 0} />
         <label className="flex items-center gap-2 text-sm bg-white border rounded-lg px-3 py-2">
           <span className="font-medium">Discounts platform-wide</span>
           <button
@@ -413,7 +404,6 @@ export function Discounts() {
             </div>
           </div>
 
-          {error && <p className="text-red-600 text-sm">{error}</p>}
           <button
             type="submit"
             disabled={saving}

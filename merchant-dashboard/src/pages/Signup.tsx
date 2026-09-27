@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 
 export function Signup() {
@@ -9,18 +10,16 @@ export function Signup() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setError(null);
     const { error } = await signUp(email, password, fullName);
     setLoading(false);
     if (error) {
-      setError(error);
+      toast.error(error);
       return;
     }
     setDone(true);
@@ -69,7 +68,6 @@ export function Signup() {
           minLength={6}
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
-        {error && <p className="text-red-600 text-sm">{error}</p>}
         <button
           type="submit"
           disabled={loading}

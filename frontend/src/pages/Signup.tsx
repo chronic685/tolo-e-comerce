@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 
@@ -16,7 +17,6 @@ export function Signup() {
   // code read aloud rather than a link can type it in too.
   const [referralCode, setReferralCode] = useState(searchParams.get("ref") ?? "");
   const [referralsEnabled, setReferralsEnabled] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -35,11 +35,10 @@ export function Signup() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setError(null);
     const { error } = await signUp(email, password, fullName, referralsEnabled ? referralCode.trim() : undefined);
     setLoading(false);
     if (error) {
-      setError(error);
+      toast.error(error);
       return;
     }
     setDone(true);
@@ -96,7 +95,6 @@ export function Signup() {
             className="w-full border rounded-md px-3 py-2 text-sm uppercase placeholder:normal-case"
           />
         )}
-        {error && <p className="text-red-600 text-sm">{error}</p>}
         <button
           type="submit"
           disabled={loading}

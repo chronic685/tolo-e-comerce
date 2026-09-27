@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { toast } from "@tolo/ui";
 import type { Category } from "../types";
 
 function slugify(name: string) {
@@ -13,7 +14,6 @@ function slugify(name: string) {
 export function Categories() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [newName, setNewName] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   // How many products currently reference the category pending deletion —
@@ -43,12 +43,11 @@ export function Categories() {
       .select()
       .single();
     if (error) {
-      setError(error.message);
+      toast.error(error.message);
       return;
     }
     setCategories((prev) => [...prev, data as Category]);
     setNewName("");
-    setError(null);
   }
 
   async function toggleActive(c: Category) {
@@ -60,7 +59,6 @@ export function Categories() {
   function startEdit(c: Category) {
     setEditingId(c.id);
     setEditingName(c.name);
-    setError(null);
   }
 
   async function handleRename(c: Category) {
@@ -75,12 +73,11 @@ export function Categories() {
     // forward, nothing already in place.
     const { error } = await supabase.from("categories").update({ name, slug: slugify(name) }).eq("id", c.id);
     if (error) {
-      setError(error.message);
+      toast.error(error.message);
       return;
     }
     setCategories((prev) => prev.map((cat) => (cat.id === c.id ? { ...cat, name, slug: slugify(name) } : cat)));
     setEditingId(null);
-    setError(null);
   }
 
   async function confirmDelete(c: Category) {
@@ -98,13 +95,12 @@ export function Categories() {
     const { error } = await supabase.from("categories").delete().eq("id", deleteTarget.category.id);
     setDeleting(false);
     if (error) {
-      setError(error.message);
+      toast.error(error.message);
       setDeleteTarget(null);
       return;
     }
     setCategories((prev) => prev.filter((cat) => cat.id !== deleteTarget.category.id));
     setDeleteTarget(null);
-    setError(null);
   }
 
   return (
@@ -122,7 +118,6 @@ export function Categories() {
           Add
         </button>
       </form>
-      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
       <div className="bg-white border rounded-lg divide-y">
         {categories.map((c) => (

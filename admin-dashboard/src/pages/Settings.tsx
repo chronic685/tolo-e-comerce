@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { SkeletonPage, toast } from "@tolo/ui";
 
 interface PaymentMethods {
   cash_on_delivery: boolean;
@@ -85,7 +87,6 @@ export function Settings() {
   const [notificationChannels, setNotificationChannels] = useState<NotificationChannels>(DEFAULTS.notification_channels);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -142,13 +143,16 @@ export function Settings() {
 
   async function save(key: string, value: unknown) {
     setSavingKey(key);
-    setMessage(null);
     const { error } = await supabase.from("system_settings").update({ value }).eq("key", key);
     setSavingKey(null);
-    setMessage(error ? error.message : `Saved "${key}".`);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Saved "${key}".`);
   }
 
-  if (loading) return <p className="text-gray-500">Loading settings...</p>;
+  if (loading) return <SkeletonPage />;
 
   return (
     <div className="max-w-3xl space-y-4">
@@ -156,7 +160,6 @@ export function Settings() {
       <p className="text-sm text-gray-500 mb-4">
         These control customer and merchant app behavior directly — no code change or redeploy required.
       </p>
-      {message && <p className="text-sm bg-navy-50 text-navy rounded-md px-3 py-2">{message}</p>}
 
       <section className={`border rounded-lg p-4 ${maintenanceMode ? "bg-red-50 border-red-300" : "bg-white"}`}>
         <div className="flex items-center justify-between">
@@ -177,8 +180,9 @@ export function Settings() {
           </button>
         </div>
         {maintenanceMode && (
-          <p className="text-xs text-red-800 font-medium mt-2">
-            ⚠ Live now — checkout is blocked for all customers until this is switched off.
+          <p className="flex items-center gap-1.5 text-xs text-red-800 font-medium mt-2">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            Live now — checkout is blocked for all customers until this is switched off.
           </p>
         )}
       </section>

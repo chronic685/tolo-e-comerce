@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
+import { ExportCsvButton, SkeletonRows } from "@tolo/ui";
 import type { ReturnRow } from "../types";
 
 const REASONS = ["Customer cancellation", "Merchant unavailable", "Product unavailable", "Delivery failure", "Duplicate payment", "Payment error", "Admin correction", "Other"];
@@ -95,7 +96,7 @@ export function Refunds() {
     );
   }
 
-  if (loading) return <p className="text-gray-500">Loading...</p>;
+  if (loading) return <SkeletonRows />;
 
   const requested = returns.filter((r) => r.status === "requested");
   const approvedAwaitingRefund = returns.filter((r) => (r.status === "approved" || r.status === "received") && r.refunds.length === 0);
@@ -105,13 +106,7 @@ export function Refunds() {
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Returns &amp; Refunds</h1>
-        <button
-          onClick={handleExport}
-          disabled={returns.length === 0}
-          className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-40"
-        >
-          ⬇ Export CSV
-        </button>
+        <ExportCsvButton onExport={handleExport} disabled={returns.length === 0} />
       </div>
 
       <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Return Requests</h2>
