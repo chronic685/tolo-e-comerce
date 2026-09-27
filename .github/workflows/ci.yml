@@ -19,13 +19,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+          cache-dependency-path: package-lock.json
+      # npm workspaces (frontend/merchant-dashboard/admin-dashboard/packages/*
+      # share one root lockfile) -- install once at the repo root, then run
+      # each app's scripts scoped to its workspace.
       - run: npm ci
-        working-directory: ${{ matrix.app }}
-      - run: npm run lint
-        working-directory: ${{ matrix.app }}
-      - run: npm run build
-        working-directory: ${{ matrix.app }}
+      - run: npm run lint --workspace=${{ matrix.app }}
+      - run: npm run build --workspace=${{ matrix.app }}
 
   backend-tests:
     name: Regression & security smoke tests (local Supabase)
