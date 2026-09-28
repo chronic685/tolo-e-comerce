@@ -20,6 +20,10 @@ export function ProductCard({ product, rating, className }: ProductCardProps) {
   const image = product.product_images.find((i) => i.is_primary) ?? product.product_images[0];
   const price = product.customer_price;
   const favorited = isFavorite(product.id);
+  // The default variant's availability represents the whole card -- a
+  // product with multiple variants shows each one's own status on its
+  // detail page instead.
+  const defaultVariant = product.product_variants.find((v) => v.is_default) ?? product.product_variants[0];
 
   return (
     <div className={`block bg-white rounded-lg border hover:shadow-md transition-shadow overflow-hidden relative snap-start ${className ?? ""}`}>
@@ -55,6 +59,12 @@ export function ProductCard({ product, rating, className }: ProductCardProps) {
               </span>
             )}
           </div>
+          {defaultVariant?.stock_status === "out_of_stock" && (
+            <p className="text-xs font-medium text-red-600 mt-0.5">Out of stock</p>
+          )}
+          {defaultVariant?.stock_status === "low" && defaultVariant.stock_remaining != null && (
+            <p className="text-xs font-medium text-orange-600 mt-0.5">Only {defaultVariant.stock_remaining} left</p>
+          )}
         </Link>
       </div>
     </div>

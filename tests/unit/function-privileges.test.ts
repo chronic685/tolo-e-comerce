@@ -68,6 +68,14 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   // worked when every row was loaded into memory at once.
   "products_avg_rating",
 
+  // Product availability (migration 0054): customers can't read
+  // `inventory` directly (RLS, 0014), so these expose only a derived
+  // status/small integer -- never stock_quantity/reserved_quantity/
+  // available_quantity itself, and the integer is only ever non-null in
+  // the narrow "5 or fewer left" case the product page is allowed to show.
+  "variant_stock_status",
+  "variant_stock_remaining",
+
   // Phase 5d, item 9: mirrors resolve_delivery_fee's nearest-active-zone
   // lookup but returns only estimated_delivery_minutes -- no fee, no zone
   // identity -- for the order-confirmation screen. Unlike resolve_delivery_fee

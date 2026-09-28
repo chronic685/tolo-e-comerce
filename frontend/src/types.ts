@@ -23,6 +23,11 @@ export interface ProductVariant {
   is_default: boolean;
   /** Server-computed: merchant price + commission. Always use this for display — never compute it client-side. */
   customer_price: number;
+  /** Server-computed (variant_stock_status, migration 0054) — only present
+   * where explicitly selected. Never a raw stock number; "low" is the only
+   * case stock_remaining is non-null, and even then it's capped at 5. */
+  stock_status?: "in_stock" | "low" | "out_of_stock";
+  stock_remaining?: number | null;
 }
 
 export interface Product {

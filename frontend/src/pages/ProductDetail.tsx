@@ -15,7 +15,8 @@ import type { Product } from "../types";
 // same merchant's aggregate once per card for no real benefit.
 const PRODUCT_SELECT = `
   id, merchant_id, store_id, category_id, name, slug, description, base_price, discount_price, status,
-  product_variants ( id, sku, attributes, price, discount_price, is_default, customer_price:product_variants_customer_price ),
+  product_variants ( id, sku, attributes, price, discount_price, is_default, customer_price:product_variants_customer_price,
+    stock_status:variant_stock_status, stock_remaining:variant_stock_remaining ),
   product_images ( id, url, is_primary, variant_id, sort_order ),
   stores ( name, slug, logo_url ),
   merchants ( avg_rating:merchants_avg_rating, review_count:merchants_review_count )
@@ -82,6 +83,7 @@ export function ProductDetail() {
     product.product_images[0];
   const image = galleryImages.find((i) => i.id === selectedImageId) ?? defaultImage;
   const price = variant?.customer_price ?? 0;
+  const outOfStock = variant?.stock_status === "out_of_stock";
 
   async function handleAddToCart() {
     if (!user) {
@@ -106,12 +108,14 @@ export function ProductDetail() {
         <input
           type="number"
           min={1}
+          max={variant?.stock_remaining ?? undefined}
           value={quantity}
           onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-          className="w-20 border rounded-md px-2 py-1.5"
+          disabled={outOfStock}
+          className="w-20 border rounded-md px-2 py-1.5 disabled:opacity-60"
         />
-        <Button onClick={handleAddToCart} disabled={status === "adding"} className="flex-1 md:flex-none">
-          {status === "added" ? "Added!" : "Add to cart"}
+        <Button onClick={handleAddToCart} disabled={status === "adding" || outOfStock} className="flex-1 md:flex-none">
+          {outOfStock ? "Out of stock" : status === "added" ? "Added!" : "Add to cart"}
         </Button>
       </div>
     );
@@ -178,6 +182,10 @@ export function ProductDetail() {
           )}
 
           <p className="text-xl font-semibold text-navy mt-4">{formatCurrency(price)}</p>
+          {outOfStock && <p className="text-sm font-medium text-red-600 mt-1">Out of stock</p>}
+          {variant?.stock_status === "low" && variant.stock_remaining != null && (
+            <p className="text-sm font-medium text-orange-600 mt-1">Only {variant.stock_remaining} left</p>
+          )}
           {product.description && <p className="text-gray-600 mt-4">{product.description}</p>}
 
           {product.product_variants.length > 1 && (

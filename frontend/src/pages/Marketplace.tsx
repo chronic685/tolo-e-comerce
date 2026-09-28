@@ -13,7 +13,7 @@ import type { Category, MerchantRating, Product } from "../types";
 const PRODUCT_SELECT = `
   id, merchant_id, store_id, category_id, name, slug, description, base_price, discount_price, status,
   customer_price:products_customer_price,
-  product_variants ( id, sku, attributes, price, discount_price, is_default ),
+  product_variants ( id, sku, attributes, price, discount_price, is_default, stock_status:variant_stock_status, stock_remaining:variant_stock_remaining ),
   product_images ( id, url, is_primary, variant_id ),
   stores ( name, slug )
 `;
