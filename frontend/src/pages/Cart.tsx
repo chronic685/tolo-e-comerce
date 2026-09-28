@@ -5,8 +5,14 @@ import { Button, Card, CardContent, EmptyState, formatCurrency, LazyImage, Skele
 import { supabase } from "../lib/supabase";
 import { useCart } from "../lib/CartContext";
 
+const UNAVAILABLE_OPTIONS: { value: "remove" | "substitute" | "cancel_order"; label: string }[] = [
+  { value: "remove", label: "Remove just this item" },
+  { value: "substitute", label: "Let the merchant substitute it" },
+  { value: "cancel_order", label: "Cancel my whole order" },
+];
+
 export function Cart() {
-  const { items, loading, updateQuantity, removeItem } = useCart();
+  const { items, loading, updateQuantity, updatePreference, removeItem } = useCart();
   const navigate = useNavigate();
 
   // Cart items only carry merchant_id (see CartContext.tsx's CART_ITEM_SELECT),
@@ -74,49 +80,65 @@ export function Cart() {
                 const images = item.product_variants.products.product_images ?? [];
                 const image = images.find((i) => i.is_primary) ?? images[0];
                 return (
-                  <Card key={item.id} className="p-4 flex items-center gap-4">
-                    <LazyImage
-                      src={image?.url}
-                      alt={item.product_variants.products.name}
-                      className="w-16 h-16 rounded-md flex-shrink-0"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <Link
-                        to={`/products/${item.product_variants.products.slug}`}
-                        className="font-medium hover:text-navy truncate block"
-                      >
-                        {item.product_variants.products.name}
-                      </Link>
-                      {attrs && <p className="text-xs text-gray-500">{attrs}</p>}
-                      <p className="text-sm text-navy font-semibold mt-1">{formatCurrency(price)}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <Card key={item.id} className="p-4">
+                    <div className="flex items-center gap-4">
+                      <LazyImage
+                        src={image?.url}
+                        alt={item.product_variants.products.name}
+                        className="w-16 h-16 rounded-md flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <Link
+                          to={`/products/${item.product_variants.products.slug}`}
+                          className="font-medium hover:text-navy truncate block"
+                        >
+                          {item.product_variants.products.name}
+                        </Link>
+                        {attrs && <p className="text-xs text-gray-500">{attrs}</p>}
+                        <p className="text-sm text-navy font-semibold mt-1">{formatCurrency(price)}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          aria-label="Decrease quantity"
+                          className="w-8 h-8 rounded-md border flex items-center justify-center text-gray-600 hover:bg-gray-50"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          aria-label="Increase quantity"
+                          className="w-8 h-8 rounded-md border flex items-center justify-center text-gray-600 hover:bg-gray-50"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        aria-label="Decrease quantity"
-                        className="w-8 h-8 rounded-md border flex items-center justify-center text-gray-600 hover:bg-gray-50"
+                        onClick={() => removeItem(item.id)}
+                        aria-label="Remove item"
+                        className="text-gray-400 hover:text-red-600 flex-shrink-0"
                       >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        aria-label="Increase quantity"
-                        className="w-8 h-8 rounded-md border flex items-center justify-center text-gray-600 hover:bg-gray-50"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeItem(item.id)}
-                      aria-label="Remove item"
-                      className="text-gray-400 hover:text-red-600 flex-shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <label className="flex items-center gap-2 mt-3 text-xs text-gray-500">
+                      If unavailable:
+                      <select
+                        value={item.on_unavailable}
+                        onChange={(e) => updatePreference(item.id, e.target.value as "remove" | "substitute" | "cancel_order")}
+                        className="border rounded-md px-2 py-1 text-xs text-gray-700"
+                      >
+                        {UNAVAILABLE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </Card>
                 );
               })}

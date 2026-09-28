@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "./supabase";
 import { useAuth } from "./AuthContext";
-import type { CartItem } from "../types";
+import type { CartItem, UnavailablePreference } from "../types";
 
 interface CartState {
   items: CartItem[];
@@ -9,6 +9,7 @@ interface CartState {
   itemCount: number;
   addItem: (variantId: string, quantity: number) => Promise<void>;
   updateQuantity: (itemId: string, quantity: number) => Promise<void>;
+  updatePreference: (itemId: string, preference: UnavailablePreference) => Promise<void>;
   removeItem: (itemId: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -16,7 +17,7 @@ interface CartState {
 const CartContext = createContext<CartState | undefined>(undefined);
 
 const CART_ITEM_SELECT = `
-  id, cart_id, variant_id, quantity,
+  id, cart_id, variant_id, quantity, on_unavailable,
   product_variants (
     id, sku, attributes, price, discount_price, is_default,
     customer_price:product_variants_customer_price,
@@ -126,10 +127,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => prev.filter((item) => item.id !== itemId));
   }
 
+  async function updatePreference(itemId: string, preference: UnavailablePreference) {
+    const { error } = await supabase.from("cart_items").update({ on_unavailable: preference }).eq("id", itemId);
+    if (error) return;
+    setItems((prev) => prev.map((item) => (item.id === itemId ? { ...item, on_unavailable: preference } : item)));
+  }
+
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ items, loading, itemCount, addItem, updateQuantity, removeItem, refresh }}>
+    <CartContext.Provider value={{ items, loading, itemCount, addItem, updateQuantity, updatePreference, removeItem, refresh }}>
       {children}
     </CartContext.Provider>
   );

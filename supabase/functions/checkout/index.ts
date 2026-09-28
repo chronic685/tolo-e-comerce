@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
 
     const { data: items } = await db
       .from("cart_items")
-      .select("variant_id, quantity")
+      .select("variant_id, quantity, on_unavailable")
       .eq("cart_id", cart.id);
 
     if (!items || items.length === 0) {

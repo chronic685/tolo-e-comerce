@@ -17,6 +17,8 @@ interface OrderItemRow {
   quantity: number;
   subtotal: number;
   variant_id: string;
+  item_status: "active" | "removed" | "substituted";
+  resolution_note: string | null;
   product_variants: { product_id: string } | null;
 }
 
@@ -95,7 +97,7 @@ export function OrderDetail() {
          merchant_orders (
            id, status, subtotal,
            merchants ( business_name, stores ( slug ) ),
-           order_items ( id, product_name_snapshot, variant_attributes_snapshot, unit_price, quantity, subtotal, variant_id, product_variants ( product_id ) ),
+           order_items ( id, product_name_snapshot, variant_attributes_snapshot, unit_price, quantity, subtotal, variant_id, item_status, resolution_note, product_variants ( product_id ) ),
            order_status_history ( status, changed_at, note )
          )`,
       )
@@ -353,7 +355,7 @@ export function OrderDetail() {
             {mo.order_items.map((item) => (
               <div key={item.id}>
                 <div className="flex justify-between text-sm">
-                  <span>
+                  <span className={item.item_status === "removed" ? "line-through text-gray-400" : ""}>
                     {item.product_name_snapshot}
                     {Object.values(item.variant_attributes_snapshot ?? {}).length > 0 &&
                       ` (${Object.values(item.variant_attributes_snapshot).join(" / ")})`}{" "}
@@ -361,6 +363,12 @@ export function OrderDetail() {
                   </span>
                   <span>{item.subtotal.toFixed(2)} ETB</span>
                 </div>
+                {item.item_status !== "active" && (
+                  <p className="text-xs text-amber-700">
+                    {item.item_status === "removed" ? "Removed by the merchant" : "Substituted by the merchant"}
+                    {item.resolution_note ? ` — ${item.resolution_note}` : ""}
+                  </p>
+                )}
                 {reviewsEnabled && mo.status === "completed" && item.product_variants?.product_id && (
                   <ReviewWidget
                     alreadyReviewed={reviewed.has(`${mo.id}:${item.product_variants.product_id}`)}

@@ -180,6 +180,7 @@ describe("function privileges: no un-reviewed function is callable by anon/authe
       "refund_merchant_order_if_paid",
       "auto_cancel_unresponsive_orders",
       "list_function_privileges",
+      "resolve_unavailable_order_item",
     ];
 
     const { data, error } = await db.rpc("list_function_privileges");
