@@ -121,13 +121,27 @@ export function OrderDetail() {
     setLoading(false);
   }
 
-  async function reportIssue(merchantOrderId: string, subject: string, body: string) {
+  // photo is optional -- uploaded to the private support-ticket-photos
+  // bucket under "<merchant_order_id>/..." (migration 0064), which is what
+  // lets both the reporting customer and the merchant that order belongs
+  // to read it back later, without a public URL.
+  async function reportIssue(merchantOrderId: string, subject: string, body: string, photo: File | null) {
     if (!user) return { error: "Not signed in." };
+
+    let photoUrl: string | null = null;
+    if (photo) {
+      const path = `${merchantOrderId}/${Date.now()}-${photo.name}`;
+      const { error: uploadError } = await supabase.storage.from("support-ticket-photos").upload(path, photo);
+      if (uploadError) return { error: uploadError.message };
+      photoUrl = path;
+    }
+
     const { error } = await supabase.from("support_tickets").insert({
       user_id: user.id,
       merchant_order_id: merchantOrderId,
       subject,
       body: body || null,
+      photo_url: photoUrl,
     });
     if (!error) setReportedMerchantOrders((prev) => new Set(prev).add(merchantOrderId));
     return { error: error?.message };
@@ -382,7 +396,7 @@ export function OrderDetail() {
               <DisputeWidget
                 alreadyReported={reportedMerchantOrders.has(mo.id)}
                 merchantName={mo.merchants?.business_name ?? "this merchant"}
-                onSubmit={(subject, body) => reportIssue(mo.id, subject, body)}
+                onSubmit={(subject, body, photo) => reportIssue(mo.id, subject, body, photo)}
               />
             </div>
           )}
@@ -510,10 +524,11 @@ function DisputeWidget({
 }: {
   alreadyReported: boolean;
   merchantName: string;
-  onSubmit: (subject: string, body: string) => Promise<{ error?: string }>;
+  onSubmit: (subject: string, body: string, photo: File | null) => Promise<{ error?: string }>;
 }) {
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(alreadyReported);
 
@@ -535,7 +550,7 @@ function DisputeWidget({
       return;
     }
     setSubmitting(true);
-    const { error } = await onSubmit(`Issue with order from ${merchantName}`, body.trim());
+    const { error } = await onSubmit(`Issue with order from ${merchantName}`, body.trim(), photo);
     setSubmitting(false);
     if (error) {
       toast.error("Could not submit your report. Please try again.");
@@ -554,6 +569,15 @@ function DisputeWidget({
         rows={2}
         className="w-full border rounded-md px-2 py-1 text-xs mb-1"
       />
+      <label className="block text-xs text-gray-600 mb-1">
+        Photo (optional)
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+          className="block w-full text-xs mt-0.5"
+        />
+      </label>
       <div className="flex gap-2">
         <button
           onClick={handleSubmit}
