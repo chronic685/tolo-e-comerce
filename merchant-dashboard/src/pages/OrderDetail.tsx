@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Calendar } from "lucide-react";
-import { SkeletonPage, toast } from "@tolo/ui";
+import { formatOrderNumber, SkeletonPage, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 
 interface OrderItemRow {
@@ -22,6 +22,7 @@ interface MerchantOrderDetail {
   scheduled_for: string | null;
   order_items: OrderItemRow[];
   orders: {
+    order_number: number;
     addresses: { recipient_name: string; phone: string; line1: string; city: string } | null;
     payments: { id: string; provider: string; status: string }[];
   } | null;
@@ -66,7 +67,7 @@ export function OrderDetail() {
       .select(
         `id, status, subtotal, commission_amount, merchant_payable, scheduled_for,
          order_items ( id, product_name_snapshot, variant_attributes_snapshot, unit_price, quantity, subtotal ),
-         orders ( addresses ( recipient_name, phone, line1, city ), payments ( id, provider, status ) ),
+         orders ( order_number, addresses ( recipient_name, phone, line1, city ), payments ( id, provider, status ) ),
          order_status_history ( status, changed_at, note )`,
       )
       .eq("id", id)
@@ -126,7 +127,9 @@ export function OrderDetail() {
 
   return (
     <div className="max-w-xl">
-      <h1 className={`text-xl font-bold ${order.scheduled_for ? "mb-1" : "mb-4"}`}>Order #{order.id.slice(0, 8)}</h1>
+      <h1 className={`text-xl font-bold ${order.scheduled_for ? "mb-1" : "mb-4"}`}>
+        Order {order.orders?.order_number ? formatOrderNumber(order.orders.order_number) : `#${order.id.slice(0, 8)}`}
+      </h1>
       {order.scheduled_for && (
         <p className="text-sm font-medium text-navy bg-navy-50 inline-flex items-center gap-1.5 rounded-md px-2 py-1 mb-4">
           <Calendar className="w-4 h-4" />

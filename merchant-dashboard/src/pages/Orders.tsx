@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Calendar, Inbox } from "lucide-react";
-import { ADMIN_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, EmptyState, formatOrderNumber, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import type { MerchantOrder } from "../types";
@@ -47,7 +47,7 @@ export function Orders() {
       .from("merchant_orders")
       .select(
         "id, order_id, merchant_id, status, subtotal, commission_amount, merchant_payable, created_at, scheduled_for, " +
-          "order_items ( id, product_name_snapshot, quantity )",
+          "order_items ( id, product_name_snapshot, quantity ), orders ( order_number )",
         { count: "exact" },
       )
       .eq("merchant_id", merchant.id)
@@ -89,7 +89,7 @@ export function Orders() {
           {orders.map((o) => (
             <Link key={o.id} to={`/orders/${o.id}`} className="flex items-center justify-between p-4 hover:bg-gray-50">
               <div>
-                <p className="font-medium text-sm">Order #{o.id.slice(0, 8)}</p>
+                <p className="font-medium text-sm">Order {o.orders?.order_number ? formatOrderNumber(o.orders.order_number) : `#${o.id.slice(0, 8)}`}</p>
                 <p className="text-xs text-gray-500">{o.order_items.length} item(s) · {new Date(o.created_at).toLocaleDateString()}</p>
                 {o.scheduled_for && (
                   <p className="text-xs text-navy font-medium mt-0.5 inline-flex items-center gap-1">

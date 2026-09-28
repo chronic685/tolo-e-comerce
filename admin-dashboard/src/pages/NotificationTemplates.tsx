@@ -58,7 +58,8 @@ export function NotificationTemplates() {
     <div className="max-w-3xl">
       <h1 className="text-xl font-bold mb-1">Notification Templates</h1>
       <p className="text-sm text-gray-500 mb-4">
-        Edit the in-app copy for each event. Use <code>{"{{variable}}"}</code> placeholders — e.g. order_id_short, merchant_name, amount.
+        Edit the in-app copy for each event. Use <code>{"{{variable}}"}</code> placeholders — e.g. order_number (readable order number, "TL-1234" — prefer this
+        over order_id_short), merchant_name, amount.
       </p>
 
       <div className="space-y-3">

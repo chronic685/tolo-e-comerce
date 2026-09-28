@@ -6,6 +6,7 @@
 // deno-lint-ignore-file no-explicit-any
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendNotification } from "./notify.ts";
+import { formatOrderNumber } from "./format.ts";
 
 interface PaymentRow {
   id: string;
@@ -17,11 +18,12 @@ export async function finalizePaymentSuccess(db: SupabaseClient, payment: Paymen
   await db.from("payments").update({ status: "verified" }).eq("id", payment.id);
   await db.from("orders").update({ payment_status: "paid" }).eq("id", payment.order_id);
 
-  const { data: paidOrder } = await db.from("orders").select("customer_id").eq("id", payment.order_id).single();
+  const { data: paidOrder } = await db.from("orders").select("customer_id, order_number").eq("id", payment.order_id).single();
   if (paidOrder) {
     await sendNotification(db, paidOrder.customer_id, "payment_success", {
       amount: payment.amount,
       order_id_short: payment.order_id.slice(0, 8),
+      order_number: formatOrderNumber(paidOrder.order_number),
     });
 
     // Referral "conversion" = the referred customer's first paid order --
@@ -76,6 +78,7 @@ export async function finalizePaymentSuccess(db: SupabaseClient, payment: Paymen
       const itemCount = (items ?? []).reduce((sum: number, i: { quantity: number }) => sum + i.quantity, 0);
       await sendNotification(db, merchant.owner_id, "order_new", {
         order_id_short: mo.id.slice(0, 8),
+        order_number: paidOrder ? formatOrderNumber(paidOrder.order_number) : "",
         item_count: itemCount,
         amount: mo.merchant_payable,
       });
@@ -85,10 +88,11 @@ export async function finalizePaymentSuccess(db: SupabaseClient, payment: Paymen
 
 export async function finalizePaymentFailure(db: SupabaseClient, payment: PaymentRow) {
   await db.from("payments").update({ status: "failed" }).eq("id", payment.id);
-  const { data: order } = await db.from("orders").select("customer_id").eq("id", payment.order_id).single();
+  const { data: order } = await db.from("orders").select("customer_id, order_number").eq("id", payment.order_id).single();
   if (order) {
     await sendNotification(db, order.customer_id, "payment_failed", {
       order_id_short: payment.order_id.slice(0, 8),
+      order_number: formatOrderNumber(order.order_number),
     });
   }
 }

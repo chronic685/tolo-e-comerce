@@ -8,6 +8,14 @@ export function formatCurrency(amount: number, currency = "ETB"): string {
   return `${formatted} ${currency}`;
 }
 
+/** e.g. formatOrderNumber(1234) -> "TL-1234" -- orders.order_number
+ * (migration 0056) is a plain sequence-backed bigint; the "TL-" prefix is
+ * applied here rather than stored, so it can be changed without another
+ * migration or backfill. */
+export function formatOrderNumber(orderNumber: number | string): string {
+  return `TL-${orderNumber}`;
+}
+
 /** e.g. formatDate("2026-09-26T18:43:00Z") -> "Sep 26, 2026" */
 export function formatDate(value: string | Date): string {
   const date = typeof value === "string" ? new Date(value) : value;

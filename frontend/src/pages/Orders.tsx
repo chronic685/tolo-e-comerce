@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Package } from "lucide-react";
-import { Badge, Button, CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { Badge, Button, CUSTOMER_PAGE_SIZE, EmptyState, formatOrderNumber, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { STATUS_COPY } from "../lib/orderStatus";
@@ -9,6 +9,7 @@ import { statusBadgeVariant } from "../lib/orderTrack";
 
 interface OrderRow {
   id: string;
+  order_number: number;
   total: number;
   payment_status: string;
   created_at: string;
@@ -28,7 +29,7 @@ export function Orders() {
     setLoading(true);
     supabase
       .from("orders")
-      .select("id, total, payment_status, created_at, merchant_orders ( id, status, merchant_id )", { count: "exact" })
+      .select("id, order_number, total, payment_status, created_at, merchant_orders ( id, status, merchant_id )", { count: "exact" })
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false })
       .range(from, to)
@@ -62,7 +63,7 @@ export function Orders() {
           >
             <div className="flex justify-between items-center">
               <div>
-                <p className="font-medium">Order #{o.id.slice(0, 8)}</p>
+                <p className="font-medium">Order {formatOrderNumber(o.order_number)}</p>
                 <p className="text-xs text-gray-500">{new Date(o.created_at).toLocaleString()}</p>
               </div>
               <div className="text-right">

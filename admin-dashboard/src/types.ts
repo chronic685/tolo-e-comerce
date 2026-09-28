@@ -51,6 +51,7 @@ export interface CommissionRule {
 
 export interface OrderRow {
   id: string;
+  order_number: number;
   customer_id: string;
   total: number;
   payment_status: string;
@@ -81,7 +82,7 @@ export interface UnacknowledgedMerchantOrderRow {
   order_received_at: string | null;
   escalated_at: string | null;
   merchants: { business_name: string } | null;
-  orders: { id: string; total: number; payment_status: string; created_at: string } | null;
+  orders: { id: string; order_number: number; total: number; payment_status: string; created_at: string } | null;
 }
 
 export interface Settlement {
@@ -284,7 +285,7 @@ export interface Payment {
   currency: string;
   status: "pending" | "verified" | "failed" | "refunded";
   created_at: string;
-  orders: { customer_id: string; profiles: { full_name: string | null; phone: string | null } | null } | null;
+  orders: { order_number: number; customer_id: string; profiles: { full_name: string | null; phone: string | null } | null } | null;
 }
 
 export interface SupportTicket {

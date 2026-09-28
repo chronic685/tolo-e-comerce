@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
-import { SkeletonPage } from "@tolo/ui";
+import { formatOrderNumber, SkeletonPage } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 
 interface ConfirmationOrderRow {
   id: string;
+  order_number: number;
   total: number;
   created_at: string;
   scheduled_for: string | null;
@@ -31,7 +32,7 @@ export function OrderConfirmation() {
     setLoading(true);
     const { data } = await supabase
       .from("orders")
-      .select("id, total, created_at, scheduled_for, addresses ( line1, city, latitude, longitude )")
+      .select("id, order_number, total, created_at, scheduled_for, addresses ( line1, city, latitude, longitude )")
       .eq("id", id)
       .maybeSingle();
     const o = data as unknown as ConfirmationOrderRow | null;
@@ -59,7 +60,7 @@ export function OrderConfirmation() {
         <CheckCircle2 className="w-8 h-8" />
       </div>
       <h1 className="text-xl font-bold mb-1">Order placed!</h1>
-      <p className="text-gray-500 text-sm mb-6">Order #{order.id.slice(0, 8)}</p>
+      <p className="text-gray-500 text-sm mb-6">Order {formatOrderNumber(order.order_number)}</p>
 
       <div className="bg-white border rounded-lg p-4 mb-4 text-left text-sm space-y-2">
         <div className="flex justify-between">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, formatOrderNumber, Pagination, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import type { Payment } from "../types";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -31,7 +31,7 @@ export function Payments() {
     setLoading(true);
     let query = supabase
       .from("payments")
-      .select("id, order_id, provider, amount, currency, status, created_at, orders ( customer_id, profiles ( full_name, phone ) )", {
+      .select("id, order_id, provider, amount, currency, status, created_at, orders ( order_number, customer_id, profiles ( full_name, phone ) )", {
         count: "exact",
       })
       .order("created_at", { ascending: false });
@@ -67,7 +67,7 @@ export function Payments() {
     const rows = (await fetchAllRows((from, to) => {
       let query = supabase
         .from("payments")
-        .select("id, order_id, provider, amount, currency, status, created_at, orders ( customer_id, profiles ( full_name, phone ) )")
+        .select("id, order_id, provider, amount, currency, status, created_at, orders ( order_number, customer_id, profiles ( full_name, phone ) )")
         .order("created_at", { ascending: false });
       if (filter !== "all") query = query.eq("status", filter);
       return query.range(from, to);
@@ -77,6 +77,7 @@ export function Payments() {
       rows.map((p) => ({
         id: p.id,
         order_id: p.order_id,
+        order_number: p.orders?.order_number ?? "",
         customer: p.orders?.profiles?.full_name ?? "",
         provider: p.provider,
         amount_etb: String(p.amount),
@@ -119,7 +120,7 @@ export function Payments() {
                   {p.orders?.profiles?.full_name ?? "Customer"} · {p.provider.replace(/_/g, " ")}
                 </p>
                 <p className="text-xs text-gray-500">
-                  Order #{p.order_id.slice(0, 8)} · {p.amount.toFixed(2)} {p.currency} · {new Date(p.created_at).toLocaleString()}
+                  Order {p.orders?.order_number ? formatOrderNumber(p.orders.order_number) : `#${p.order_id.slice(0, 8)}`} · {p.amount.toFixed(2)} {p.currency} · {new Date(p.created_at).toLocaleString()}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">

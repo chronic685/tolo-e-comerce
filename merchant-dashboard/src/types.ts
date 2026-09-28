@@ -104,6 +104,7 @@ export interface MerchantOrder {
   scheduled_for: string | null;
   order_items: OrderItem[];
   orders: {
+    order_number: number;
     addresses: { recipient_name: string; phone: string; line1: string; city: string } | null;
   } | null;
 }

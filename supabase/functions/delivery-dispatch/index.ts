@@ -12,6 +12,7 @@
 import { serviceClient, userClient } from "../_shared/client.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { sendNotification } from "../_shared/notify.ts";
+import { formatOrderNumber } from "../_shared/format.ts";
 
 const DELIVERY_TO_MERCHANT_ORDER_STATUS: Record<string, string> = {
   picked_up: "picked_up",
@@ -76,17 +77,18 @@ Deno.serve(async (req) => {
         const [{ data: orderInfo }, { data: merchantOrder }] = await Promise.all([
           db
             .from("merchant_orders")
-            .select("orders!inner(customer_id)")
+            .select("orders!inner(customer_id, order_number)")
             .eq("id", delivery.merchant_order_id)
             .single(),
           db.from("merchant_orders").select("merchant_id, merchants(business_name)").eq("id", delivery.merchant_order_id).single(),
         ]);
-        const customerId = (orderInfo as unknown as { orders: { customer_id: string } } | null)?.orders?.customer_id;
+        const orderDetails = (orderInfo as unknown as { orders: { customer_id: string; order_number: number } } | null)?.orders;
         const merchantName = (merchantOrder as unknown as { merchants: { business_name: string } | null } | null)?.merchants
           ?.business_name;
-        if (customerId) {
-          await sendNotification(db, customerId, notifyEvent, {
+        if (orderDetails?.customer_id) {
+          await sendNotification(db, orderDetails.customer_id, notifyEvent, {
             order_id_short: delivery.merchant_order_id.slice(0, 8),
+            order_number: formatOrderNumber(orderDetails.order_number),
             merchant_name: merchantName ?? "the merchant",
           });
         }

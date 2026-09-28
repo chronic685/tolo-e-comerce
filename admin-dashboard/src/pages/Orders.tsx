@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, formatOrderNumber, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import type { OrderRow, UnacknowledgedMerchantOrderRow } from "../types";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -29,7 +29,7 @@ function isUnacknowledged(mo: { status: string; notification_sent_at: string | n
   return Date.now() - new Date(mo.notification_sent_at).getTime() > thresholdMinutes * 60_000;
 }
 
-const ORDER_SELECT = `id, customer_id, total, payment_status, created_at,
+const ORDER_SELECT = `id, order_number, customer_id, total, payment_status, created_at,
    merchant_orders ( id, merchant_id, status, subtotal, notification_sent_at, order_received_at, escalated_at, merchants ( business_name ) )`;
 
 // Queried directly off merchant_orders (not orders) via
@@ -40,7 +40,7 @@ const ORDER_SELECT = `id, customer_id, total, payment_status, created_at,
 // .range()-paginated query, so nothing is ever silently hidden.
 const UNACKNOWLEDGED_SELECT = `id, merchant_id, status, subtotal, notification_sent_at, order_received_at, escalated_at,
    merchants ( business_name ),
-   orders ( id, total, payment_status, created_at )`;
+   orders ( id, order_number, total, payment_status, created_at )`;
 
 export function Orders() {
   const [searchParams] = useSearchParams();
@@ -133,6 +133,7 @@ export function Orders() {
         rows.map((mo) => ({
           merchant_order_id: mo.id,
           order_id: mo.orders?.id ?? "",
+          order_number: mo.orders?.order_number ? formatOrderNumber(mo.orders.order_number) : "",
           merchant: mo.merchants?.business_name ?? "Merchant",
           subtotal_etb: mo.subtotal,
           notification_sent_at: mo.notification_sent_at ?? "",
@@ -150,6 +151,7 @@ export function Orders() {
       `orders-${new Date().toISOString().slice(0, 10)}.csv`,
       exportRows.map((o) => ({
         id: o.id,
+        order_number: formatOrderNumber(o.order_number),
         total_etb: o.total,
         payment_status: o.payment_status,
         created_at: o.created_at,
@@ -181,7 +183,7 @@ export function Orders() {
                 <div key={mo.id} className="p-4 flex justify-between items-center gap-3">
                   <div>
                     <p className="font-medium text-sm">
-                      {mo.merchants?.business_name ?? "Merchant"} — Order #{(mo.orders?.id ?? mo.id).slice(0, 8)}
+                      {mo.merchants?.business_name ?? "Merchant"} — Order {mo.orders?.order_number ? formatOrderNumber(mo.orders.order_number) : `#${mo.id.slice(0, 8)}`}
                     </p>
                     <p className="text-xs text-gray-500">
                       {mo.notification_sent_at ? `Notified ${new Date(mo.notification_sent_at).toLocaleString()}` : ""} · {mo.subtotal.toFixed(2)} ETB
@@ -211,7 +213,7 @@ export function Orders() {
               <div key={o.id} className="p-4">
                 <div className="flex justify-between items-center mb-2">
                   <div>
-                    <p className="font-medium text-sm">Order #{o.id.slice(0, 8)}</p>
+                    <p className="font-medium text-sm">Order {formatOrderNumber(o.order_number)}</p>
                     <p className="text-xs text-gray-500">{new Date(o.created_at).toLocaleString()}</p>
                   </div>
                   <div className="text-right">
