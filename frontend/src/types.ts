@@ -83,6 +83,7 @@ export interface CartItem {
       slug: string;
       merchant_id: string;
       category_id: string | null;
+      product_images: { url: string; is_primary: boolean }[];
     };
   };
 }
