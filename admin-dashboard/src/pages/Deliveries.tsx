@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { SkeletonRows } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import type { Delivery, Driver } from "../types";
 
 const STATUS_FLOW: Record<string, string[]> = {
@@ -12,27 +12,36 @@ const STATUS_FLOW: Record<string, string[]> = {
 
 export function Deliveries() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase
+    const { data, count } = await supabase
       .from("deliveries")
       .select(
         `id, merchant_order_id, driver_id, status, pickup_address, pickup_contact_name, pickup_contact_phone,
          dropoff_address, dropoff_contact_name, dropoff_contact_phone, created_at,
          drivers ( full_name ),
          merchant_orders ( merchants ( business_name ) )`,
+        { count: "exact" },
       )
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
     setDeliveries((data as unknown as Delivery[]) ?? []);
+    setTotalCount(count ?? 0);
     setLoading(false);
   }
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
+
+  useEffect(() => {
     supabase.from("drivers").select("*").eq("is_active", true).then(({ data }) => setDrivers(data ?? []));
   }, []);
 
@@ -73,6 +82,7 @@ export function Deliveries() {
       ) : deliveries.length === 0 ? (
         <p className="text-gray-500">No deliveries yet.</p>
       ) : (
+        <>
         <div className="bg-white border rounded-lg divide-y">
           {deliveries.map((d) => (
             <div key={d.id} className="p-4">
@@ -130,6 +140,10 @@ export function Deliveries() {
             </div>
           ))}
         </div>
+        <div className="mt-4">
+          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+        </div>
+        </>
       )}
     </div>
   );

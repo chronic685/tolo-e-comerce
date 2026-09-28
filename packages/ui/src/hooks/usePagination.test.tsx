@@ -75,4 +75,15 @@ describe("usePagination", () => {
     rerender({ resetKey: "a" });
     expect(result.current.page).toBe(5);
   });
+
+  it("uses a custom paramName so two independent lists on one page don't collide", () => {
+    const { result: a } = renderHook(() => usePagination({ pageSize: 10, paramName: "settlements_page" }), {
+      wrapper: withRouter(["/?settlements_page=3&adjustments_page=7"]),
+    });
+    const { result: b } = renderHook(() => usePagination({ pageSize: 10, paramName: "adjustments_page" }), {
+      wrapper: withRouter(["/?settlements_page=3&adjustments_page=7"]),
+    });
+    expect(a.current.page).toBe(3);
+    expect(b.current.page).toBe(7);
+  });
 });

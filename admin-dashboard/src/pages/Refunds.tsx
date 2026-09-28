@@ -1,119 +1,166 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ExportCsvButton, SkeletonRows } from "@tolo/ui";
-import type { ReturnRow } from "../types";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import type { RefundRow, ReturnRow } from "../types";
 
 const REASONS = ["Customer cancellation", "Merchant unavailable", "Product unavailable", "Delivery failure", "Duplicate payment", "Payment error", "Admin correction", "Other"];
 
+const RETURN_SELECT = `id, merchant_order_id, customer_id, reason, status, created_at,
+         merchant_orders ( subtotal, merchants ( business_name ) ),
+         profiles ( full_name, phone ),
+         refunds ( id, amount, status )`;
+
 export function Refunds() {
-  const [returns, setReturns] = useState<ReturnRow[]>([]);
+  // Three genuinely separate operational queues, each its own query/page --
+  // deriving them all by client-side .filter() on one .limit(100) fetch (as
+  // this page used to) can't produce a correct .range()-paginated count for
+  // any of them individually.
+  const [requested, setRequested] = useState<ReturnRow[]>([]);
+  const [requestedTotal, setRequestedTotal] = useState(0);
+  const requestedPage = usePagination({ pageSize: ADMIN_PAGE_SIZE, paramName: "requested_page" });
+
+  const [approvedAwaitingRefund, setApprovedAwaitingRefund] = useState<ReturnRow[]>([]);
+
+  const [refunds, setRefunds] = useState<RefundRow[]>([]);
+  const [refundsTotal, setRefundsTotal] = useState(0);
+  const refundsPage = usePagination({ pageSize: ADMIN_PAGE_SIZE, paramName: "refunds_page" });
+
   const [loading, setLoading] = useState(true);
   const [refundAmounts, setRefundAmounts] = useState<Record<string, string>>({});
   const [refundReasons, setRefundReasons] = useState<Record<string, string>>({});
 
-  async function load() {
-    setLoading(true);
+  async function loadRequested() {
+    const { data, count } = await supabase
+      .from("returns")
+      .select(RETURN_SELECT, { count: "exact" })
+      .eq("status", "requested")
+      .order("created_at", { ascending: false })
+      .range(requestedPage.from, requestedPage.to);
+    setRequested((data as unknown as ReturnRow[]) ?? []);
+    setRequestedTotal(count ?? 0);
+  }
+
+  // Not paginated: "awaiting refund" also requires refunds.length === 0,
+  // a condition PostgREST can't express as a simple column filter (it would
+  // need a NOT EXISTS view/RPC). Capped at 200 instead -- an operational
+  // queue meant to be worked down to empty, same treatment as admin
+  // Orders.tsx's "unacknowledged" queue.
+  async function loadApprovedAwaitingRefund() {
     const { data } = await supabase
       .from("returns")
-      .select(
-        `id, merchant_order_id, customer_id, reason, status, created_at,
-         merchant_orders ( subtotal, merchants ( business_name ) ),
-         profiles ( full_name, phone ),
-         refunds ( id, amount, status )`,
-      )
+      .select(RETURN_SELECT)
+      .in("status", ["approved", "received"])
       .order("created_at", { ascending: false })
-      .limit(100);
-    setReturns((data as unknown as ReturnRow[]) ?? []);
-    setLoading(false);
+      .limit(200);
+    const rows = (data as unknown as ReturnRow[]) ?? [];
+    setApprovedAwaitingRefund(rows.filter((r) => r.refunds.length === 0));
+  }
+
+  // Queried directly from `refunds` (rather than derived from `returns`
+  // client-side) -- every row here is a refund that actually exists, so
+  // this is a real, correctly .range()-paginated list.
+  async function loadRefunds() {
+    const { data, count } = await supabase
+      .from("refunds")
+      .select(
+        `id, amount, status, processed_at, return_id,
+         returns ( id, reason, created_at, merchant_orders ( subtotal, merchants ( business_name ) ), profiles ( full_name, phone ) )`,
+        { count: "exact" },
+      )
+      .order("processed_at", { ascending: false, nullsFirst: true })
+      .range(refundsPage.from, refundsPage.to);
+    setRefunds((data as unknown as RefundRow[]) ?? []);
+    setRefundsTotal(count ?? 0);
   }
 
   useEffect(() => {
-    load();
+    setLoading(true);
+    Promise.all([loadRequested(), loadApprovedAwaitingRefund(), loadRefunds()]).then(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Was `await load()` after each mutation below -- load() sets
-  // loading=true, and the WHOLE page (all three sections) is gated behind
-  // `if (loading) return <p>Loading...</p>` above, so every single status
-  // click flashed the entire Returns & Refunds page. Each is patched into
-  // `returns` (and its nested `refunds`, for the refund-status case)
-  // directly instead.
+  // Re-fetch just the affected queue on a page change -- these re-run once
+  // more on mount alongside the effect above (harmless, just one extra
+  // request each) since both are keyed independently.
+  useEffect(() => {
+    loadRequested();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedPage.from, requestedPage.to]);
+
+  useEffect(() => {
+    loadRefunds();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refundsPage.from, refundsPage.to]);
+
+  // A status change can move a row between queues (requested -> awaiting
+  // refund; awaiting refund -> has a refund), so each mutation just
+  // reloads the queues it could have affected, rather than hand-patching
+  // three independently-paginated arrays in place.
   async function setReturnStatus(r: ReturnRow, status: ReturnRow["status"]) {
     const { error } = await supabase.from("returns").update({ status }).eq("id", r.id);
     if (error) return;
-    setReturns((prev) => prev.map((row) => (row.id === r.id ? { ...row, status } : row)));
+    await Promise.all([loadRequested(), loadApprovedAwaitingRefund()]);
   }
 
   async function issueRefund(r: ReturnRow) {
     const amount = Number(refundAmounts[r.id] ?? r.merchant_orders?.subtotal ?? 0);
     if (!amount || amount <= 0) return;
-    // .select().single() for the server-generated id/status the nested
-    // refunds list needs, rather than re-fetching the whole page to find it.
-    const { data, error } = await supabase.from("refunds").insert({ return_id: r.id, amount, status: "pending" }).select().single();
+    const { error } = await supabase.from("refunds").insert({ return_id: r.id, amount, status: "pending" });
     if (error) return;
-    setReturns((prev) => prev.map((row) => (row.id === r.id ? { ...row, refunds: [...row.refunds, data] } : row)));
+    await loadApprovedAwaitingRefund();
+    // Newest-first ordering means the new refund always belongs on page 1.
+    if (refundsPage.page === 1) await loadRefunds();
+    else refundsPage.setPage(1);
   }
 
   async function setRefundStatus(refundId: string, status: string) {
     const processed_at = status === "completed" || status === "failed" ? new Date().toISOString() : null;
     const { error } = await supabase.from("refunds").update({ status, processed_at }).eq("id", refundId);
     if (error) return;
-    setReturns((prev) =>
-      prev.map((row) => ({ ...row, refunds: row.refunds.map((f) => (f.id === refundId ? { ...f, status, processed_at } : f)) })),
-    );
+    setRefunds((prev) => prev.map((f) => (f.id === refundId ? { ...f, status, processed_at } : f)));
   }
 
-  function handleExport() {
+  // Exports every refund, not just the page on screen.
+  async function handleExport() {
+    const { data } = await supabase
+      .from("refunds")
+      .select(
+        `id, amount, status, processed_at, return_id,
+         returns ( id, reason, created_at, merchant_orders ( subtotal, merchants ( business_name ) ), profiles ( full_name, phone ) )`,
+      )
+      .order("processed_at", { ascending: false, nullsFirst: true })
+      .range(0, 4999);
     exportToCsv(
       `refunds-${new Date().toISOString().slice(0, 10)}.csv`,
-      returns.flatMap((r) =>
-        r.refunds.length > 0
-          ? r.refunds.map((f) => ({
-              return_id: r.id,
-              refund_id: f.id,
-              customer: r.profiles?.full_name ?? "",
-              merchant: r.merchant_orders?.merchants?.business_name ?? "",
-              reason: r.reason,
-              return_status: r.status,
-              refund_amount_etb: String(f.amount),
-              refund_status: f.status,
-              created_at: r.created_at,
-            }))
-          : [
-              {
-                return_id: r.id,
-                refund_id: "",
-                customer: r.profiles?.full_name ?? "",
-                merchant: r.merchant_orders?.merchants?.business_name ?? "",
-                reason: r.reason,
-                return_status: r.status,
-                refund_amount_etb: "",
-                refund_status: "",
-                created_at: r.created_at,
-              },
-            ],
-      ),
+      ((data as unknown as RefundRow[]) ?? []).map((f) => ({
+        return_id: f.return_id,
+        refund_id: f.id,
+        customer: f.returns?.profiles?.full_name ?? "",
+        merchant: f.returns?.merchant_orders?.merchants?.business_name ?? "",
+        reason: f.returns?.reason ?? "",
+        refund_amount_etb: String(f.amount),
+        refund_status: f.status,
+        created_at: f.returns?.created_at ?? "",
+      })),
     );
   }
 
   if (loading) return <SkeletonRows />;
 
-  const requested = returns.filter((r) => r.status === "requested");
-  const approvedAwaitingRefund = returns.filter((r) => (r.status === "approved" || r.status === "received") && r.refunds.length === 0);
-  const withRefunds = returns.filter((r) => r.refunds.length > 0);
-
   return (
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Returns &amp; Refunds</h1>
-        <ExportCsvButton onExport={handleExport} disabled={returns.length === 0} />
+        <ExportCsvButton onExport={handleExport} disabled={refunds.length === 0} />
       </div>
 
       <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Return Requests</h2>
       {requested.length === 0 ? (
         <p className="text-gray-500 text-sm mb-6">No pending return requests.</p>
       ) : (
-        <div className="bg-white border rounded-lg divide-y mb-6">
+        <>
+        <div className="bg-white border rounded-lg divide-y mb-2">
           {requested.map((r) => (
             <div key={r.id} className="p-3 flex items-center justify-between gap-3">
               <div>
@@ -131,6 +178,10 @@ export function Refunds() {
             </div>
           ))}
         </div>
+        <div className="mb-6">
+          <Pagination page={requestedPage.page} totalPages={totalPagesFor(requestedTotal, ADMIN_PAGE_SIZE)} onPageChange={requestedPage.setPage} />
+        </div>
+        </>
       )}
 
       <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Approved — Awaiting Refund (Finance)</h2>
@@ -187,16 +238,18 @@ export function Refunds() {
       )}
 
       <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Refunds</h2>
-      {withRefunds.length === 0 ? (
+      {refunds.length === 0 ? (
         <p className="text-gray-500 text-sm">No refunds issued yet.</p>
       ) : (
-        <div className="bg-white border rounded-lg divide-y">
-          {withRefunds.map((r) =>
-            r.refunds.map((f) => (
+        <>
+          <div className="bg-white border rounded-lg divide-y">
+            {refunds.map((f) => (
               <div key={f.id} className="p-3 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-medium">{r.profiles?.full_name ?? "Customer"} · {r.merchant_orders?.merchants?.business_name}</p>
-                  <p className="text-xs text-gray-500">{f.amount.toFixed(2)} ETB · {r.reason}</p>
+                  <p className="text-sm font-medium">
+                    {f.returns?.profiles?.full_name ?? "Customer"} · {f.returns?.merchant_orders?.merchants?.business_name}
+                  </p>
+                  <p className="text-xs text-gray-500">{f.amount.toFixed(2)} ETB · {f.returns?.reason}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 capitalize">{f.status}</span>
@@ -212,9 +265,12 @@ export function Refunds() {
                   )}
                 </div>
               </div>
-            )),
-          )}
-        </div>
+            ))}
+          </div>
+          <div className="mt-4">
+            <Pagination page={refundsPage.page} totalPages={totalPagesFor(refundsTotal, ADMIN_PAGE_SIZE)} onPageChange={refundsPage.setPage} />
+          </div>
+        </>
       )}
     </div>
   );

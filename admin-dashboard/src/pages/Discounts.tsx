@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ExportCsvButton, toast } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import type { Category, DiscountRule, Merchant } from "../types";
 
 const emptyForm = {
@@ -25,6 +25,8 @@ const emptyForm = {
 
 export function Discounts() {
   const [rules, setRules] = useState<DiscountRule[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
   const [categories, setCategories] = useState<Category[]>([]);
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [discountsEnabled, setDiscountsEnabled] = useState(true);
@@ -34,8 +36,13 @@ export function Discounts() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   async function load() {
-    const { data } = await supabase.from("discount_rules").select("*").order("created_at", { ascending: false });
+    const { data, count } = await supabase
+      .from("discount_rules")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to);
     setRules((data as DiscountRule[]) ?? []);
+    setTotalCount(count ?? 0);
   }
 
   async function loadMasterSwitch() {
@@ -45,6 +52,10 @@ export function Discounts() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
+
+  useEffect(() => {
     loadMasterSwitch();
     supabase.from("categories").select("id, name, slug").then(({ data }) => setCategories((data as Category[]) ?? []));
     supabase.from("merchants").select("id, business_name").eq("status", "active").then(({ data }) => setMerchants((data as Merchant[]) ?? []));
@@ -163,14 +174,22 @@ export function Discounts() {
       toast.error(error.message);
       return;
     }
-    setRules((prev) => (editingId ? prev.map((r) => (r.id === editingId ? (data as DiscountRule) : r)) : [data as DiscountRule, ...prev]));
+    if (editingId) {
+      setRules((prev) => prev.map((r) => (r.id === editingId ? (data as DiscountRule) : r)));
+    } else if (page === 1) {
+      await load();
+    } else {
+      setPage(1);
+    }
     cancelForm();
   }
 
-  function handleExport() {
+  // Exports every discount rule, not just the page on screen.
+  async function handleExport() {
+    const { data } = await supabase.from("discount_rules").select("*").order("created_at", { ascending: false }).range(0, 4999);
     exportToCsv(
       `discount-rules-${new Date().toISOString().slice(0, 10)}.csv`,
-      rules.map((r) => ({
+      ((data as DiscountRule[]) ?? []).map((r) => ({
         id: r.id,
         name: r.name,
         code: r.code ?? "",
@@ -451,6 +470,9 @@ export function Discounts() {
             </div>
           ))
         )}
+      </div>
+      <div className="mt-4">
+        <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
       </div>
     </div>
   );

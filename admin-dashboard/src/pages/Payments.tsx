@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ExportCsvButton, SkeletonRows, toast } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import type { Payment } from "../types";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -21,24 +21,31 @@ const FINANCE_CONFIRMABLE = new Set(["bank_transfer", "mobile_money"]);
 
 export function Payments() {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("pending");
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE, resetKey: filter });
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase
+    let query = supabase
       .from("payments")
-      .select("id, order_id, provider, amount, currency, status, created_at, orders ( customer_id, profiles ( full_name, phone ) )")
-      .order("created_at", { ascending: false })
-      .limit(200);
+      .select("id, order_id, provider, amount, currency, status, created_at, orders ( customer_id, profiles ( full_name, phone ) )", {
+        count: "exact",
+      })
+      .order("created_at", { ascending: false });
+    if (filter !== "all") query = query.eq("status", filter);
+    const { data, count } = await query.range(from, to);
     setPayments((data as unknown as Payment[]) ?? []);
+    setTotalCount(count ?? 0);
     setLoading(false);
   }
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, from, to]);
 
   async function handleConfirm(payment: Payment) {
     setConfirmingId(payment.id);
@@ -48,18 +55,24 @@ export function Payments() {
       toast.error("Could not confirm this payment. Please try again.");
       return;
     }
-    // Was `load()` -- setLoading(true) inside it wipes the whole list to
-    // "Loading..." for one payment's status changing. `filter` is applied
-    // client-side at render time (not a server query param), so patching
-    // status here re-filters correctly on the next render with no extra
-    // fetch needed.
-    setPayments((prev) => prev.map((p) => (p.id === payment.id ? { ...p, status: "verified" } : p)));
+    // The status filter is now a real server-side query param, so a
+    // confirmed payment can leave the currently-filtered view (e.g. out of
+    // "pending") -- reload rather than patch in place.
+    await load();
   }
 
-  function handleExport() {
+  // Exports every payment matching the current status filter, not just the
+  // page on screen.
+  async function handleExport() {
+    let query = supabase
+      .from("payments")
+      .select("id, order_id, provider, amount, currency, status, created_at, orders ( customer_id, profiles ( full_name, phone ) )")
+      .order("created_at", { ascending: false });
+    if (filter !== "all") query = query.eq("status", filter);
+    const { data } = await query.range(0, 4999);
     exportToCsv(
       `payments-${new Date().toISOString().slice(0, 10)}.csv`,
-      payments.map((p) => ({
+      ((data as unknown as Payment[]) ?? []).map((p) => ({
         id: p.id,
         order_id: p.order_id,
         customer: p.orders?.profiles?.full_name ?? "",
@@ -70,8 +83,6 @@ export function Payments() {
       })),
     );
   }
-
-  const filtered = filter === "all" ? payments : payments.filter((p) => p.status === filter);
 
   if (loading) return <SkeletonRows />;
 
@@ -94,11 +105,12 @@ export function Payments() {
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {payments.length === 0 ? (
         <p className="text-gray-500 text-sm">No {filter !== "all" ? filter : ""} payments.</p>
       ) : (
+        <>
         <div className="bg-white border rounded-lg divide-y">
-          {filtered.map((p) => (
+          {payments.map((p) => (
             <div key={p.id} className="p-3 flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium">
@@ -123,6 +135,10 @@ export function Payments() {
             </div>
           ))}
         </div>
+        <div className="mt-4">
+          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+        </div>
+        </>
       )}
     </div>
   );

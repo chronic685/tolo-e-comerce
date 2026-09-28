@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ExportCsvButton, SkeletonRows } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import type { OrderRow } from "../types";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -40,8 +40,10 @@ export function Orders() {
   // below, since a disputed order could easily be older than that.
   const linkedOrderId = searchParams.get("order_id");
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [escalateAfterMinutes, setEscalateAfterMinutes] = useState(DEFAULT_ESCALATE_AFTER_MINUTES);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE, resetKey: `${linkedOrderId ?? ""}:${onlyUnacknowledged}` });
 
   useEffect(() => {
     setLoading(true);
@@ -56,16 +58,38 @@ export function Orders() {
         });
       return;
     }
+    // The "unacknowledged" queue is a time-relative filter (notification
+    // sent more than escalate_after_minutes ago, still un-received) that
+    // can't cleanly become a single .range()-paginated list -- it's
+    // narrowed server-side to merchant_orders still in "new" status (so
+    // this never re-fetches the platform's whole order history) and capped
+    // at 200, an operational alert queue meant to be worked down to empty
+    // rather than paged through, not a paginated browse list like "All
+    // Orders" below.
+    if (onlyUnacknowledged) {
+      supabase
+        .from("orders")
+        .select(ORDER_SELECT)
+        .eq("merchant_orders.status", "new")
+        .order("created_at", { ascending: false })
+        .limit(200)
+        .then(({ data }) => {
+          setOrders((data as unknown as OrderRow[]) ?? []);
+          setLoading(false);
+        });
+      return;
+    }
     supabase
       .from("orders")
-      .select(ORDER_SELECT)
+      .select(ORDER_SELECT, { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(100)
-      .then(({ data }) => {
+      .range(from, to)
+      .then(({ data, count }) => {
         setOrders((data as unknown as OrderRow[]) ?? []);
+        setTotalCount(count ?? 0);
         setLoading(false);
       });
-  }, [linkedOrderId]);
+  }, [linkedOrderId, onlyUnacknowledged, from, to]);
 
   useEffect(() => {
     supabase
@@ -86,10 +110,19 @@ export function Orders() {
       ? orders.filter((o) => o.merchant_orders.some((mo) => isUnacknowledged(mo, escalateAfterMinutes)))
       : orders;
 
-  function handleExport() {
+  // The linkedOrderId and onlyUnacknowledged branches already hold their
+  // whole relevant set in `orders` (see the effect above) -- only the base
+  // "All Orders" branch is paginated, so only it needs a fresh, unpaginated
+  // fetch here to export everything rather than just the page on screen.
+  async function handleExport() {
+    let exportRows = visibleOrders;
+    if (!linkedOrderId && !onlyUnacknowledged) {
+      const { data } = await supabase.from("orders").select(ORDER_SELECT).order("created_at", { ascending: false }).range(0, 4999);
+      exportRows = (data as unknown as OrderRow[]) ?? [];
+    }
     exportToCsv(
       `orders-${new Date().toISOString().slice(0, 10)}.csv`,
-      visibleOrders.map((o) => ({
+      exportRows.map((o) => ({
         id: o.id,
         total_etb: o.total,
         payment_status: o.payment_status,
@@ -112,6 +145,7 @@ export function Orders() {
       {visibleOrders.length === 0 ? (
         <p className="text-gray-500">Nothing here.</p>
       ) : (
+        <>
         <div className="bg-white border rounded-lg divide-y">
           {visibleOrders.map((o) => (
             <div key={o.id} className="p-4">
@@ -148,6 +182,12 @@ export function Orders() {
             </div>
           ))}
         </div>
+        {!linkedOrderId && !onlyUnacknowledged && (
+          <div className="mt-4">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
+        )}
+        </>
       )}
     </div>
   );

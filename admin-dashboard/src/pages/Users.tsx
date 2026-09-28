@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { ADMIN_PAGES } from "../lib/adminPages";
-import { SkeletonRows, toast } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Pagination, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import type { StaffProfile } from "../types";
 
 const ROLES = ["tolo_ops", "tolo_finance", "tolo_admin", "tolo_marketing", "tolo_support", "tolo_merchant_verification"];
@@ -48,7 +48,9 @@ const EMPTY_CREATE_FORM = {
 export function Users() {
   const { isAdmin, isSuperAdmin, user } = useAuth();
   const [staff, setStaff] = useState<StaffProfile[]>([]);
+  const [staffTotalCount, setStaffTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<StaffProfile[]>([]);
   const [reasonPromptId, setReasonPromptId] = useState<string | null>(null);
@@ -71,18 +73,21 @@ export function Users() {
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase
+    const { data, count } = await supabase
       .from("profiles")
-      .select(PROFILE_SELECT)
+      .select(PROFILE_SELECT, { count: "exact" })
       .neq("role", "customer")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
     setStaff((data as StaffProfile[]) ?? []);
+    setStaffTotalCount(count ?? 0);
     setLoading(false);
   }
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
 
   async function handleSearch() {
     if (!search.trim()) {
@@ -109,8 +114,15 @@ export function Users() {
     setSearchResults((prev) => prev.map((row) => (row.id === p.id ? updated : row)));
     setStaff((prev) => {
       const stillStaff = updated.role !== "customer";
-      if (!stillStaff) return prev.filter((row) => row.id !== p.id);
-      return prev.some((row) => row.id === p.id) ? prev.map((row) => (row.id === p.id ? updated : row)) : [updated, ...prev];
+      const wasOnThisPage = prev.some((row) => row.id === p.id);
+      if (wasOnThisPage) {
+        return stillStaff ? prev.map((row) => (row.id === p.id ? updated : row)) : prev.filter((row) => row.id !== p.id);
+      }
+      // A row promoted into staff from the search results wasn't on this
+      // page before -- which page it now belongs to (by created_at) is a
+      // server question, not something to guess by prepending locally.
+      if (stillStaff) void load();
+      return prev;
     });
   }
 
@@ -260,7 +272,7 @@ export function Users() {
       toast.error(`Could not delete this account: ${await edgeFunctionError(error)}`);
       return;
     }
-    setStaff((prev) => prev.filter((row) => row.id !== p.id));
+    await load();
     setSearchResults((prev) => prev.filter((row) => row.id !== p.id));
     toast.success(`${p.full_name ?? p.username ?? "Account"} deleted.`);
   }
@@ -296,23 +308,11 @@ export function Users() {
       toast.error(error ? await edgeFunctionError(error) : "Could not create this account. Please try again.");
       return;
     }
-    // The Edge Function's response only carries {id, username} -- everything
-    // else needed to render the new row is already in hand from the form
-    // itself, so the new account can be added directly instead of
-    // re-fetching the whole staff list.
-    const newProfile: StaffProfile = {
-      id: data.id,
-      full_name: createForm.full_name.trim() || null,
-      phone: null,
-      role: createForm.role,
-      account_status: "active",
-      suspension_reason: null,
-      permissions: createForm.grantAdmin ? [] : createForm.permissions,
-      admin_tier: createForm.grantAdmin ? "admin" : null,
-      username: data.username,
-      created_at: new Date().toISOString(),
-    };
-    setStaff((prev) => [newProfile, ...prev]);
+    // Newest-first ordering means a brand-new account always belongs on
+    // page 1 -- reload only when that's the page currently showing, and
+    // land there otherwise so it's visible.
+    if (page === 1) await load();
+    else setPage(1);
     setCreateForm(EMPTY_CREATE_FORM);
     setShowCreateForm(false);
     toast.success(`Account "${data.username}" created.`);
@@ -708,11 +708,16 @@ export function Users() {
       ) : staff.length === 0 ? (
         <p className="text-gray-500 text-sm">No staff accounts yet.</p>
       ) : (
-        <div className="bg-white border rounded-lg divide-y">
-          {staff.map((p) => (
-            <div key={p.id}>{renderRow(p)}</div>
-          ))}
-        </div>
+        <>
+          <div className="bg-white border rounded-lg divide-y">
+            {staff.map((p) => (
+              <div key={p.id}>{renderRow(p)}</div>
+            ))}
+          </div>
+          <div className="mt-4">
+            <Pagination page={page} totalPages={totalPagesFor(staffTotalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
+        </>
       )}
     </div>
   );

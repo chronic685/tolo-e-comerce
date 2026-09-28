@@ -2,26 +2,31 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Package, ChevronRight } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { SkeletonRows } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import type { SupportTicket } from "../types";
 
 export function Support() {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase
+    const { data, count } = await supabase
       .from("support_tickets")
-      .select("*, merchant_orders ( order_id, merchants ( business_name ) )")
-      .order("created_at", { ascending: false });
+      .select("*, merchant_orders ( order_id, merchants ( business_name ) )", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to);
     setTickets((data as unknown as SupportTicket[]) ?? []);
+    setTotalCount(count ?? 0);
     setLoading(false);
   }
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
 
   async function setStatus(t: SupportTicket, status: string) {
     const { error } = await supabase.from("support_tickets").update({ status }).eq("id", t.id);
@@ -37,6 +42,7 @@ export function Support() {
       ) : tickets.length === 0 ? (
         <p className="text-gray-500">No support tickets.</p>
       ) : (
+        <>
         <div className="bg-white border rounded-lg divide-y">
           {tickets.map((t) => (
             <div key={t.id} className="p-4">
@@ -76,6 +82,10 @@ export function Support() {
             </div>
           ))}
         </div>
+        <div className="mt-4">
+          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+        </div>
+        </>
       )}
     </div>
   );

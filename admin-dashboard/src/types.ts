@@ -159,6 +159,24 @@ export interface ReturnRow {
   refunds: { id: string; amount: number; status: string }[];
 }
 
+// Refunds.tsx's "Refunds" queue, queried directly from `refunds` (each row
+// is a refund that actually exists) rather than derived client-side from
+// `returns` -- the nested `returns` carries what the row needs to display.
+export interface RefundRow {
+  id: string;
+  amount: number;
+  status: string;
+  processed_at: string | null;
+  return_id: string;
+  returns: {
+    id: string;
+    reason: string;
+    created_at: string;
+    merchant_orders: { subtotal: number; merchants: { business_name: string } | null } | null;
+    profiles: { full_name: string | null; phone: string | null } | null;
+  } | null;
+}
+
 export interface StaffProfile {
   id: string;
   full_name: string | null;

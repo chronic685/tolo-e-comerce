@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { exportToCsv } from "../lib/csvExport";
-import { ExportCsvButton, SkeletonRows } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import type { Merchant, MerchantDocument } from "../types";
 
 const STATUS_FILTERS = ["all", "registered", "under_review", "active", "suspended", "rejected", "closed"];
@@ -31,7 +31,9 @@ export function Merchants() {
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get("status") ?? "all";
   const [merchants, setMerchants] = useState<Merchant[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE, resetKey: statusFilter });
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [documents, setDocuments] = useState<MerchantDocument[]>([]);
   const [docLinks, setDocLinks] = useState<Record<string, string>>({});
@@ -41,17 +43,18 @@ export function Merchants() {
 
   async function load() {
     setLoading(true);
-    let query = supabase.from("merchants").select("*").order("created_at", { ascending: false });
+    let query = supabase.from("merchants").select("*", { count: "exact" }).order("created_at", { ascending: false });
     if (statusFilter !== "all") query = query.eq("status", statusFilter);
-    const { data } = await query;
+    const { data, count } = await query.range(from, to);
     setMerchants(data ?? []);
+    setTotalCount(count ?? 0);
     setLoading(false);
   }
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, from, to]);
 
   async function updateStatus(m: Merchant, status: string, reasonText?: string) {
     const payload: Record<string, unknown> = { status };
@@ -71,11 +74,13 @@ export function Merchants() {
     // merchant that no longer matches the active filter (e.g. approved
     // while viewing "registered") is removed rather than left showing the
     // wrong status under the wrong tab.
+    const leavesFilteredView = statusFilter !== "all" && status !== statusFilter;
     setMerchants((prev) =>
-      statusFilter !== "all" && status !== statusFilter
+      leavesFilteredView
         ? prev.filter((merchant) => merchant.id !== m.id)
         : prev.map((merchant) => (merchant.id === m.id ? { ...merchant, ...payload, status } : merchant)),
     );
+    if (leavesFilteredView) setTotalCount((prev) => Math.max(0, prev - 1));
   }
 
   async function toggleExpand(m: Merchant) {
@@ -107,10 +112,15 @@ export function Merchants() {
     setDocuments((prev) => prev.map((d) => (d.id === doc.id ? { ...d, status } : d)));
   }
 
-  function handleExport() {
+  // Exports every merchant matching the current status filter, not just
+  // the page on screen.
+  async function handleExport() {
+    let query = supabase.from("merchants").select("*").order("created_at", { ascending: false });
+    if (statusFilter !== "all") query = query.eq("status", statusFilter);
+    const { data } = await query.range(0, 4999);
     exportToCsv(
       `merchants-${statusFilter}-${new Date().toISOString().slice(0, 10)}.csv`,
-      merchants.map((m) => ({
+      (data ?? []).map((m) => ({
         id: m.id,
         business_name: m.business_name,
         category: m.business_category ?? "",
@@ -153,6 +163,7 @@ export function Merchants() {
       ) : merchants.length === 0 ? (
         <p className="text-gray-500">No merchants in this view.</p>
       ) : (
+        <>
         <div className="bg-white border rounded-lg divide-y">
           {merchants.map((m) => (
             <div key={m.id}>
@@ -273,6 +284,10 @@ export function Merchants() {
             </div>
           ))}
         </div>
+        <div className="mt-4">
+          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+        </div>
+        </>
       )}
     </div>
   );

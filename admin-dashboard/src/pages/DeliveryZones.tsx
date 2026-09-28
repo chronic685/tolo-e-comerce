@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { toast } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import type { DeliveryZone } from "../types";
 
 const emptyForm = {
@@ -17,18 +17,26 @@ const emptyForm = {
 
 export function DeliveryZones() {
   const [zones, setZones] = useState<DeliveryZone[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function load() {
-    const { data } = await supabase.from("delivery_zones").select("*").order("created_at", { ascending: false });
+    const { data, count } = await supabase
+      .from("delivery_zones")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, to);
     setZones((data as DeliveryZone[]) ?? []);
+    setTotalCount(count ?? 0);
   }
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
 
   async function toggleActive(z: DeliveryZone) {
     const { error } = await supabase.from("delivery_zones").update({ is_active: !z.is_active }).eq("id", z.id);
@@ -43,7 +51,7 @@ export function DeliveryZones() {
       return;
     }
     setSaving(true);
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("delivery_zones")
       .insert({
         name: form.name.trim(),
@@ -63,7 +71,8 @@ export function DeliveryZones() {
       toast.error(error.message);
       return;
     }
-    setZones((prev) => [data as DeliveryZone, ...prev]);
+    if (page === 1) await load();
+    else setPage(1);
     setForm(emptyForm);
     setShowForm(false);
   }
@@ -183,6 +192,9 @@ export function DeliveryZones() {
             </div>
           ))
         )}
+      </div>
+      <div className="mt-4">
+        <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
       </div>
     </div>
   );

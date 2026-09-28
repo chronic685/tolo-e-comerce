@@ -1,29 +1,32 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ExportCsvButton, SkeletonRows } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import type { CustomerProfile } from "../types";
 
 export function Customers() {
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState("");
+  const [committedSearch, setCommittedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [orderCounts, setOrderCounts] = useState<Record<string, number>>({});
   const [reasonPromptId, setReasonPromptId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE, resetKey: committedSearch });
 
   async function load() {
     setLoading(true);
     let query = supabase
       .from("profiles")
-      .select("id, full_name, phone, account_status, suspension_reason, created_at")
+      .select("id, full_name, phone, account_status, suspension_reason, created_at", { count: "exact" })
       .eq("role", "customer")
-      .order("created_at", { ascending: false })
-      .limit(100);
-    if (search.trim()) query = query.or(`full_name.ilike.%${search.trim()}%,phone.ilike.%${search.trim()}%`);
-    const { data } = await query;
+      .order("created_at", { ascending: false });
+    if (committedSearch.trim()) query = query.or(`full_name.ilike.%${committedSearch.trim()}%,phone.ilike.%${committedSearch.trim()}%`);
+    const { data, count } = await query.range(from, to);
     const rows = (data as CustomerProfile[]) ?? [];
     setCustomers(rows);
+    setTotalCount(count ?? 0);
     setLoading(false);
 
     if (rows.length > 0) {
@@ -40,7 +43,7 @@ export function Customers() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [committedSearch, from, to]);
 
   // Same reason-prompt pattern as Merchants.tsx: suspending requires a typed
   // reason (stored on profiles.suspension_reason, same mechanism as
@@ -67,15 +70,33 @@ export function Customers() {
     setCustomers((prev) => prev.map((cust) => (cust.id === c.id ? { ...cust, account_status: "suspended", suspension_reason } : cust)));
   }
 
-  function handleExport() {
+  // Exports every customer matching the current search, not just the page
+  // on screen -- fetched fresh here rather than from the paginated
+  // `customers` state, which only ever holds one page's worth of rows.
+  async function handleExport() {
+    let query = supabase
+      .from("profiles")
+      .select("id, full_name, phone, account_status, suspension_reason, created_at")
+      .eq("role", "customer")
+      .order("created_at", { ascending: false });
+    if (committedSearch.trim()) query = query.or(`full_name.ilike.%${committedSearch.trim()}%,phone.ilike.%${committedSearch.trim()}%`);
+    const { data } = await query.range(0, 4999);
+    const rows = (data as CustomerProfile[]) ?? [];
+    const { data: orders } = await supabase
+      .from("orders")
+      .select("customer_id")
+      .in("customer_id", rows.map((r) => r.id));
+    const counts: Record<string, number> = {};
+    for (const o of orders ?? []) counts[o.customer_id] = (counts[o.customer_id] ?? 0) + 1;
+
     exportToCsv(
       `customers-${new Date().toISOString().slice(0, 10)}.csv`,
-      customers.map((c) => ({
+      rows.map((c) => ({
         id: c.id,
         full_name: c.full_name ?? "",
         phone: c.phone ?? "",
         account_status: c.account_status,
-        order_count: orderCounts[c.id] ?? 0,
+        order_count: counts[c.id] ?? 0,
         registered_at: c.created_at,
       })),
     );
@@ -93,10 +114,13 @@ export function Customers() {
           placeholder="Search by name or phone"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && load()}
+          onKeyDown={(e) => e.key === "Enter" && setCommittedSearch(search)}
           className="flex-1 border rounded-md px-3 py-2 text-sm"
         />
-        <button onClick={load} className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark">
+        <button
+          onClick={() => setCommittedSearch(search)}
+          className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark"
+        >
           Search
         </button>
       </div>
@@ -106,6 +130,7 @@ export function Customers() {
       ) : customers.length === 0 ? (
         <p className="text-gray-500">No customers found.</p>
       ) : (
+        <>
         <div className="bg-white border rounded-lg divide-y">
           {customers.map((c) => (
             <div key={c.id}>
@@ -156,6 +181,10 @@ export function Customers() {
             </div>
           ))}
         </div>
+        <div className="mt-4">
+          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+        </div>
+        </>
       )}
     </div>
   );
