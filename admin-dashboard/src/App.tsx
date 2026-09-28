@@ -17,6 +17,7 @@ import { Users } from "./pages/Users";
 import { AuditLog } from "./pages/AuditLog";
 import { Settings } from "./pages/Settings";
 import { Settlements } from "./pages/Settlements";
+import { FinanceReconciliation } from "./pages/FinanceReconciliation";
 import { Support } from "./pages/Support";
 import { DeliveryOps } from "./pages/DeliveryOps";
 import { NotificationTemplates } from "./pages/NotificationTemplates";
@@ -120,6 +121,14 @@ export default function App() {
             element={
               <PageGuard pageKey="settlements">
                 <Settlements />
+              </PageGuard>
+            }
+          />
+          <Route
+            path="/finance-reconciliation"
+            element={
+              <PageGuard pageKey="finance_reconciliation">
+                <FinanceReconciliation />
               </PageGuard>
             }
           />
