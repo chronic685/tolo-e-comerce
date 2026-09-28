@@ -36,6 +36,13 @@ export function Merchants() {
   const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE, resetKey: statusFilter });
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [documents, setDocuments] = useState<MerchantDocument[]>([]);
+  const [performance, setPerformance] = useState<{
+    acceptance_rate: number | null;
+    cancellation_rate: number | null;
+    avg_prep_minutes: number | null;
+    avg_rating: number | null;
+    review_count: number;
+  } | null>(null);
   const [docLinks, setDocLinks] = useState<Record<string, string>>({});
   const [reasonPromptId, setReasonPromptId] = useState<string | null>(null);
   const [reasonPromptKind, setReasonPromptKind] = useState<"rejected" | "suspended" | null>(null);
@@ -83,14 +90,27 @@ export function Merchants() {
     if (leavesFilteredView) setTotalCount((prev) => Math.max(0, prev - 1));
   }
 
+  // Group 3, item 12: fetched lazily on expand, not for every row on the
+  // paginated list -- each metric is its own computed-column function
+  // (migration 0063), one aggregate subquery per row otherwise.
   async function toggleExpand(m: Merchant) {
     if (expandedId === m.id) {
       setExpandedId(null);
       return;
     }
     setExpandedId(m.id);
-    const { data } = await supabase.from("merchant_documents").select("*").eq("merchant_id", m.id);
-    setDocuments(data ?? []);
+    const [{ data: docs }, { data: perf }] = await Promise.all([
+      supabase.from("merchant_documents").select("*").eq("merchant_id", m.id),
+      supabase
+        .from("merchants")
+        .select(
+          "acceptance_rate:merchant_acceptance_rate, cancellation_rate:merchant_cancellation_rate, avg_prep_minutes:merchant_avg_prep_minutes, avg_rating:merchants_avg_rating, review_count:merchants_review_count",
+        )
+        .eq("id", m.id)
+        .single(),
+    ]);
+    setDocuments(docs ?? []);
+    setPerformance(perf ?? null);
   }
 
   async function openDocument(doc: MerchantDocument) {
@@ -251,6 +271,33 @@ export function Merchants() {
                   <p className="mb-3">
                     {m.owner_full_name ?? "—"} · {m.owner_phone ?? "—"} · {m.owner_email ?? m.email ?? "—"}
                   </p>
+
+                  <p className="text-xs font-medium text-gray-500 mb-1">Performance</p>
+                  {performance ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                      <div className="bg-white border rounded-md px-3 py-2">
+                        <p className="text-[11px] text-gray-500">Acceptance Rate</p>
+                        <p className="text-sm font-semibold">{performance.acceptance_rate != null ? `${performance.acceptance_rate}%` : "—"}</p>
+                      </div>
+                      <div className="bg-white border rounded-md px-3 py-2">
+                        <p className="text-[11px] text-gray-500">Cancellation Rate</p>
+                        <p className="text-sm font-semibold">{performance.cancellation_rate != null ? `${performance.cancellation_rate}%` : "—"}</p>
+                      </div>
+                      <div className="bg-white border rounded-md px-3 py-2">
+                        <p className="text-[11px] text-gray-500">Avg. Prep Time</p>
+                        <p className="text-sm font-semibold">{performance.avg_prep_minutes != null ? `${performance.avg_prep_minutes} min` : "—"}</p>
+                      </div>
+                      <div className="bg-white border rounded-md px-3 py-2">
+                        <p className="text-[11px] text-gray-500">Rating</p>
+                        <p className="text-sm font-semibold">
+                          {performance.avg_rating != null ? `${performance.avg_rating} ★ (${performance.review_count})` : "No reviews"}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-xs mb-3">Loading...</p>
+                  )}
+
                   <p className="text-xs font-medium text-gray-500 mb-1">Documents</p>
                   {documents.length === 0 ? (
                     <p className="text-gray-500 text-xs">No documents uploaded yet.</p>

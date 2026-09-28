@@ -60,6 +60,9 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   // return a derived aggregate number, never row data, so there's nothing
   // sensitive to leak by bypassing RLS for this specific read.
   "merchants_avg_rating",
+  "merchant_acceptance_rate",
+  "merchant_cancellation_rate",
+  "merchant_avg_prep_minutes",
   "merchants_review_count",
 
   // Same rationale, product-level: Marketplace.tsx's "Highest rated" sort
