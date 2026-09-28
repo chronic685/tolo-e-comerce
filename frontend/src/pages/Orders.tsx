@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Package } from "lucide-react";
-import { Badge, Button, EmptyState, SkeletonRows } from "@tolo/ui";
+import { Badge, Button, CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { STATUS_COPY } from "../lib/orderStatus";
@@ -19,20 +19,25 @@ export function Orders() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { page, from, to, setPage } = usePagination({ pageSize: CUSTOMER_PAGE_SIZE });
 
   useEffect(() => {
     if (!user) return;
+    setLoading(true);
     supabase
       .from("orders")
-      .select("id, total, payment_status, created_at, merchant_orders ( id, status, merchant_id )")
+      .select("id, total, payment_status, created_at, merchant_orders ( id, status, merchant_id )", { count: "exact" })
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false })
-      .then(({ data }) => {
+      .range(from, to)
+      .then(({ data, count }) => {
         setOrders((data as unknown as OrderRow[]) ?? []);
+        setTotalCount(count ?? 0);
         setLoading(false);
       });
-  }, [user]);
+  }, [user, from, to]);
 
   if (loading) return <SkeletonRows count={4} />;
   if (orders.length === 0)
@@ -74,6 +79,9 @@ export function Orders() {
             </div>
           </Link>
         ))}
+      </div>
+      <div className="mt-6">
+        <Pagination page={page} totalPages={totalPagesFor(totalCount, CUSTOMER_PAGE_SIZE)} onPageChange={setPage} />
       </div>
     </div>
   );

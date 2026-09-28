@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PackageSearch, Search, SlidersHorizontal, Store as StoreIcon } from "lucide-react";
-import { Button, EmptyState, Input, Sheet, SkeletonRows } from "@tolo/ui";
+import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Input, Pagination, Sheet, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { fetchMerchantRatings } from "../lib/merchantRatings";
 import { ProductCard } from "../components/ProductCard";
@@ -15,8 +15,7 @@ const PRODUCT_SELECT = `
   customer_price:products_customer_price,
   product_variants ( id, sku, attributes, price, discount_price, is_default ),
   product_images ( id, url, is_primary, variant_id ),
-  stores ( name, slug ),
-  reviews ( rating )
+  stores ( name, slug )
 `;
 
 interface ShopHit {
@@ -46,13 +45,6 @@ function isSortOption(value: string | null): value is SortOption {
   return SORT_OPTIONS.some((o) => o.value === value);
 }
 
-function averageRating(p: Product): number {
-  const reviews = p.reviews ?? [];
-  // No reviews sorts last, not first, under "highest rated" — an unrated
-  // product isn't "0 stars", it's just unknown.
-  return reviews.length ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : -1;
-}
-
 export function Marketplace() {
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.get("q") ?? "";
@@ -66,12 +58,17 @@ export function Marketplace() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [featured, setFeatured] = useState<Product[] | null>(null);
   const [shops, setShops] = useState<ShopHit[] | null>(null);
   const [shopMatches, setShopMatches] = useState<ShopHit[]>([]);
   const [ratings, setRatings] = useState<Map<string, MerchantRating>>(new Map());
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const { page, from, to, setPage } = usePagination({
+    pageSize: CUSTOMER_PAGE_SIZE,
+    resetKey: `${activeCategory ?? ""}:${search}:${minPrice}:${maxPrice}:${sort}`,
+  });
 
   // All filter/sort state lives in the URL (same ?tab=/?filter= pattern
   // used elsewhere in this app) so a filtered view is shareable and
@@ -96,7 +93,7 @@ export function Marketplace() {
 
   useEffect(() => {
     setLoading(true);
-    let query = supabase.from("products").select(PRODUCT_SELECT).eq("status", "published");
+    let query = supabase.from("products").select(PRODUCT_SELECT, { count: "exact" }).eq("status", "published");
 
     if (activeCategory) query = query.eq("category_id", activeCategory);
     if (search.trim()) query = query.ilike("name", `%${search.trim()}%`);
@@ -108,17 +105,18 @@ export function Marketplace() {
 
     if (sort === "price_asc") query = query.order("products_customer_price", { ascending: true });
     else if (sort === "price_desc") query = query.order("products_customer_price", { ascending: false });
+    // Ordered server-side via products_avg_rating (migration 0053) so this
+    // stays correct one page at a time — an unrated product has a null
+    // average, sorted last (nullsFirst: false) rather than as "0 stars".
+    else if (sort === "rating_desc") query = query.order("products_avg_rating", { ascending: false, nullsFirst: false });
     else query = query.order("created_at", { ascending: false });
 
-    query.then(({ data }) => {
-      let rows = (data as unknown as Product[]) ?? [];
-      if (sort === "rating_desc") {
-        rows = [...rows].sort((a, b) => averageRating(b) - averageRating(a));
-      }
-      setProducts(rows);
+    query.range(from, to).then(({ data, count }) => {
+      setProducts((data as unknown as Product[]) ?? []);
+      setTotalCount(count ?? 0);
       setLoading(false);
     });
-  }, [activeCategory, search, minPrice, maxPrice, sort]);
+  }, [activeCategory, search, minPrice, maxPrice, sort, from, to]);
 
   // Home-mode sections (featured products, shop teaser row) only fetched
   // when browsing, not while filtering/searching — same product-status
@@ -243,11 +241,16 @@ export function Marketplace() {
       ) : products.length === 0 ? (
         <EmptyState icon={hasActiveFilters ? PackageSearch : StoreIcon} title="No products found" description="Try adjusting your search or filters." />
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {products.map((p) => (
-            <ProductCard key={p.id} product={p} rating={ratings.get(p.merchant_id)} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {products.map((p) => (
+              <ProductCard key={p.id} product={p} rating={ratings.get(p.merchant_id)} />
+            ))}
+          </div>
+          <div className="mt-6">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, CUSTOMER_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
+        </>
       )}
 
       <Sheet

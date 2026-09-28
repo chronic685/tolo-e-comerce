@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { PackageSearch } from "lucide-react";
-import { EmptyState, LazyImage, SkeletonPage, SkeletonRows } from "@tolo/ui";
+import { CUSTOMER_PAGE_SIZE, EmptyState, LazyImage, Pagination, SkeletonPage, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { ProductCard } from "../components/ProductCard";
 import { RatingBadge } from "../components/RatingBadge";
@@ -16,19 +16,9 @@ const PRODUCT_SELECT = `
   categories ( name )
 `;
 
-// One group per distinct category among this store's products, plus an
-// "Uncategorized" group (only shown if non-empty) for anything with a null
-// category_id — a shop mid-way through categorizing its catalog shouldn't
-// have products silently disappear from its own storefront.
-function groupByCategory(products: Product[]): { key: string; name: string; products: Product[] }[] {
-  const groups = new Map<string, { key: string; name: string; products: Product[] }>();
-  for (const p of products) {
-    const key = p.category_id ?? "__uncategorized__";
-    const name = p.categories?.name ?? "Uncategorized";
-    if (!groups.has(key)) groups.set(key, { key, name, products: [] });
-    groups.get(key)!.products.push(p);
-  }
-  return [...groups.values()];
+interface StoreCategory {
+  id: string;
+  name: string;
 }
 
 // A storefront is only shown as open when BOTH the store's own status
@@ -57,7 +47,11 @@ export function Storefront() {
   // undefined = still loading, null = no store matches this slug at all.
   const [store, setStore] = useState<StorefrontStore | null | undefined>(undefined);
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [categories, setCategories] = useState<StoreCategory[]>([]);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const { page, from, to, setPage } = usePagination({ pageSize: CUSTOMER_PAGE_SIZE, resetKey: `${store?.id ?? ""}:${activeCategory ?? ""}` });
 
   useEffect(() => {
     setStore(undefined);
@@ -75,24 +69,43 @@ export function Storefront() {
   }, [slug]);
 
   useEffect(() => {
+    if (!store || !isStoreOpen(store)) return;
+    // Lightweight metadata query (two columns), same treatment Marketplace.tsx
+    // gives its own global category list -- not the paginated product list
+    // itself, just what's needed to build the filter pills.
+    supabase
+      .from("products")
+      .select("category_id, categories ( name )")
+      .eq("store_id", store.id)
+      .eq("status", "published")
+      .then(({ data }) => {
+        const rows = (data as unknown as { category_id: string | null; categories: { name: string } | null }[]) ?? [];
+        const seen = new Map<string, string>();
+        for (const row of rows) {
+          if (row.category_id && row.categories?.name) seen.set(row.category_id, row.categories.name);
+        }
+        setCategories([...seen.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)));
+      });
+  }, [store]);
+
+  useEffect(() => {
     if (!store || !isStoreOpen(store)) {
       setProductsLoading(false);
       return;
     }
     setProductsLoading(true);
-    supabase
-      .from("products")
-      .select(PRODUCT_SELECT)
-      .eq("store_id", store.id)
-      .eq("status", "published")
+    let query = supabase.from("products").select(PRODUCT_SELECT, { count: "exact" }).eq("store_id", store.id).eq("status", "published");
+    if (activeCategory) query = query.eq("category_id", activeCategory);
+    query
       .order("created_at", { ascending: false })
-      .then(({ data }) => {
+      .range(from, to)
+      .then(({ data, count }) => {
         setProducts((data as unknown as Product[]) ?? []);
+        setTotalCount(count ?? 0);
         setProductsLoading(false);
       });
-  }, [store]);
+  }, [store, activeCategory, from, to]);
 
-  const categoryGroups = groupByCategory(products);
   // logo_url first; if the shop hasn't set one, fall back to its most
   // recently added product's photo (products is already ordered by
   // created_at desc, so products[0] is that product — no extra query
@@ -131,12 +144,6 @@ export function Storefront() {
     );
   }
 
-  const hasCategoryBar = categoryGroups.length > 1;
-
-  function scrollToCategory(key: string) {
-    document.getElementById(`category-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   return (
     <div>
       <div className="bg-white border rounded-lg overflow-hidden mb-6">
@@ -153,20 +160,22 @@ export function Storefront() {
         </div>
       </div>
 
-      {hasCategoryBar && (
-        <div className="sticky top-14 z-[5] -mx-4 px-4 sm:mx-0 sm:px-0 bg-white/95 backdrop-blur border-b py-2 mb-4 flex gap-2 overflow-x-auto">
-          {categoryGroups.map((group) => (
-            <a
-              key={group.key}
-              href={`#category-${group.key}`}
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToCategory(group.key);
-              }}
-              className="flex-shrink-0 whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-full border bg-white hover:border-navy hover:text-navy transition-colors"
+      {categories.length > 1 && (
+        <div className="flex gap-2 mb-4 flex-wrap">
+          <button
+            onClick={() => setActiveCategory(null)}
+            className={`px-3 py-1.5 rounded-full text-sm border ${activeCategory === null ? "bg-navy text-white border-navy" : "bg-white"}`}
+          >
+            All
+          </button>
+          {categories.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setActiveCategory(c.id)}
+              className={`px-3 py-1.5 rounded-full text-sm border ${activeCategory === c.id ? "bg-navy text-white border-navy" : "bg-white"}`}
             >
-              {group.name} <span className="text-gray-400 font-normal">({group.products.length})</span>
-            </a>
+              {c.name}
+            </button>
           ))}
         </div>
       )}
@@ -175,27 +184,17 @@ export function Storefront() {
         <SkeletonRows count={4} />
       ) : products.length === 0 ? (
         <EmptyState icon={PackageSearch} title="No products yet" description="This store hasn't listed anything yet." />
-      ) : hasCategoryBar ? (
-        <div className="space-y-8">
-          {categoryGroups.map((group) => (
-            <section key={group.key} id={`category-${group.key}`} className="scroll-mt-28">
-              <h2 className="font-semibold text-sm mb-3">
-                {group.name} <span className="text-gray-400 font-normal">({group.products.length})</span>
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {group.products.map((p) => (
-                  <ProductCard key={p.id} product={p} />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {products.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+          <div className="mt-6">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, CUSTOMER_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
+        </>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Store } from "lucide-react";
-import { EmptyState, SkeletonRows } from "@tolo/ui";
+import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { ShopCard } from "../components/ShopCard";
 import { fetchMerchantRatings } from "../lib/merchantRatings";
@@ -24,27 +24,34 @@ interface ShopSummary {
   latestProductImage: { url: string; createdAt: string } | null;
 }
 
-// Same "open" definition Storefront.tsx uses — a store row can be RLS-
-// visible (status='active') while its merchant account is suspended, which
-// isn't something a browse listing should surface as a live shop either.
-function isStoreOpen(store: ShopRow): boolean {
-  return store.status === "active" && (store.merchants?.status === "active" || store.merchants?.status === "approved");
-}
-
 export function BrowseShops() {
   const [shops, setShops] = useState<ShopRow[] | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
   const [summaries, setSummaries] = useState<Map<string, ShopSummary>>(new Map());
   const [ratings, setRatings] = useState<Map<string, MerchantRating>>(new Map());
+  const { page, from, to, setPage } = usePagination({ pageSize: CUSTOMER_PAGE_SIZE });
 
   useEffect(() => {
+    setShops(null);
+    // Same "open" definition Storefront.tsx used to apply client-side — a
+    // store row can be RLS-visible (status='active') while its merchant
+    // account is suspended, which isn't something a browse listing should
+    // surface as a live shop either. Pushed into the query itself (rather
+    // than filtered after fetching) so .range()/count reflect the real,
+    // filtered page — PostgREST turns the merchants.status filter into an
+    // inner join automatically once it's referenced.
     supabase
       .from("stores")
-      .select("id, name, slug, logo_url, status, merchant_id, merchants ( status )")
-      .then(({ data }) => {
-        const rows = ((data as unknown as ShopRow[]) ?? []).filter(isStoreOpen);
-        setShops(rows);
+      .select("id, name, slug, logo_url, status, merchant_id, merchants ( status )", { count: "exact" })
+      .eq("status", "active")
+      .in("merchants.status", ["active", "approved"])
+      .order("name")
+      .range(from, to)
+      .then(({ data, count }) => {
+        setShops((data as unknown as ShopRow[]) ?? []);
+        setTotalCount(count ?? 0);
       });
-  }, []);
+  }, [from, to]);
 
   useEffect(() => {
     if (!shops || shops.length === 0) return;
@@ -116,22 +123,27 @@ export function BrowseShops() {
       ) : shops.length === 0 ? (
         <EmptyState icon={Store} title="No shops are open right now" description="Check back again soon." />
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {shops.map((shop) => {
-            const rating = ratings.get(shop.merchant_id);
-            return (
-              <ShopCard
-                key={shop.id}
-                slug={shop.slug}
-                name={shop.name}
-                photoUrl={photoUrl(shop)}
-                subtitle={summaryLine(shop.id)}
-                avgRating={rating?.avg_rating}
-                reviewCount={rating?.review_count}
-              />
-            );
-          })}
-        </div>
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {shops.map((shop) => {
+              const rating = ratings.get(shop.merchant_id);
+              return (
+                <ShopCard
+                  key={shop.id}
+                  slug={shop.slug}
+                  name={shop.name}
+                  photoUrl={photoUrl(shop)}
+                  subtitle={summaryLine(shop.id)}
+                  avgRating={rating?.avg_rating}
+                  reviewCount={rating?.review_count}
+                />
+              );
+            })}
+          </div>
+          <div className="mt-6">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, CUSTOMER_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
+        </>
       )}
     </div>
   );

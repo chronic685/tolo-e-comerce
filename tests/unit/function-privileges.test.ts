@@ -61,6 +61,13 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   "merchants_avg_rating",
   "merchants_review_count",
 
+  // Same rationale, product-level: Marketplace.tsx's "Highest rated" sort
+  // needs the database to order by this directly for real .range()-based
+  // pagination to produce a correct order (migration 0053) -- previously
+  // this was computed client-side from embedded review rows, which only
+  // worked when every row was loaded into memory at once.
+  "products_avg_rating",
+
   // Phase 5d, item 9: mirrors resolve_delivery_fee's nearest-active-zone
   // lookup but returns only estimated_delivery_minutes -- no fee, no zone
   // identity -- for the order-confirmation screen. Unlike resolve_delivery_fee

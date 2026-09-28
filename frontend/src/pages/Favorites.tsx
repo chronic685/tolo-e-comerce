@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart } from "lucide-react";
-import { Button, EmptyState, SkeletonRows } from "@tolo/ui";
+import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { ProductCard } from "../components/ProductCard";
@@ -19,21 +19,26 @@ export function Favorites() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { page, from, to, setPage } = usePagination({ pageSize: CUSTOMER_PAGE_SIZE });
 
   useEffect(() => {
     if (!user) return;
+    setLoading(true);
     supabase
       .from("customer_favorites")
-      .select(`product_id, products ( ${PRODUCT_SELECT} )`)
+      .select(`product_id, products ( ${PRODUCT_SELECT} )`, { count: "exact" })
       .eq("customer_id", user.id)
       .not("product_id", "is", null)
-      .then(({ data }) => {
+      .range(from, to)
+      .then(({ data, count }) => {
         const rows = (data as unknown as { products: Product | null }[]) ?? [];
         setProducts(rows.map((r) => r.products).filter((p): p is Product => p !== null));
+        setTotalCount(count ?? 0);
         setLoading(false);
       });
-  }, [user]);
+  }, [user, from, to]);
 
   if (!user) return <p className="text-gray-500">Sign in to see your favorites.</p>;
   if (loading) return <SkeletonRows count={4} />;
@@ -49,11 +54,16 @@ export function Favorites() {
           action={<Button onClick={() => navigate("/")}>Browse the marketplace</Button>}
         />
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {products.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+          <div className="mt-6">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, CUSTOMER_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
+        </>
       )}
     </div>
   );
