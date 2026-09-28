@@ -138,6 +138,15 @@ Deno.serve(async (req) => {
           p_as_sale: false,
         });
       }
+
+      // Auto-refund (migration 0058): a no-op if the order was never paid
+      // (e.g. cash on delivery, still pending) or a refund already exists
+      // for this merchant_order -- see refund_merchant_order_if_paid()'s
+      // own idempotency check.
+      await db.rpc("refund_merchant_order_if_paid", {
+        p_merchant_order_id: mo.id,
+        p_reason: status === "rejected" ? "Merchant declined the order" : "Order cancelled",
+      });
     }
 
     const CUSTOMER_NOTIFY_EVENTS: Record<string, string> = {

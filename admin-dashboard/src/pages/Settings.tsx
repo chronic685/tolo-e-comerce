@@ -41,6 +41,11 @@ interface NewOrderAlertSettings {
   escalate_after_minutes: number;
 }
 
+interface AutoCancelSettings {
+  enabled: boolean;
+  after_minutes: number;
+}
+
 interface NotificationChannels {
   push: boolean; // UI-only — no push provider is connected, _shared/notify.ts never checks this
   sms: boolean;
@@ -73,6 +78,7 @@ const DEFAULTS = {
     reminder_interval_minutes: 2,
     escalate_after_minutes: 5,
   } satisfies NewOrderAlertSettings,
+  auto_cancel_unresponsive_orders: { enabled: true, after_minutes: 30 } satisfies AutoCancelSettings,
   notification_channels: { push: true, sms: true, email: true, in_app: true } satisfies NotificationChannels,
 };
 
@@ -84,6 +90,7 @@ export function Settings() {
   const [customerFeatures, setCustomerFeatures] = useState<CustomerFeatures>(DEFAULTS.customer_features);
   const [merchantFeatures, setMerchantFeatures] = useState<MerchantFeatures>(DEFAULTS.merchant_features);
   const [newOrderAlerts, setNewOrderAlerts] = useState<NewOrderAlertSettings>(DEFAULTS.merchant_new_order_alerts);
+  const [autoCancel, setAutoCancel] = useState<AutoCancelSettings>(DEFAULTS.auto_cancel_unresponsive_orders);
   const [notificationChannels, setNotificationChannels] = useState<NotificationChannels>(DEFAULTS.notification_channels);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -100,6 +107,7 @@ export function Settings() {
         "customer_features",
         "merchant_features",
         "merchant_new_order_alerts",
+        "auto_cancel_unresponsive_orders",
         "notification_channels",
       ])
       .then(({ data }) => {
@@ -125,6 +133,9 @@ export function Settings() {
               break;
             case "merchant_new_order_alerts":
               setNewOrderAlerts({ ...DEFAULTS.merchant_new_order_alerts, ...(row.value as object) });
+              break;
+            case "auto_cancel_unresponsive_orders":
+              setAutoCancel({ ...DEFAULTS.auto_cancel_unresponsive_orders, ...(row.value as object) });
               break;
             case "notification_channels":
               setNotificationChannels({ ...DEFAULTS.notification_channels, ...(row.value as object) });
@@ -391,6 +402,36 @@ export function Settings() {
               className="w-full border rounded-md px-2 py-1.5 text-sm"
             />
           </div>
+        </div>
+      </section>
+
+      <section className="bg-white border rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-medium">Auto-cancel unresponsive orders</h2>
+          <button
+            onClick={() => save("auto_cancel_unresponsive_orders", autoCancel)}
+            disabled={savingKey === "auto_cancel_unresponsive_orders"}
+            className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
+          >
+            Save
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mb-2">
+          If a merchant still hasn't acknowledged an order after this long, it's automatically cancelled and refunded (if already paid) —
+          separate from the ops escalation above, which only sends a notification.
+        </p>
+        <label className="flex items-center justify-between py-1.5 text-sm">
+          Enabled
+          <input type="checkbox" checked={autoCancel.enabled} onChange={(e) => setAutoCancel({ ...autoCancel, enabled: e.target.checked })} />
+        </label>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Auto-cancel after (minutes)</label>
+          <input
+            type="number"
+            value={autoCancel.after_minutes}
+            onChange={(e) => setAutoCancel({ ...autoCancel, after_minutes: Number(e.target.value) })}
+            className="w-full border rounded-md px-2 py-1.5 text-sm"
+          />
         </div>
       </section>
 

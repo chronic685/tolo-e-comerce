@@ -172,6 +172,8 @@ describe("function privileges: no un-reviewed function is callable by anon/authe
       "check_and_record_rate_limit",
       "get_rate_limit_config",
       "escalate_unacknowledged_orders",
+      "refund_merchant_order_if_paid",
+      "auto_cancel_unresponsive_orders",
       "list_function_privileges",
     ];
 
