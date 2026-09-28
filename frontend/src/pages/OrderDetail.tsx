@@ -38,6 +38,7 @@ interface OrderRow {
   total: number;
   delivery_fee: number;
   discount_amount: number;
+  rider_tip: number;
   payment_status: string;
   created_at: string;
   scheduled_for: string | null;
@@ -91,7 +92,7 @@ export function OrderDetail() {
     const { data } = await supabase
       .from("orders")
       .select(
-        `id, order_number, subtotal, total, delivery_fee, discount_amount, payment_status, created_at, scheduled_for,
+        `id, order_number, subtotal, total, delivery_fee, discount_amount, rider_tip, payment_status, created_at, scheduled_for,
          addresses ( recipient_name, line1, city, phone ),
          payments ( provider ),
          merchant_orders (
@@ -433,6 +434,12 @@ export function OrderDetail() {
           <span>Total ({order.payment_status})</span>
           <span>{order.total.toFixed(2)} ETB</span>
         </div>
+        {order.rider_tip > 0 && (
+          <div className="flex justify-between text-sm">
+            <span>Rider tip</span>
+            <span>{order.rider_tip.toFixed(2)} ETB</span>
+          </div>
+        )}
         {order.payment_status === "pending" && order.payments[0] && PAYMENT_PENDING_COPY[order.payments[0].provider] && (
           <p className="text-xs text-gray-500 pt-1">{PAYMENT_PENDING_COPY[order.payments[0].provider]}</p>
         )}

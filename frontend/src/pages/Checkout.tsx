@@ -76,8 +76,16 @@ export function Checkout() {
   // sections below is visible at once on a narrow screen.
   const [stepIndex, setStepIndex] = useState(0);
 
+  // Group 4, item 16: a tip for the delivery rider, never merged into the
+  // order total shown/charged for merchandise — it's added separately to
+  // what's actually collected (see amountToPay below) but never touches
+  // merchant commission or payouts (migration 0066).
+  const [riderTip, setRiderTip] = useState(0);
+  const [customTip, setCustomTip] = useState("");
+
   const subtotal = items.reduce((sum, item) => sum + item.product_variants.customer_price * item.quantity, 0);
   const total = subtotal - (promoStatus === "valid" ? (promoDiscountAmount ?? 0) : 0);
+  const amountToPay = total + riderTip;
 
   useEffect(() => {
     supabase
@@ -258,6 +266,7 @@ export function Checkout() {
         promo_code: promoCode.trim() || undefined,
         scheduled_for:
           scheduledOrdersEnabled && deliveryTiming === "scheduled" && scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
+        rider_tip: riderTip > 0 ? riderTip : undefined,
       },
     });
 
@@ -516,6 +525,42 @@ export function Checkout() {
 
   const summarySection = (
     <>
+      <div className="bg-white border rounded-lg p-4 mb-4">
+        <h2 className="font-medium mb-2">Tip your rider (optional)</h2>
+        <div className="flex gap-2 mb-2">
+          {[0, 10, 20, 50].map((amount) => (
+            <button
+              key={amount}
+              type="button"
+              onClick={() => {
+                setRiderTip(amount);
+                setCustomTip("");
+              }}
+              className={`flex-1 px-2 py-2 rounded-md text-sm font-medium border ${
+                riderTip === amount && customTip === "" ? "bg-navy text-white border-navy" : "bg-white text-gray-600"
+              }`}
+            >
+              {amount === 0 ? "No tip" : `${amount} ETB`}
+            </button>
+          ))}
+        </div>
+        <input
+          type="number"
+          min={0}
+          placeholder="Custom amount"
+          value={customTip}
+          onChange={(e) => {
+            setCustomTip(e.target.value);
+            const parsed = Number(e.target.value);
+            setRiderTip(Number.isFinite(parsed) && parsed >= 0 ? parsed : 0);
+          }}
+          className="w-full border rounded-md px-3 py-2 text-sm"
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          Your rider's tip is kept separate from the order total and doesn't affect the merchant.
+        </p>
+      </div>
+
       <div className="bg-white border rounded-lg p-4 mb-4 text-sm space-y-1">
         <div className="flex justify-between">
           <span>Subtotal</span>
@@ -530,6 +575,16 @@ export function Checkout() {
         <div className="flex justify-between font-semibold border-t pt-1 mt-1">
           <span>Total</span>
           <span>{total.toFixed(2)} ETB</span>
+        </div>
+        {riderTip > 0 && (
+          <div className="flex justify-between">
+            <span>Rider tip</span>
+            <span>{riderTip.toFixed(2)} ETB</span>
+          </div>
+        )}
+        <div className="flex justify-between font-semibold border-t pt-1 mt-1">
+          <span>You'll pay</span>
+          <span>{amountToPay.toFixed(2)} ETB</span>
         </div>
       </div>
       <p className="text-xs text-gray-400 -mt-3 mb-4">

@@ -8,6 +8,7 @@ interface ConfirmationOrderRow {
   id: string;
   order_number: number;
   total: number;
+  rider_tip: number;
   created_at: string;
   scheduled_for: string | null;
   addresses: { line1: string; city: string; latitude: number | null; longitude: number | null } | null;
@@ -32,7 +33,7 @@ export function OrderConfirmation() {
     setLoading(true);
     const { data } = await supabase
       .from("orders")
-      .select("id, order_number, total, created_at, scheduled_for, addresses ( line1, city, latitude, longitude )")
+      .select("id, order_number, total, rider_tip, created_at, scheduled_for, addresses ( line1, city, latitude, longitude )")
       .eq("id", id)
       .maybeSingle();
     const o = data as unknown as ConfirmationOrderRow | null;
@@ -67,6 +68,12 @@ export function OrderConfirmation() {
           <span className="text-gray-500">Total</span>
           <span className="font-semibold">{order.total.toFixed(2)} ETB</span>
         </div>
+        {order.rider_tip > 0 && (
+          <div className="flex justify-between">
+            <span className="text-gray-500">Rider tip</span>
+            <span>{order.rider_tip.toFixed(2)} ETB</span>
+          </div>
+        )}
         {order.addresses && (
           <div className="flex justify-between">
             <span className="text-gray-500">Delivering to</span>
