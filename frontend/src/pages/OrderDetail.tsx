@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { Calendar, CheckCircle2, Star } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Calendar, CheckCircle2, RotateCcw, Star } from "lucide-react";
 import { Badge, SkeletonPage, Stepper, formatDateTime, formatOrderNumber, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
+import { useCart } from "../lib/CartContext";
 import { STATUS_COPY } from "../lib/orderStatus";
 import { buildTrackSteps, getTrackIndex } from "../lib/orderTrack";
+import { isVariantReorderable, type VariantAvailability } from "../lib/reorder";
 
 interface OrderItemRow {
   id: string;
@@ -14,6 +16,7 @@ interface OrderItemRow {
   unit_price: number;
   quantity: number;
   subtotal: number;
+  variant_id: string;
   product_variants: { product_id: string } | null;
 }
 
@@ -50,6 +53,8 @@ const PAYMENT_PENDING_COPY: Record<string, string> = {
 export function OrderDetail() {
   const { id } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { addItem } = useCart();
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
@@ -58,6 +63,7 @@ export function OrderDetail() {
   const [reviewsEnabled, setReviewsEnabled] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
 
   useEffect(() => {
     load();
@@ -89,7 +95,7 @@ export function OrderDetail() {
          merchant_orders (
            id, status, subtotal,
            merchants ( business_name, stores ( slug ) ),
-           order_items ( id, product_name_snapshot, variant_attributes_snapshot, unit_price, quantity, subtotal, product_variants ( product_id ) ),
+           order_items ( id, product_name_snapshot, variant_attributes_snapshot, unit_price, quantity, subtotal, variant_id, product_variants ( product_id ) ),
            order_status_history ( status, changed_at, note )
          )`,
       )
@@ -125,6 +131,50 @@ export function OrderDetail() {
     });
     if (!error) setReportedMerchantOrders((prev) => new Set(prev).add(merchantOrderId));
     return { error: error?.message };
+  }
+
+  // Group 4, item 13: adds every item back to the cart at its current
+  // price (never the price snapshotted on this old order), skipping
+  // anything no longer orderable -- unpublished, or out of stock right
+  // now -- and telling the customer exactly what was skipped rather than
+  // silently dropping it or failing the whole reorder.
+  async function handleReorder() {
+    if (!order) return;
+    setReordering(true);
+    try {
+      const allItems = order.merchant_orders.flatMap((mo) => mo.order_items);
+      const variantIds = [...new Set(allItems.map((i) => i.variant_id))];
+      const { data: variants } = await supabase
+        .from("product_variants")
+        .select("id, stock_status:variant_stock_status, products ( status )")
+        .in("id", variantIds);
+      const availability = new Map(
+        ((variants as unknown as ({ id: string } & VariantAvailability)[]) ?? []).map((v) => [v.id, v]),
+      );
+
+      const skipped: string[] = [];
+      let addedCount = 0;
+      for (const item of allItems) {
+        if (!isVariantReorderable(availability.get(item.variant_id))) {
+          skipped.push(item.product_name_snapshot);
+          continue;
+        }
+        await addItem(item.variant_id, item.quantity);
+        addedCount++;
+      }
+
+      if (skipped.length > 0) {
+        toast.error(`No longer available, skipped: ${skipped.join(", ")}`);
+      }
+      if (addedCount > 0) {
+        toast.success(`Added ${addedCount} item(s) to your cart.`);
+        navigate("/cart");
+      } else if (skipped.length === 0) {
+        toast.error("This order has no items to reorder.");
+      }
+    } finally {
+      setReordering(false);
+    }
   }
 
   async function cancelOrder(merchantOrderId: string) {
@@ -191,7 +241,17 @@ export function OrderDetail() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-bold mb-1">Order {formatOrderNumber(order.order_number)}</h1>
+      <div className="flex items-start justify-between gap-3 mb-1">
+        <h1 className="text-xl font-bold">Order {formatOrderNumber(order.order_number)}</h1>
+        <button
+          onClick={handleReorder}
+          disabled={reordering}
+          className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-navy border-2 border-navy rounded-md px-3 py-1.5 hover:bg-navy-50 disabled:opacity-60"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          {reordering ? "Adding to cart..." : "Reorder"}
+        </button>
+      </div>
       <p className="text-sm text-gray-500 mb-1">{new Date(order.created_at).toLocaleString()}</p>
       {order.scheduled_for ? (
         <p className="text-sm font-medium text-navy bg-navy-50 inline-flex items-center gap-1.5 rounded-md px-2 py-1 mb-5">
