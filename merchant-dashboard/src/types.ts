@@ -145,3 +145,13 @@ export interface WalletTransaction {
   note: string | null;
   created_at: string;
 }
+
+export interface Statement {
+  id: string;
+  period_start: string;
+  period_end: string;
+  total_amount: number;
+  status: string;
+  paid_at: string | null;
+  created_at: string;
+}
