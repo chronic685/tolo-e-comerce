@@ -16,6 +16,7 @@ import {
   History,
   Settings as SettingsIcon,
   FileBarChart,
+  Image as ImageIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -51,6 +52,7 @@ export const ADMIN_PAGES: AdminPage[] = [
   { key: "merchants", label: "Merchants", to: "/merchants", icon: Store, group: "Catalog" },
   { key: "products", label: "Products", to: "/products", icon: Package, group: "Catalog" },
   { key: "customers", label: "Customers", to: "/customers", icon: UsersIcon, group: "Catalog" },
+  { key: "banners", label: "Homepage Banners", to: "/banners", icon: ImageIcon, group: "Catalog" },
   {
     key: "inventory_movements",
     label: "Inventory Movements",
