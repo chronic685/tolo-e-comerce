@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
-import type { OrderRow } from "../types";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import type { OrderRow, UnacknowledgedMerchantOrderRow } from "../types";
 
 const STATUS_LABELS: Record<string, string> = {
   new: "New order",
@@ -24,13 +24,23 @@ const STATUS_LABELS: Record<string, string> = {
 // Default of 5 matches that setting's own seeded default (migration 0026).
 const DEFAULT_ESCALATE_AFTER_MINUTES = 5;
 
-function isUnacknowledged(mo: OrderRow["merchant_orders"][number], thresholdMinutes: number) {
+function isUnacknowledged(mo: { status: string; notification_sent_at: string | null; order_received_at: string | null }, thresholdMinutes: number) {
   if (mo.status !== "new" || !mo.notification_sent_at || mo.order_received_at) return false;
   return Date.now() - new Date(mo.notification_sent_at).getTime() > thresholdMinutes * 60_000;
 }
 
 const ORDER_SELECT = `id, customer_id, total, payment_status, created_at,
    merchant_orders ( id, merchant_id, status, subtotal, notification_sent_at, order_received_at, escalated_at, merchants ( business_name ) )`;
+
+// Queried directly off merchant_orders (not orders) via
+// merchant_orders_unacknowledged() (migration 0055), a computed column
+// mirroring escalate_unacknowledged_orders()'s own threshold logic --
+// PR #6 review fix: the old `.limit(200)` fetch off `orders` could hide
+// older, more-overdue rows past the cap. This is a real, exact-counted,
+// .range()-paginated query, so nothing is ever silently hidden.
+const UNACKNOWLEDGED_SELECT = `id, merchant_id, status, subtotal, notification_sent_at, order_received_at, escalated_at,
+   merchants ( business_name ),
+   orders ( id, total, payment_status, created_at )`;
 
 export function Orders() {
   const [searchParams] = useSearchParams();
@@ -41,6 +51,8 @@ export function Orders() {
   const linkedOrderId = searchParams.get("order_id");
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [unacknowledgedRows, setUnacknowledgedRows] = useState<UnacknowledgedMerchantOrderRow[]>([]);
+  const [unacknowledgedTotal, setUnacknowledgedTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [escalateAfterMinutes, setEscalateAfterMinutes] = useState(DEFAULT_ESCALATE_AFTER_MINUTES);
   const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE, resetKey: `${linkedOrderId ?? ""}:${onlyUnacknowledged}` });
@@ -58,23 +70,19 @@ export function Orders() {
         });
       return;
     }
-    // The "unacknowledged" queue is a time-relative filter (notification
-    // sent more than escalate_after_minutes ago, still un-received) that
-    // can't cleanly become a single .range()-paginated list -- it's
-    // narrowed server-side to merchant_orders still in "new" status (so
-    // this never re-fetches the platform's whole order history) and capped
-    // at 200, an operational alert queue meant to be worked down to empty
-    // rather than paged through, not a paginated browse list like "All
-    // Orders" below.
     if (onlyUnacknowledged) {
       supabase
-        .from("orders")
-        .select(ORDER_SELECT)
-        .eq("merchant_orders.status", "new")
-        .order("created_at", { ascending: false })
-        .limit(200)
-        .then(({ data }) => {
-          setOrders((data as unknown as OrderRow[]) ?? []);
+        .from("merchant_orders")
+        .select(UNACKNOWLEDGED_SELECT, { count: "exact" })
+        .eq("merchant_orders_unacknowledged", true)
+        // Oldest-waiting-first -- this is an operational queue meant to be
+        // worked down to empty, so the longest-overdue order belongs on
+        // page 1, not buried behind however many pages of newer ones.
+        .order("notification_sent_at", { ascending: true })
+        .range(from, to)
+        .then(({ data, count }) => {
+          setUnacknowledgedRows((data as unknown as UnacknowledgedMerchantOrderRow[]) ?? []);
+          setUnacknowledgedTotal(count ?? 0);
           setLoading(false);
         });
       return;
@@ -105,21 +113,39 @@ export function Orders() {
 
   if (loading) return <SkeletonRows />;
 
-  const visibleOrders =
-    !linkedOrderId && onlyUnacknowledged
-      ? orders.filter((o) => o.merchant_orders.some((mo) => isUnacknowledged(mo, escalateAfterMinutes)))
-      : orders;
-
-  // The linkedOrderId and onlyUnacknowledged branches already hold their
-  // whole relevant set in `orders` (see the effect above) -- only the base
-  // "All Orders" branch is paginated, so only it needs a fresh, unpaginated
-  // fetch here to export everything rather than just the page on screen.
+  // The unacknowledged queue exports every row matching the filter (fetched
+  // in Supabase's own max_rows-sized pages, see fetchAllRows), the linked-
+  // order view exports its single row, and "All Orders" exports everything
+  // matching the current view, not just the page on screen -- none of
+  // these are capped, so an export is never silently truncated.
   async function handleExport() {
-    let exportRows = visibleOrders;
-    if (!linkedOrderId && !onlyUnacknowledged) {
-      const { data } = await supabase.from("orders").select(ORDER_SELECT).order("created_at", { ascending: false }).range(0, 4999);
-      exportRows = (data as unknown as OrderRow[]) ?? [];
+    if (onlyUnacknowledged) {
+      const rows = (await fetchAllRows((from_, to_) =>
+        supabase
+          .from("merchant_orders")
+          .select(UNACKNOWLEDGED_SELECT)
+          .eq("merchant_orders_unacknowledged", true)
+          .order("notification_sent_at", { ascending: true })
+          .range(from_, to_),
+      )) as unknown as UnacknowledgedMerchantOrderRow[];
+      exportToCsv(
+        `unacknowledged-orders-${new Date().toISOString().slice(0, 10)}.csv`,
+        rows.map((mo) => ({
+          merchant_order_id: mo.id,
+          order_id: mo.orders?.id ?? "",
+          merchant: mo.merchants?.business_name ?? "Merchant",
+          subtotal_etb: mo.subtotal,
+          notification_sent_at: mo.notification_sent_at ?? "",
+          escalated: Boolean(mo.escalated_at),
+        })),
+      );
+      return;
     }
+    const exportRows = linkedOrderId
+      ? orders
+      : ((await fetchAllRows((from_, to_) =>
+          supabase.from("orders").select(ORDER_SELECT).order("created_at", { ascending: false }).range(from_, to_),
+        )) as unknown as OrderRow[]);
     exportToCsv(
       `orders-${new Date().toISOString().slice(0, 10)}.csv`,
       exportRows.map((o) => ({
@@ -134,59 +160,93 @@ export function Orders() {
     );
   }
 
+  const exportDisabled = onlyUnacknowledged ? unacknowledgedRows.length === 0 : orders.length === 0;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">
           {linkedOrderId ? "Order (from support ticket)" : onlyUnacknowledged ? "Unacknowledged Orders" : "All Orders"}
         </h1>
-        <ExportCsvButton onExport={handleExport} disabled={visibleOrders.length === 0} />
+        <ExportCsvButton onExport={handleExport} disabled={exportDisabled} />
       </div>
-      {visibleOrders.length === 0 ? (
+
+      {onlyUnacknowledged ? (
+        unacknowledgedRows.length === 0 ? (
+          <p className="text-gray-500">Nothing here.</p>
+        ) : (
+          <>
+            <div className="bg-white border rounded-lg divide-y">
+              {unacknowledgedRows.map((mo) => (
+                <div key={mo.id} className="p-4 flex justify-between items-center gap-3">
+                  <div>
+                    <p className="font-medium text-sm">
+                      {mo.merchants?.business_name ?? "Merchant"} — Order #{(mo.orders?.id ?? mo.id).slice(0, 8)}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {mo.notification_sent_at ? `Notified ${new Date(mo.notification_sent_at).toLocaleString()}` : ""} · {mo.subtotal.toFixed(2)} ETB
+                    </p>
+                  </div>
+                  <span
+                    className={`text-xs rounded-full px-2 py-0.5 flex-shrink-0 ${
+                      mo.escalated_at ? "bg-orange-100 text-orange-900 font-semibold" : "bg-red-100 text-red-800 font-semibold"
+                    }`}
+                  >
+                    {mo.escalated_at ? "ESCALATED" : "UNACKNOWLEDGED"}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4">
+              <Pagination page={page} totalPages={totalPagesFor(unacknowledgedTotal, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+            </div>
+          </>
+        )
+      ) : orders.length === 0 ? (
         <p className="text-gray-500">Nothing here.</p>
       ) : (
         <>
-        <div className="bg-white border rounded-lg divide-y">
-          {visibleOrders.map((o) => (
-            <div key={o.id} className="p-4">
-              <div className="flex justify-between items-center mb-2">
-                <div>
-                  <p className="font-medium text-sm">Order #{o.id.slice(0, 8)}</p>
-                  <p className="text-xs text-gray-500">{new Date(o.created_at).toLocaleString()}</p>
+          <div className="bg-white border rounded-lg divide-y">
+            {orders.map((o) => (
+              <div key={o.id} className="p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <div>
+                    <p className="font-medium text-sm">Order #{o.id.slice(0, 8)}</p>
+                    <p className="text-xs text-gray-500">{new Date(o.created_at).toLocaleString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-sm">{o.total.toFixed(2)} ETB</p>
+                    <p className="text-xs text-gray-500 capitalize">{o.payment_status}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-sm">{o.total.toFixed(2)} ETB</p>
-                  <p className="text-xs text-gray-500 capitalize">{o.payment_status}</p>
+                <div className="flex gap-2 flex-wrap">
+                  {o.merchant_orders.map((mo) => (
+                    <span
+                      key={mo.id}
+                      className={`text-xs rounded-full px-2 py-0.5 ${
+                        mo.escalated_at
+                          ? "bg-orange-100 text-orange-900 font-semibold"
+                          : isUnacknowledged(mo, escalateAfterMinutes)
+                            ? "bg-red-100 text-red-800 font-semibold"
+                            : "bg-gray-100"
+                      }`}
+                    >
+                      {mo.merchants?.business_name ?? "Merchant"}: {STATUS_LABELS[mo.status] ?? mo.status} ({mo.subtotal.toFixed(2)} ETB)
+                      {/* escalated_at is the server-side, authoritative signal (Phase 4) — set once by the
+                          escalate_unacknowledged_orders() cron job, independent of anyone having this page open.
+                          isUnacknowledged() below is a client-side heuristic warning for orders not escalated yet. */}
+                      {mo.escalated_at ? " — ESCALATED" : isUnacknowledged(mo, escalateAfterMinutes) && " — UNACKNOWLEDGED"}
+                    </span>
+                  ))}
                 </div>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                {o.merchant_orders.map((mo) => (
-                  <span
-                    key={mo.id}
-                    className={`text-xs rounded-full px-2 py-0.5 ${
-                      mo.escalated_at
-                        ? "bg-orange-100 text-orange-900 font-semibold"
-                        : isUnacknowledged(mo, escalateAfterMinutes)
-                          ? "bg-red-100 text-red-800 font-semibold"
-                          : "bg-gray-100"
-                    }`}
-                  >
-                    {mo.merchants?.business_name ?? "Merchant"}: {STATUS_LABELS[mo.status] ?? mo.status} ({mo.subtotal.toFixed(2)} ETB)
-                    {/* escalated_at is the server-side, authoritative signal (Phase 4) — set once by the
-                        escalate_unacknowledged_orders() cron job, independent of anyone having this page open.
-                        isUnacknowledged() below is a client-side heuristic warning for orders not escalated yet. */}
-                    {mo.escalated_at ? " — ESCALATED" : isUnacknowledged(mo, escalateAfterMinutes) && " — UNACKNOWLEDGED"}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        {!linkedOrderId && !onlyUnacknowledged && (
-          <div className="mt-4">
-            <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+            ))}
           </div>
-        )}
+          {!linkedOrderId && (
+            <div className="mt-4">
+              <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+            </div>
+          )}
         </>
       )}
     </div>

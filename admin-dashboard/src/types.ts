@@ -67,6 +67,23 @@ export interface OrderRow {
   }[];
 }
 
+// One row per unacknowledged merchant_order (queried directly off
+// merchant_orders, not orders — see merchant_orders_unacknowledged(),
+// migration 0055) rather than grouped by parent order, so the queue can be
+// exactly-counted and .range()-paginated by the database instead of a
+// capped fetch that could hide older, more-overdue rows.
+export interface UnacknowledgedMerchantOrderRow {
+  id: string;
+  merchant_id: string;
+  status: string;
+  subtotal: number;
+  notification_sent_at: string | null;
+  order_received_at: string | null;
+  escalated_at: string | null;
+  merchants: { business_name: string } | null;
+  orders: { id: string; total: number; payment_status: string; created_at: string } | null;
+}
+
 export interface Settlement {
   id: string;
   merchant_id: string;

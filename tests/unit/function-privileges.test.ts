@@ -76,6 +76,14 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   "variant_stock_status",
   "variant_stock_remaining",
 
+  // PR #6 review fix (migration 0055): lets the admin "Unacknowledged
+  // Orders" and "Approved — Awaiting Refund" queues filter server-side
+  // instead of an unpaginated .limit(200) fetch that could silently hide
+  // older, overdue rows. Both only ever return a derived boolean over rows
+  // the admin caller already has RLS access to -- see the migration.
+  "merchant_orders_unacknowledged",
+  "returns_awaiting_refund",
+
   // Phase 5d, item 9: mirrors resolve_delivery_fee's nearest-active-zone
   // lookup but returns only estimated_delivery_minutes -- no fee, no zone
   // identity -- for the order-confirmation screen. Unlike resolve_delivery_fee

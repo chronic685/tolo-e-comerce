@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import type { RefundRow, ReturnRow } from "../types";
 
 const REASONS = ["Customer cancellation", "Merchant unavailable", "Product unavailable", "Delivery failure", "Duplicate payment", "Payment error", "Admin correction", "Other"];
@@ -21,6 +21,8 @@ export function Refunds() {
   const requestedPage = usePagination({ pageSize: ADMIN_PAGE_SIZE, paramName: "requested_page" });
 
   const [approvedAwaitingRefund, setApprovedAwaitingRefund] = useState<ReturnRow[]>([]);
+  const [approvedAwaitingRefundTotal, setApprovedAwaitingRefundTotal] = useState(0);
+  const awaitingRefundPage = usePagination({ pageSize: ADMIN_PAGE_SIZE, paramName: "awaiting_refund_page" });
 
   const [refunds, setRefunds] = useState<RefundRow[]>([]);
   const [refundsTotal, setRefundsTotal] = useState(0);
@@ -41,20 +43,23 @@ export function Refunds() {
     setRequestedTotal(count ?? 0);
   }
 
-  // Not paginated: "awaiting refund" also requires refunds.length === 0,
-  // a condition PostgREST can't express as a simple column filter (it would
-  // need a NOT EXISTS view/RPC). Capped at 200 instead -- an operational
-  // queue meant to be worked down to empty, same treatment as admin
-  // Orders.tsx's "unacknowledged" queue.
+  // PR #6 review fix: this used to be an unpaginated `.limit(200)` fetch
+  // with the refunds.length === 0 half of "awaiting refund" applied
+  // client-side -- past 200 matching rows, older ones could silently fall
+  // off. returns_awaiting_refund() (migration 0055) expresses the whole
+  // condition (approved/received AND no refund row yet) as a real,
+  // filterable/countable computed column, so this is now a normal
+  // exact-counted, .range()-paginated query. Refunds must never be
+  // silently hidden.
   async function loadApprovedAwaitingRefund() {
-    const { data } = await supabase
+    const { data, count } = await supabase
       .from("returns")
-      .select(RETURN_SELECT)
-      .in("status", ["approved", "received"])
+      .select(RETURN_SELECT, { count: "exact" })
+      .eq("returns_awaiting_refund", true)
       .order("created_at", { ascending: false })
-      .limit(200);
-    const rows = (data as unknown as ReturnRow[]) ?? [];
-    setApprovedAwaitingRefund(rows.filter((r) => r.refunds.length === 0));
+      .range(awaitingRefundPage.from, awaitingRefundPage.to);
+    setApprovedAwaitingRefund((data as unknown as ReturnRow[]) ?? []);
+    setApprovedAwaitingRefundTotal(count ?? 0);
   }
 
   // Queried directly from `refunds` (rather than derived from `returns`
@@ -93,6 +98,11 @@ export function Refunds() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refundsPage.from, refundsPage.to]);
 
+  useEffect(() => {
+    loadApprovedAwaitingRefund();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [awaitingRefundPage.from, awaitingRefundPage.to]);
+
   // A status change can move a row between queues (requested -> awaiting
   // refund; awaiting refund -> has a refund), so each mutation just
   // reloads the queues it could have affected, rather than hand-patching
@@ -121,19 +131,23 @@ export function Refunds() {
     setRefunds((prev) => prev.map((f) => (f.id === refundId ? { ...f, status, processed_at } : f)));
   }
 
-  // Exports every refund, not just the page on screen.
+  // Exports every refund, not just the page on screen -- fetched in
+  // Supabase's own max_rows-sized pages (see fetchAllRows) so a large
+  // export is never silently truncated.
   async function handleExport() {
-    const { data } = await supabase
-      .from("refunds")
-      .select(
-        `id, amount, status, processed_at, return_id,
-         returns ( id, reason, created_at, merchant_orders ( subtotal, merchants ( business_name ) ), profiles ( full_name, phone ) )`,
-      )
-      .order("processed_at", { ascending: false, nullsFirst: true })
-      .range(0, 4999);
+    const rows = (await fetchAllRows((from, to) =>
+      supabase
+        .from("refunds")
+        .select(
+          `id, amount, status, processed_at, return_id,
+           returns ( id, reason, created_at, merchant_orders ( subtotal, merchants ( business_name ) ), profiles ( full_name, phone ) )`,
+        )
+        .order("processed_at", { ascending: false, nullsFirst: true })
+        .range(from, to),
+    )) as unknown as RefundRow[];
     exportToCsv(
       `refunds-${new Date().toISOString().slice(0, 10)}.csv`,
-      ((data as unknown as RefundRow[]) ?? []).map((f) => ({
+      rows.map((f) => ({
         return_id: f.return_id,
         refund_id: f.id,
         customer: f.returns?.profiles?.full_name ?? "",
@@ -236,6 +250,13 @@ export function Refunds() {
           ))}
         </div>
       )}
+      <div className="mb-6">
+        <Pagination
+          page={awaitingRefundPage.page}
+          totalPages={totalPagesFor(approvedAwaitingRefundTotal, ADMIN_PAGE_SIZE)}
+          onPageChange={awaitingRefundPage.setPage}
+        />
+      </div>
 
       <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Refunds</h2>
       {refunds.length === 0 ? (
