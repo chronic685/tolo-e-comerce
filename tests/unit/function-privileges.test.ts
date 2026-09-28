@@ -37,6 +37,7 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   "merchant_id_for_variant",
   "order_owner",
   "order_owner_for_merchant_order",
+  "discount_scope_owned_by_calling_merchant",
 
   // PostgREST "computed column" functions (products_customer_price /
   // product_variants_customer_price appear as customer_price:... in

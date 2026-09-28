@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, ClipboardList, Wallet as WalletIcon, Store, Users, LogOut, Menu, X, Package } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Wallet as WalletIcon, Store, Users, LogOut, Menu, X, Package, Tag } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
@@ -9,6 +9,7 @@ import { NewOrderAlert } from "./NewOrderAlert";
 const BASE_NAV_ITEMS = [
   { to: "/", label: "Dashboard", end: true, icon: LayoutDashboard },
   { to: "/products", label: "Products", icon: Package },
+  { to: "/promotions", label: "Promotions", icon: Tag },
   { to: "/orders", label: "Orders", icon: ClipboardList },
   { to: "/wallet", label: "Wallet", icon: WalletIcon },
   { to: "/store", label: "Store Settings", icon: Store },
