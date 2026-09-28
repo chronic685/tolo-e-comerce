@@ -128,7 +128,20 @@ export function Layout() {
 
       {!embed && (
       <footer className="hidden md:block border-t bg-white text-center text-xs text-gray-500 py-4">
-        Tolo Marketplace — powered by Tech City PLC
+        <p>Tolo Marketplace — powered by Tech City PLC</p>
+        <nav className="flex items-center justify-center gap-3 mt-1.5">
+          <Link to="/legal/terms" className="hover:text-navy hover:underline">
+            Terms of Service
+          </Link>
+          <span aria-hidden="true">·</span>
+          <Link to="/legal/privacy" className="hover:text-navy hover:underline">
+            Privacy Policy
+          </Link>
+          <span aria-hidden="true">·</span>
+          <Link to="/legal/refund-policy" className="hover:text-navy hover:underline">
+            Refund Policy
+          </Link>
+        </nav>
       </footer>
       )}
 

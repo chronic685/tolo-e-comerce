@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { MapPin } from "lucide-react";
 import { Button, Stepper, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
@@ -49,6 +49,7 @@ export function Checkout() {
   // tells the native app to collect payment via its wallet after checkout
   // succeeds, alongside the usual order-placed notification.
   const [useWallet, setUseWallet] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // Dead until this task: system_settings.customer_features.promo_codes_enabled
   // already existed (admin-dashboard Settings.tsx, migration 0027) with no
@@ -242,6 +243,10 @@ export function Checkout() {
     }
     if (scheduledOrdersEnabled && deliveryTiming === "scheduled" && !scheduledFor) {
       toast.error("Please choose a delivery date and time, or switch back to \"Deliver now\".");
+      return;
+    }
+    if (!acceptedTerms) {
+      toast.error("Please accept the Terms of Service, Privacy Policy, and Refund Policy to continue.");
       return;
     }
     setPlacing(true);
@@ -534,10 +539,36 @@ export function Checkout() {
     </>
   );
 
+  const termsCheckbox = (
+    <label className="flex items-start gap-2 text-xs text-gray-600 mb-3">
+      <input
+        type="checkbox"
+        checked={acceptedTerms}
+        onChange={(e) => setAcceptedTerms(e.target.checked)}
+        className="mt-0.5"
+      />
+      <span>
+        I agree to Tolo's{" "}
+        <Link to="/legal/terms" target="_blank" rel="noopener noreferrer" className="text-navy underline">
+          Terms of Service
+        </Link>
+        ,{" "}
+        <Link to="/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-navy underline">
+          Privacy Policy
+        </Link>
+        , and{" "}
+        <Link to="/legal/refund-policy" target="_blank" rel="noopener noreferrer" className="text-navy underline">
+          Refund Policy
+        </Link>
+        .
+      </span>
+    </label>
+  );
+
   const placeOrderButton = (
     <button
       onClick={handlePlaceOrder}
-      disabled={placing}
+      disabled={placing || !acceptedTerms}
       className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
     >
       {placing ? "Placing order..." : "Place order"}
@@ -552,6 +583,7 @@ export function Checkout() {
       <>
         {promoSection}
         {summarySection}
+        {termsCheckbox}
       </>
     ),
   };
@@ -587,6 +619,7 @@ export function Checkout() {
         {deliverySection}
         {promoSection}
         {summarySection}
+        {termsCheckbox}
         {placeOrderButton}
       </div>
     </div>
