@@ -43,6 +43,7 @@ export interface Store {
   longitude: number | null;
   pickup_address: string | null;
   operating_hours: import("@tolo/ui").OperatingHours;
+  prep_time_minutes: number | null;
 }
 
 export interface Category {

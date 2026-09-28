@@ -73,6 +73,7 @@ export interface StorefrontStore {
   status: string;
   operating_hours: import("@tolo/ui").OperatingHours;
   is_open_now: boolean;
+  prep_time_minutes: number | null;
   merchants: ({ status: string } & MerchantRating) | null;
 }
 

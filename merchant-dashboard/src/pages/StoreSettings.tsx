@@ -30,6 +30,7 @@ export function StoreSettings() {
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [hours, setHours] = useState<OperatingHours>({});
+  const [prepTimeMinutes, setPrepTimeMinutes] = useState("");
 
   useEffect(() => {
     if (store) {
@@ -41,6 +42,7 @@ export function StoreSettings() {
       setLatitude(store.latitude ?? null);
       setLongitude(store.longitude ?? null);
       setHours(store.operating_hours ?? {});
+      setPrepTimeMinutes(store.prep_time_minutes != null ? String(store.prep_time_minutes) : "");
     }
   }, [store]);
 
@@ -100,6 +102,7 @@ export function StoreSettings() {
       latitude,
       longitude,
       operating_hours: hours,
+      prep_time_minutes: prepTimeMinutes.trim() ? Number(prepTimeMinutes) : null,
     };
 
     // Was `await refresh()` -- MerchantContext.refresh() sets loading=true,
@@ -265,6 +268,24 @@ export function StoreSettings() {
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        <div className="pt-2 border-t">
+          <label className="text-xs font-medium text-gray-500">Prep time</label>
+          <p className="text-xs text-gray-400 mb-2">
+            Shown to customers on your storefront as "Usually ready in ~X minutes". Leave blank to not show an estimate.
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={1}
+              value={prepTimeMinutes}
+              onChange={(e) => setPrepTimeMinutes(e.target.value)}
+              placeholder="e.g. 20"
+              className="w-28 border rounded-md px-3 py-2 text-sm"
+            />
+            <span className="text-sm text-gray-500">minutes</span>
           </div>
         </div>
 
