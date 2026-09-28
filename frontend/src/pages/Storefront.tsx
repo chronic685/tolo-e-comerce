@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { PackageSearch } from "lucide-react";
-import { CUSTOMER_PAGE_SIZE, EmptyState, LazyImage, Pagination, SkeletonPage, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { CUSTOMER_PAGE_SIZE, EmptyState, LazyImage, Pagination, SkeletonPage, SkeletonRows, todaysHours, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { ProductCard } from "../components/ProductCard";
 import { RatingBadge } from "../components/RatingBadge";
@@ -58,7 +58,8 @@ export function Storefront() {
     supabase
       .from("stores")
       .select(
-        "id, merchant_id, name, slug, description, logo_url, banner_url, status, " +
+        "id, merchant_id, name, slug, description, logo_url, banner_url, status, operating_hours, " +
+          "is_open_now:store_is_open_now, " +
           "merchants ( status, avg_rating:merchants_avg_rating, review_count:merchants_review_count )",
       )
       .eq("slug", slug)
@@ -155,8 +156,25 @@ export function Storefront() {
           <div className="min-w-0">
             <h1 className="text-xl font-bold truncate">{store.name}</h1>
             <RatingBadge avgRating={store.merchants?.avg_rating ?? null} reviewCount={store.merchants?.review_count ?? 0} />
-            {store.description && <p className="text-sm text-gray-500 mt-1">{store.description}</p>}
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                store.is_open_now ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"
+              }`}
+            >
+              {store.is_open_now ? "Open now" : "Closed now"}
+            </span>
           </div>
+          {store.description && <p className="text-sm text-gray-500 mt-0.5">{store.description}</p>}
+          {!store.is_open_now &&
+            (() => {
+              const today = todaysHours(store.operating_hours);
+              return (
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {today ? `Today's hours: ${today.open}–${today.close}` : "Closed today"} — you can browse, but orders can't be placed until it
+                  reopens.
+                </p>
+              );
+            })()}
         </div>
       </div>
 

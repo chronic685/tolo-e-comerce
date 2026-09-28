@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
-import { toast } from "@tolo/ui";
+import { DAY_KEYS, DAY_LABELS, isOpenNowClientSide, toast, type DayKey, type OperatingHours } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import { getCurrentLocation } from "../lib/geolocation";
 import type { Store } from "../types";
+
+const DEFAULT_DAY_HOURS = { open: "09:00", close: "21:00" };
 
 function slugify(name: string) {
   return name
@@ -27,6 +29,7 @@ export function StoreSettings() {
   const [locating, setLocating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [hours, setHours] = useState<OperatingHours>({});
 
   useEffect(() => {
     if (store) {
@@ -37,8 +40,17 @@ export function StoreSettings() {
       setPickupAddress(store.pickup_address ?? "");
       setLatitude(store.latitude ?? null);
       setLongitude(store.longitude ?? null);
+      setHours(store.operating_hours ?? {});
     }
   }, [store]);
+
+  function toggleDay(day: DayKey, open: boolean) {
+    setHours((prev) => ({ ...prev, [day]: open ? DEFAULT_DAY_HOURS : null }));
+  }
+
+  function setDayTime(day: DayKey, field: "open" | "close", value: string) {
+    setHours((prev) => ({ ...prev, [day]: { ...(prev[day] ?? DEFAULT_DAY_HOURS), [field]: value } }));
+  }
 
   async function handleUseCurrentLocation() {
     setLocating(true);
@@ -87,6 +99,7 @@ export function StoreSettings() {
       pickup_address: pickupAddress || null,
       latitude,
       longitude,
+      operating_hours: hours,
     };
 
     // Was `await refresh()` -- MerchantContext.refresh() sets loading=true,
@@ -205,9 +218,60 @@ export function StoreSettings() {
           />
         </div>
 
+        <div className="pt-2 border-t">
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-medium text-gray-500">Opening hours</label>
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                isOpenNowClientSide(status, hours) ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"
+              }`}
+            >
+              {isOpenNowClientSide(status, hours) ? "Open now" : "Closed now"}
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mb-2">
+            Customers can't place orders outside these hours. Leave a day unchecked to stay closed all day. No days set at all means always open
+            (as long as your shop isn't paused below).
+          </p>
+          <div className="space-y-1.5">
+            {DAY_KEYS.map((day) => {
+              const dayHours = hours[day];
+              const open = dayHours !== null && dayHours !== undefined;
+              return (
+                <div key={day} className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 w-28 text-xs text-gray-700 flex-shrink-0">
+                    <input type="checkbox" checked={open} onChange={(e) => toggleDay(day, e.target.checked)} />
+                    {DAY_LABELS[day]}
+                  </label>
+                  {open ? (
+                    <>
+                      <input
+                        type="time"
+                        value={dayHours.open}
+                        onChange={(e) => setDayTime(day, "open", e.target.value)}
+                        className="border rounded-md px-2 py-1 text-xs"
+                      />
+                      <span className="text-xs text-gray-400">to</span>
+                      <input
+                        type="time"
+                        value={dayHours.close}
+                        onChange={(e) => setDayTime(day, "close", e.target.value)}
+                        className="border rounded-md px-2 py-1 text-xs"
+                      />
+                    </>
+                  ) : (
+                    <span className="text-xs text-gray-400">Closed</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {store && (
-          <div>
+          <div className="pt-2 border-t">
             <label className="text-xs font-medium text-gray-500">Store status</label>
+            <p className="text-xs text-gray-400 mb-1">Pausing hides your shop from customers and blocks new orders, regardless of hours above.</p>
             <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm mt-1">
               <option value="active">Active</option>
               <option value="paused">Paused</option>

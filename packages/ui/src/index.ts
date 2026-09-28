@@ -2,6 +2,15 @@ export { cn } from "./lib/cn";
 export { formatCurrency, formatDate, formatDateTime, formatOrderNumber, formatRelativeTime } from "./lib/format";
 export { CUSTOMER_PAGE_SIZE, ADMIN_PAGE_SIZE, totalPagesFor, rangeFor } from "./lib/pagination";
 export { fetchAllRows, SUPABASE_MAX_ROWS_PER_REQUEST, type FetchPageResult } from "./lib/fetchAllRows";
+export {
+  DAY_KEYS,
+  DAY_LABELS,
+  isOpenNowClientSide,
+  todaysHours,
+  type DayHours,
+  type DayKey,
+  type OperatingHours,
+} from "./lib/storeHours";
 
 export { Button, type ButtonProps } from "./components/Button";
 export { Badge, type BadgeProps } from "./components/Badge";

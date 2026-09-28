@@ -28,6 +28,9 @@ function sanitizeOrderError(message: string): { status: number; error: string } 
   if (message.includes("not currently available for orders")) {
     return { status: 409, error: "One or more stores in your cart are not currently available. Please review your cart." };
   }
+  if (message.includes("currently closed for new orders")) {
+    return { status: 409, error: "One or more stores in your cart are currently closed. Please review your cart or try again during their opening hours." };
+  }
   if (message.includes("no longer available:")) {
     return { status: 409, error: "One or more items in your cart are no longer available. Please review your cart." };
   }

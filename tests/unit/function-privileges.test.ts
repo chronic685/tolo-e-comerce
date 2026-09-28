@@ -84,6 +84,13 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   "merchant_orders_unacknowledged",
   "returns_awaiting_refund",
 
+  // Group 1, item 4 (migration 0057): customer-facing "Open now"/"Closed
+  // now" badge on Storefront.tsx (as a computed column). Not security
+  // definer -- reads only the `stores` row already passed in, which the
+  // caller could already read directly under stores_public_select_active
+  // RLS (only ever a status='active' row is visible to a customer anyway).
+  "store_is_open_now",
+
   // Phase 5d, item 9: mirrors resolve_delivery_fee's nearest-active-zone
   // lookup but returns only estimated_delivery_minutes -- no fee, no zone
   // identity -- for the order-confirmation screen. Unlike resolve_delivery_fee
