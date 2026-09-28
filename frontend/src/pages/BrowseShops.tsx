@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { Store } from "lucide-react";
 import { EmptyState, SkeletonRows } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
+import { ShopCard } from "../components/ShopCard";
+import { fetchMerchantRatings } from "../lib/merchantRatings";
+import type { MerchantRating } from "../types";
 
 interface ShopRow {
   id: string;
@@ -10,6 +12,7 @@ interface ShopRow {
   slug: string;
   logo_url: string | null;
   status: string;
+  merchant_id: string;
   merchants: { status: string } | null;
 }
 
@@ -31,16 +34,24 @@ function isStoreOpen(store: ShopRow): boolean {
 export function BrowseShops() {
   const [shops, setShops] = useState<ShopRow[] | null>(null);
   const [summaries, setSummaries] = useState<Map<string, ShopSummary>>(new Map());
+  const [ratings, setRatings] = useState<Map<string, MerchantRating>>(new Map());
 
   useEffect(() => {
     supabase
       .from("stores")
-      .select("id, name, slug, logo_url, status, merchants ( status )")
+      .select("id, name, slug, logo_url, status, merchant_id, merchants ( status )")
       .then(({ data }) => {
         const rows = ((data as unknown as ShopRow[]) ?? []).filter(isStoreOpen);
         setShops(rows);
       });
   }, []);
+
+  useEffect(() => {
+    if (!shops || shops.length === 0) return;
+    // One batched query for every shop's merchant rating on the page —
+    // never fetch a merchant's rating once per card (see merchantRatings.ts).
+    fetchMerchantRatings(shops.map((s) => s.merchant_id)).then(setRatings);
+  }, [shops]);
 
   useEffect(() => {
     if (!shops || shops.length === 0) return;
@@ -107,26 +118,17 @@ export function BrowseShops() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {shops.map((shop) => {
-            const photo = photoUrl(shop);
+            const rating = ratings.get(shop.merchant_id);
             return (
-              <Link
+              <ShopCard
                 key={shop.id}
-                to={`/stores/${shop.slug}`}
-                className="block bg-white rounded-lg border hover:shadow-md transition-shadow overflow-hidden"
-              >
-                {/* Same "blank box, no placeholder graphic" convention
-                    ProductCard.tsx already uses when there's no image at
-                    all — this codebase has no generic placeholder image
-                    asset anywhere, so this matches the existing fallback
-                    rather than inventing one. */}
-                <div className="aspect-square bg-gray-100">
-                  {photo && <img src={photo} alt={shop.name} className="w-full h-full object-cover" />}
-                </div>
-                <div className="p-3">
-                  <p className="font-medium text-sm truncate">{shop.name}</p>
-                  <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">{summaryLine(shop.id)}</p>
-                </div>
-              </Link>
+                slug={shop.slug}
+                name={shop.name}
+                photoUrl={photoUrl(shop)}
+                subtitle={summaryLine(shop.id)}
+                avgRating={rating?.avg_rating}
+                reviewCount={rating?.review_count}
+              />
             );
           })}
         </div>

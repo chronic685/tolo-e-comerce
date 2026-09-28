@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapPin } from "lucide-react";
-import { toast } from "@tolo/ui";
+import { Button, Stepper, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
@@ -59,6 +59,12 @@ export function Checkout() {
   const [deliveryTiming, setDeliveryTiming] = useState<"now" | "scheduled">("now");
   const [scheduledFor, setScheduledFor] = useState("");
   const [scheduleBounds, setScheduleBounds] = useState({ minLeadMinutes: 60, maxAdvanceDays: 7 });
+
+  // Mobile step flow (Address → Delivery time → Payment → Review) — purely a
+  // display concern layered on top of the existing form state above; it
+  // never changes what gets validated or submitted, just which of the
+  // sections below is visible at once on a narrow screen.
+  const [stepIndex, setStepIndex] = useState(0);
 
   const subtotal = items.reduce((sum, item) => sum + item.product_variants.customer_price * item.quantity, 0);
   const total = subtotal - (promoStatus === "valid" ? (promoDiscountAmount ?? 0) : 0);
@@ -277,13 +283,30 @@ export function Checkout() {
     return <p className="text-gray-500">Your cart is empty.</p>;
   }
 
-  return (
-    <div className="max-w-lg">
-      <h1 className="text-xl font-bold mb-4">Checkout</h1>
+  // Step list for the mobile flow — "Delivery time" is only a step when
+  // there's actually something to configure there; when scheduled orders
+  // are off, the order is always delivered ASAP and that step is skipped
+  // entirely rather than shown with nothing in it.
+  const steps = [
+    { key: "address", label: "Address" },
+    ...(scheduledOrdersEnabled ? [{ key: "delivery", label: "Delivery time" }] : []),
+    { key: "payment", label: "Payment" },
+    { key: "review", label: "Review" },
+  ];
+  const clampedStep = Math.min(stepIndex, steps.length - 1);
+  const currentStepKey = steps[clampedStep].key;
 
-      <div className="bg-white border rounded-lg p-4 mb-4">
-        <h2 className="font-medium mb-2">Deliver to</h2>
-        {addresses.map((a) => (
+  function goBack() {
+    setStepIndex((i) => Math.max(i - 1, 0));
+  }
+  function goNext() {
+    setStepIndex((i) => Math.min(i + 1, steps.length - 1));
+  }
+
+  const addressSection = (
+    <div className="bg-white border rounded-lg p-4 mb-4">
+      <h2 className="font-medium mb-2">Deliver to</h2>
+      {addresses.map((a) => (
           <label key={a.id} className="flex items-start gap-2 mb-2 text-sm">
             <input type="radio" checked={addressId === a.id} onChange={() => setAddressId(a.id)} />
             <span>
@@ -373,27 +396,30 @@ export function Checkout() {
           </div>
         )}
       </div>
+  );
 
-      <div className="bg-white border rounded-lg p-4 mb-4">
-        <h2 className="font-medium mb-2">Payment method</h2>
-        {paymentMethods.length === 0 ? (
-          <p className="text-sm text-red-600">No payment method is currently available.</p>
-        ) : (
-          paymentMethods.map(([key, label]) => (
-            <label key={key} className="flex items-center gap-2 mb-1 text-sm">
-              <input type="radio" checked={paymentProvider === key} onChange={() => setPaymentProvider(key)} />
-              {label}
-            </label>
-          ))
-        )}
-      </div>
+  const paymentSection = (
+    <div className="bg-white border rounded-lg p-4 mb-4">
+      <h2 className="font-medium mb-2">Payment method</h2>
+      {paymentMethods.length === 0 ? (
+        <p className="text-sm text-red-600">No payment method is currently available.</p>
+      ) : (
+        paymentMethods.map(([key, label]) => (
+          <label key={key} className="flex items-center gap-2 mb-1 text-sm">
+            <input type="radio" checked={paymentProvider === key} onChange={() => setPaymentProvider(key)} />
+            {label}
+          </label>
+        ))
+      )}
+    </div>
+  );
 
-      {scheduledOrdersEnabled && (
-        <div className="bg-white border rounded-lg p-4 mb-4">
-          <h2 className="font-medium mb-2">Delivery time</h2>
-          <div className="flex gap-2 mb-2">
-            <button
-              type="button"
+  const deliverySection = scheduledOrdersEnabled && (
+    <div className="bg-white border rounded-lg p-4 mb-4">
+      <h2 className="font-medium mb-2">Delivery time</h2>
+      <div className="flex gap-2 mb-2">
+        <button
+          type="button"
               onClick={() => setDeliveryTiming("now")}
               className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border ${
                 deliveryTiming === "now" ? "bg-navy text-white border-navy" : "bg-white text-gray-600"
@@ -428,9 +454,9 @@ export function Checkout() {
             </>
           )}
         </div>
-      )}
+  );
 
-      {promoCodesEnabled && (
+  const promoSection = promoCodesEnabled && (
         <div className="bg-white border rounded-lg p-4 mb-4">
           <h2 className="font-medium mb-2">Promo code</h2>
           <div className="flex gap-2">
@@ -462,8 +488,10 @@ export function Checkout() {
             <p className="text-orange-600 text-sm mt-2">This code doesn't apply to your current cart.</p>
           )}
         </div>
-      )}
+  );
 
+  const summarySection = (
+    <>
       <div className="bg-white border rounded-lg p-4 mb-4 text-sm space-y-1">
         <div className="flex justify-between">
           <span>Subtotal</span>
@@ -484,14 +512,64 @@ export function Checkout() {
         Delivery fee isn't included yet, and a better automatic discount can still apply instead of a promo code — the final amount is
         always shown on your order confirmation.
       </p>
+    </>
+  );
 
-      <button
-        onClick={handlePlaceOrder}
-        disabled={placing}
-        className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
-      >
-        {placing ? "Placing order..." : "Place order"}
-      </button>
+  const placeOrderButton = (
+    <button
+      onClick={handlePlaceOrder}
+      disabled={placing}
+      className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
+    >
+      {placing ? "Placing order..." : "Place order"}
+    </button>
+  );
+
+  const stepSections: Record<string, ReactNode> = {
+    address: addressSection,
+    delivery: deliverySection,
+    payment: paymentSection,
+    review: (
+      <>
+        {promoSection}
+        {summarySection}
+      </>
+    ),
+  };
+
+  return (
+    <div className="max-w-lg">
+      <h1 className="text-xl font-bold mb-4">Checkout</h1>
+      <Stepper steps={steps} currentIndex={clampedStep} className="mb-6" />
+
+      {/* Phones: one step's fields at a time, with Back/Next. */}
+      <div className="md:hidden">
+        {stepSections[currentStepKey]}
+        <div className="flex gap-2 mt-2">
+          {clampedStep > 0 && (
+            <Button type="button" variant="outline" className="flex-1" onClick={goBack}>
+              Back
+            </Button>
+          )}
+          {clampedStep < steps.length - 1 ? (
+            <Button type="button" className="flex-1" onClick={goNext}>
+              Next
+            </Button>
+          ) : (
+            <div className="flex-1">{placeOrderButton}</div>
+          )}
+        </div>
+      </div>
+
+      {/* Desktop and up: the whole form on one page, same as before. */}
+      <div className="hidden md:block">
+        {addressSection}
+        {paymentSection}
+        {deliverySection}
+        {promoSection}
+        {summarySection}
+        {placeOrderButton}
+      </div>
     </div>
   );
 }

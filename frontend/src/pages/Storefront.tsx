@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { PackageSearch } from "lucide-react";
-import { EmptyState, SkeletonPage, SkeletonRows } from "@tolo/ui";
+import { EmptyState, LazyImage, SkeletonPage, SkeletonRows } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { ProductCard } from "../components/ProductCard";
 import { RatingBadge } from "../components/RatingBadge";
@@ -20,12 +20,12 @@ const PRODUCT_SELECT = `
 // "Uncategorized" group (only shown if non-empty) for anything with a null
 // category_id — a shop mid-way through categorizing its catalog shouldn't
 // have products silently disappear from its own storefront.
-function groupByCategory(products: Product[]): { name: string; products: Product[] }[] {
-  const groups = new Map<string, { name: string; products: Product[] }>();
+function groupByCategory(products: Product[]): { key: string; name: string; products: Product[] }[] {
+  const groups = new Map<string, { key: string; name: string; products: Product[] }>();
   for (const p of products) {
     const key = p.category_id ?? "__uncategorized__";
     const name = p.categories?.name ?? "Uncategorized";
-    if (!groups.has(key)) groups.set(key, { name, products: [] });
+    if (!groups.has(key)) groups.set(key, { key, name, products: [] });
     groups.get(key)!.products.push(p);
   }
   return [...groups.values()];
@@ -131,45 +131,63 @@ export function Storefront() {
     );
   }
 
+  const hasCategoryBar = categoryGroups.length > 1;
+
+  function scrollToCategory(key: string) {
+    document.getElementById(`category-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   return (
     <div>
-      {store.banner_url && (
-        <div className="w-full h-40 bg-gray-100 rounded-lg overflow-hidden mb-4">
-          <img src={store.banner_url} alt="" className="w-full h-full object-cover" />
-        </div>
-      )}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="w-16 h-16 rounded-full bg-gray-100 border flex-shrink-0 overflow-hidden">
-          {storePhoto && <img src={storePhoto} alt={store.name} className="w-full h-full object-cover" />}
-        </div>
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-bold">{store.name}</h1>
-            <RatingBadge avgRating={store.merchants?.avg_rating ?? null} reviewCount={store.merchants?.review_count ?? 0} />
+      <div className="bg-white border rounded-lg overflow-hidden mb-6">
+        {store.banner_url && <LazyImage src={store.banner_url} alt="" aspect="aspect-[3/1]" />}
+        <div className="p-4 flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full border flex-shrink-0 overflow-hidden">
+            <LazyImage src={storePhoto} alt={store.name} />
           </div>
-          {store.description && <p className="text-sm text-gray-500 mt-0.5">{store.description}</p>}
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold truncate">{store.name}</h1>
+            <RatingBadge avgRating={store.merchants?.avg_rating ?? null} reviewCount={store.merchants?.review_count ?? 0} />
+            {store.description && <p className="text-sm text-gray-500 mt-1">{store.description}</p>}
+          </div>
         </div>
       </div>
+
+      {hasCategoryBar && (
+        <div className="sticky top-14 z-[5] -mx-4 px-4 sm:mx-0 sm:px-0 bg-white/95 backdrop-blur border-b py-2 mb-4 flex gap-2 overflow-x-auto">
+          {categoryGroups.map((group) => (
+            <a
+              key={group.key}
+              href={`#category-${group.key}`}
+              onClick={(e) => {
+                e.preventDefault();
+                scrollToCategory(group.key);
+              }}
+              className="flex-shrink-0 whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-full border bg-white hover:border-navy hover:text-navy transition-colors"
+            >
+              {group.name} <span className="text-gray-400 font-normal">({group.products.length})</span>
+            </a>
+          ))}
+        </div>
+      )}
 
       {productsLoading ? (
         <SkeletonRows count={4} />
       ) : products.length === 0 ? (
         <EmptyState icon={PackageSearch} title="No products yet" description="This store hasn't listed anything yet." />
-      ) : categoryGroups.length > 1 ? (
-        <div className="space-y-6">
+      ) : hasCategoryBar ? (
+        <div className="space-y-8">
           {categoryGroups.map((group) => (
-            <details key={group.name} open className="group">
-              <summary className="cursor-pointer font-semibold text-sm mb-3 list-none flex items-center gap-1.5">
-                <span className="text-gray-400 group-open:rotate-90 transition-transform inline-block">▸</span>
-                {group.name}
-                <span className="text-gray-400 font-normal">({group.products.length})</span>
-              </summary>
+            <section key={group.key} id={`category-${group.key}`} className="scroll-mt-28">
+              <h2 className="font-semibold text-sm mb-3">
+                {group.name} <span className="text-gray-400 font-normal">({group.products.length})</span>
+              </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {group.products.map((p) => (
                   <ProductCard key={p.id} product={p} />
                 ))}
               </div>
-            </details>
+            </section>
           ))}
         </div>
       ) : (
