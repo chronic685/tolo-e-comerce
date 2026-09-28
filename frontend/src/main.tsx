@@ -7,6 +7,9 @@ import App from './App.tsx'
 import { AuthProvider } from './lib/AuthContext'
 import { CartProvider } from './lib/CartContext'
 import { FavoritesProvider } from './lib/FavoritesContext'
+import { initEmbedMode } from './lib/appBridge'
+
+initEmbedMode()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

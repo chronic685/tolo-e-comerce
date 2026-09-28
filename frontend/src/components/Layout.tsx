@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import { AlertTriangle, Bell, Home, Package, ShoppingCart, Store, User } from "lucide-react";
+import { AlertTriangle, Bell, Home, Package, ShoppingCart, Store, User, X } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
 import { supabase } from "../lib/supabase";
+import { closeApp, isEmbedMode } from "../lib/appBridge";
 
 const TABS = [
   { to: "/", label: "Home", icon: Home, end: true },
@@ -19,6 +20,7 @@ export function Layout() {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const location = useLocation();
+  const embed = isEmbedMode();
 
   useEffect(() => {
     supabase
@@ -50,6 +52,20 @@ export function Layout() {
         </div>
       )}
 
+      {embed && (
+        <div className="sticky top-0 z-10 bg-white border-b flex items-center justify-end px-4 py-2">
+          <button
+            type="button"
+            onClick={closeApp}
+            aria-label="Close"
+            className="text-gray-500 hover:text-navy p-1"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
+      {!embed && (
       <header className="border-b bg-white sticky top-0 z-10">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
           <Link to="/" className="flex items-center gap-2 text-xl font-bold text-navy">
@@ -104,16 +120,20 @@ export function Layout() {
           </div>
         </div>
       </header>
+      )}
 
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 pb-24 md:pb-6">
+      <main className={`flex-1 max-w-6xl mx-auto w-full px-4 py-6 ${embed ? "" : "pb-24 md:pb-6"}`}>
         <Outlet />
       </main>
 
+      {!embed && (
       <footer className="hidden md:block border-t bg-white text-center text-xs text-gray-500 py-4">
         Tolo Marketplace — powered by Tech City PLC
       </footer>
+      )}
 
-      {/* Bottom tab bar — phones only */}
+      {/* Bottom tab bar — phones only, hidden in embed mode */}
+      {!embed && (
       <nav
         className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t z-10"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
@@ -143,6 +163,7 @@ export function Layout() {
           ))}
         </div>
       </nav>
+      )}
     </div>
   );
 }
