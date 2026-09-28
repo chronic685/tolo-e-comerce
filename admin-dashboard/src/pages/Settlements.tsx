@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import type { FinancialAdjustment, Merchant, Settlement } from "../types";
 
 const ADJUSTMENT_TYPES = ["correction", "bonus", "penalty", "goodwill", "other"];
@@ -103,14 +103,16 @@ export function Settlements() {
 
   // Exports every settlement, not just the page on screen.
   async function handleExport() {
-    const { data } = await supabase
-      .from("settlements")
-      .select("id, merchant_id, period_start, period_end, total_amount, status, created_at, merchants ( business_name )")
-      .order("created_at", { ascending: false })
-      .range(0, 4999);
+    const rows = (await fetchAllRows((from, to) =>
+      supabase
+        .from("settlements")
+        .select("id, merchant_id, period_start, period_end, total_amount, status, created_at, merchants ( business_name )")
+        .order("created_at", { ascending: false })
+        .range(from, to),
+    )) as unknown as Settlement[];
     exportToCsv(
       `settlements-${new Date().toISOString().slice(0, 10)}.csv`,
-      ((data as unknown as Settlement[]) ?? []).map((s) => ({
+      rows.map((s) => ({
         id: s.id,
         merchant: s.merchants?.business_name ?? "",
         period_start: s.period_start,

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import type { AuditLogEntry } from "../types";
 
 const ENTITY_FILTERS = ["all", "system_settings", "commission_rules", "discount_rules", "financial_adjustments", "merchants", "products", "profiles"];
@@ -35,15 +35,17 @@ export function AuditLog() {
   // Exports every entry matching the current entity filter, not just the
   // page on screen.
   async function handleExport() {
-    let query = supabase
-      .from("audit_logs")
-      .select("id, actor_id, action, entity_type, entity_id, metadata, created_at, profiles ( full_name )")
-      .order("created_at", { ascending: false });
-    if (entityFilter !== "all") query = query.eq("entity_type", entityFilter);
-    const { data } = await query.range(0, 4999);
+    const rows = (await fetchAllRows((from, to) => {
+      let query = supabase
+        .from("audit_logs")
+        .select("id, actor_id, action, entity_type, entity_id, metadata, created_at, profiles ( full_name )")
+        .order("created_at", { ascending: false });
+      if (entityFilter !== "all") query = query.eq("entity_type", entityFilter);
+      return query.range(from, to);
+    })) as unknown as AuditLogEntry[];
     exportToCsv(
       `audit-log-${entityFilter}-${new Date().toISOString().slice(0, 10)}.csv`,
-      ((data as unknown as AuditLogEntry[]) ?? []).map((e) => ({
+      rows.map((e) => ({
         id: e.id,
         actor: e.profiles?.full_name ?? e.actor_id ?? "system",
         action: e.action,

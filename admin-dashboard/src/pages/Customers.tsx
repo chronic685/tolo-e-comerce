@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import type { CustomerProfile } from "../types";
 
 export function Customers() {
@@ -74,14 +74,15 @@ export function Customers() {
   // on screen -- fetched fresh here rather than from the paginated
   // `customers` state, which only ever holds one page's worth of rows.
   async function handleExport() {
-    let query = supabase
-      .from("profiles")
-      .select("id, full_name, phone, account_status, suspension_reason, created_at")
-      .eq("role", "customer")
-      .order("created_at", { ascending: false });
-    if (committedSearch.trim()) query = query.or(`full_name.ilike.%${committedSearch.trim()}%,phone.ilike.%${committedSearch.trim()}%`);
-    const { data } = await query.range(0, 4999);
-    const rows = (data as CustomerProfile[]) ?? [];
+    const rows = await fetchAllRows<CustomerProfile>((from, to) => {
+      let query = supabase
+        .from("profiles")
+        .select("id, full_name, phone, account_status, suspension_reason, created_at")
+        .eq("role", "customer")
+        .order("created_at", { ascending: false });
+      if (committedSearch.trim()) query = query.or(`full_name.ilike.%${committedSearch.trim()}%,phone.ilike.%${committedSearch.trim()}%`);
+      return query.range(from, to);
+    });
     const { data: orders } = await supabase
       .from("orders")
       .select("customer_id")

@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Star } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import type { AdminProduct } from "../types";
 import { Categories } from "./Categories";
 
@@ -146,17 +146,19 @@ function ProductCatalog() {
   // Exports every product matching the current status filter/search, not
   // just the page on screen.
   async function handleExport() {
-    let query = supabase
-      .from("products")
-      .select("id, merchant_id, name, slug, sku, base_price, status, rejection_reason, is_featured, created_at, merchants ( business_name ), categories ( name )")
-      .order("created_at", { ascending: false });
-    if (statusFilter === "rejected") query = query.eq("status", "draft").not("rejection_reason", "is", null);
-    else if (statusFilter !== "all") query = query.eq("status", statusFilter);
-    if (committedSearch.trim()) query = query.or(`name.ilike.%${committedSearch.trim()}%,sku.ilike.%${committedSearch.trim()}%`);
-    const { data } = await query.range(0, 4999);
+    const rows = (await fetchAllRows((from, to) => {
+      let query = supabase
+        .from("products")
+        .select("id, merchant_id, name, slug, sku, base_price, status, rejection_reason, is_featured, created_at, merchants ( business_name ), categories ( name )")
+        .order("created_at", { ascending: false });
+      if (statusFilter === "rejected") query = query.eq("status", "draft").not("rejection_reason", "is", null);
+      else if (statusFilter !== "all") query = query.eq("status", statusFilter);
+      if (committedSearch.trim()) query = query.or(`name.ilike.%${committedSearch.trim()}%,sku.ilike.%${committedSearch.trim()}%`);
+      return query.range(from, to);
+    })) as unknown as AdminProduct[];
     exportToCsv(
       `products-${statusFilter}-${new Date().toISOString().slice(0, 10)}.csv`,
-      ((data as unknown as AdminProduct[]) ?? []).map((p) => ({
+      rows.map((p) => ({
         id: p.id,
         name: p.name,
         merchant: p.merchants?.business_name ?? "",

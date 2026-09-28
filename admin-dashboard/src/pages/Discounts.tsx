@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import type { Category, DiscountRule, Merchant } from "../types";
 
 const emptyForm = {
@@ -186,10 +186,12 @@ export function Discounts() {
 
   // Exports every discount rule, not just the page on screen.
   async function handleExport() {
-    const { data } = await supabase.from("discount_rules").select("*").order("created_at", { ascending: false }).range(0, 4999);
+    const rows = (await fetchAllRows((from, to) =>
+      supabase.from("discount_rules").select("*").order("created_at", { ascending: false }).range(from, to),
+    )) as DiscountRule[];
     exportToCsv(
       `discount-rules-${new Date().toISOString().slice(0, 10)}.csv`,
-      ((data as DiscountRule[]) ?? []).map((r) => ({
+      rows.map((r) => ({
         id: r.id,
         name: r.name,
         code: r.code ?? "",

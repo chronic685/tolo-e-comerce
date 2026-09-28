@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import type { Merchant, MerchantDocument } from "../types";
 
 const STATUS_FILTERS = ["all", "registered", "under_review", "active", "suspended", "rejected", "closed"];
@@ -115,12 +115,14 @@ export function Merchants() {
   // Exports every merchant matching the current status filter, not just
   // the page on screen.
   async function handleExport() {
-    let query = supabase.from("merchants").select("*").order("created_at", { ascending: false });
-    if (statusFilter !== "all") query = query.eq("status", statusFilter);
-    const { data } = await query.range(0, 4999);
+    const rows = await fetchAllRows<Merchant>((from, to) => {
+      let query = supabase.from("merchants").select("*").order("created_at", { ascending: false });
+      if (statusFilter !== "all") query = query.eq("status", statusFilter);
+      return query.range(from, to);
+    });
     exportToCsv(
       `merchants-${statusFilter}-${new Date().toISOString().slice(0, 10)}.csv`,
-      (data ?? []).map((m) => ({
+      rows.map((m) => ({
         id: m.id,
         business_name: m.business_name,
         category: m.business_category ?? "",

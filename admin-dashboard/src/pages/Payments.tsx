@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import type { Payment } from "../types";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -64,15 +64,17 @@ export function Payments() {
   // Exports every payment matching the current status filter, not just the
   // page on screen.
   async function handleExport() {
-    let query = supabase
-      .from("payments")
-      .select("id, order_id, provider, amount, currency, status, created_at, orders ( customer_id, profiles ( full_name, phone ) )")
-      .order("created_at", { ascending: false });
-    if (filter !== "all") query = query.eq("status", filter);
-    const { data } = await query.range(0, 4999);
+    const rows = (await fetchAllRows((from, to) => {
+      let query = supabase
+        .from("payments")
+        .select("id, order_id, provider, amount, currency, status, created_at, orders ( customer_id, profiles ( full_name, phone ) )")
+        .order("created_at", { ascending: false });
+      if (filter !== "all") query = query.eq("status", filter);
+      return query.range(from, to);
+    })) as unknown as Payment[];
     exportToCsv(
       `payments-${new Date().toISOString().slice(0, 10)}.csv`,
-      ((data as unknown as Payment[]) ?? []).map((p) => ({
+      rows.map((p) => ({
         id: p.id,
         order_id: p.order_id,
         customer: p.orders?.profiles?.full_name ?? "",

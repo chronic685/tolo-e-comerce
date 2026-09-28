@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import type { InventoryMovement } from "../types";
 
 const TYPE_FILTERS = ["all", "restock", "sale", "return", "adjustment", "reserve", "release"];
@@ -45,15 +45,17 @@ export function InventoryMovements() {
   // Exports every movement matching the current type filter, not just the
   // page on screen.
   async function handleExport() {
-    let query = supabase
-      .from("inventory_movements")
-      .select("id, variant_id, movement_type, quantity, reference_type, reference_id, created_at, product_variants ( sku, products ( name ) )")
-      .order("created_at", { ascending: false });
-    if (typeFilter !== "all") query = query.eq("movement_type", typeFilter);
-    const { data } = await query.range(0, 4999);
+    const rows = (await fetchAllRows((from, to) => {
+      let query = supabase
+        .from("inventory_movements")
+        .select("id, variant_id, movement_type, quantity, reference_type, reference_id, created_at, product_variants ( sku, products ( name ) )")
+        .order("created_at", { ascending: false });
+      if (typeFilter !== "all") query = query.eq("movement_type", typeFilter);
+      return query.range(from, to);
+    })) as unknown as InventoryMovement[];
     exportToCsv(
       `inventory-movements-${typeFilter}-${new Date().toISOString().slice(0, 10)}.csv`,
-      ((data as unknown as InventoryMovement[]) ?? []).map((m) => ({
+      rows.map((m) => ({
         id: m.id,
         product: m.product_variants?.products?.name ?? "",
         sku: m.product_variants?.sku ?? "",
