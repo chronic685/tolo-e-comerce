@@ -122,7 +122,7 @@ export function ProductDetail() {
     // never covers the last bit of content — on top of Layout.tsx's own
     // pb-24 that already reserves space for its bottom tab bar.
     <div className="pb-24 md:pb-0">
-      <div className="grid md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div>
           <LazyImage src={image?.url} alt={product.name} aspect="aspect-square" className="rounded-lg" />
           {galleryImages.length > 1 && (
