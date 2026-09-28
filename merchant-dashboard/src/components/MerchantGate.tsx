@@ -1,4 +1,5 @@
 import { Navigate, Outlet } from "react-router-dom";
+import { SkeletonPage } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
 import { MerchantApplication } from "../pages/MerchantApplication";
@@ -17,7 +18,7 @@ export function MerchantGate() {
   const { merchant, loading: merchantLoading } = useMerchant();
 
   if (authLoading || merchantLoading) {
-    return <p className="text-center text-gray-500 py-16">Loading...</p>;
+    return <SkeletonPage />;
   }
 
   if (!user) return <Navigate to="/login" replace />;

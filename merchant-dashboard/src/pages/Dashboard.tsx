@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Skeleton } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import { RevenueChart } from "../components/RevenueChart";
@@ -51,7 +52,11 @@ export function Dashboard() {
       <p className="text-sm text-gray-500 mb-6">Here's how your store is doing.</p>
 
       {!stats ? (
-        <p className="text-gray-500">Loading...</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full" />
+          ))}
+        </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard label="Products" value={stats.productCount} />

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { ADMIN_PAGES } from "../lib/adminPages";
+import { toast } from "@tolo/ui";
 
 export function Login() {
   const { signIn } = useAuth();
@@ -12,13 +13,11 @@ export function Login() {
   const [mode, setMode] = useState<"admin" | "staff" | null>(null);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setError(null);
     // AuthContext resolves a bare username to {username}@staff.internal
     // internally (accounts created via Users & Roles never have a real
     // email) — a real email typed here (every pre-existing account) is
@@ -26,7 +25,7 @@ export function Login() {
     const { error, permissions, adminTier } = await signIn(identifier, password);
     setLoading(false);
     if (error) {
-      setError(error);
+      toast.error(error);
       return;
     }
     // Landing on "/" unconditionally would hit PageGuard's "Not authorized"
@@ -71,7 +70,6 @@ export function Login() {
                 type="button"
                 onClick={() => {
                   setMode(null);
-                  setError(null);
                 }}
                 className="text-xs text-navy font-medium"
               >
@@ -97,7 +95,6 @@ export function Login() {
                 required
                 className="w-full border rounded-md px-3 py-2 text-sm"
               />
-              {error && <p className="text-red-600 text-sm">{error}</p>}
               {/* Reset links go by email, and username accounts
                   ({username}@staff.internal) have no inbox -- so the link
                   only shows while what's typed could be a real email. */}

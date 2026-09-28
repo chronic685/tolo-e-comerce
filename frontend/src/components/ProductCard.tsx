@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { Heart } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { useFavorites } from "../lib/FavoritesContext";
 import type { Product } from "../types";
@@ -21,9 +22,9 @@ export function ProductCard({ product }: { product: Product }) {
         <button
           onClick={() => toggleFavorite(product.id)}
           aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
-          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center text-lg"
+          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center"
         >
-          {favorited ? "❤️" : "🤍"}
+          <Heart className={`w-4 h-4 ${favorited ? "fill-current text-red-500" : "text-gray-400"}`} />
         </button>
       )}
       <div className="p-3">

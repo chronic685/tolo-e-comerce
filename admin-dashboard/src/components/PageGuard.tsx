@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useAuth } from "../lib/AuthContext";
+import { SkeletonPage } from "@tolo/ui";
 
 // Second, finer-grained gate inside ProtectedRoute (which only checks "is
 // this an authenticated Tolo staff member at all"): each route element is
@@ -9,7 +10,7 @@ import { useAuth } from "../lib/AuthContext";
 export function PageGuard({ pageKey, children }: { pageKey: string; children: ReactNode }) {
   const { hasAccess, loading } = useAuth();
 
-  if (loading) return <p className="text-center text-gray-500 py-16">Loading...</p>;
+  if (loading) return <SkeletonPage />;
 
   if (!hasAccess(pageKey)) {
     return (

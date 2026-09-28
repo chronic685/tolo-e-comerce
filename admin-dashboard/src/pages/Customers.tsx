@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
+import { ExportCsvButton, SkeletonRows } from "@tolo/ui";
 import type { CustomerProfile } from "../types";
 
 export function Customers() {
@@ -84,13 +85,7 @@ export function Customers() {
     <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Customers</h1>
-        <button
-          onClick={handleExport}
-          disabled={customers.length === 0}
-          className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-40"
-        >
-          ⬇ Export CSV
-        </button>
+        <ExportCsvButton onExport={handleExport} disabled={customers.length === 0} />
       </div>
 
       <div className="flex gap-2 mb-4">
@@ -107,7 +102,7 @@ export function Customers() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Loading...</p>
+        <SkeletonRows />
       ) : customers.length === 0 ? (
         <p className="text-gray-500">No customers found.</p>
       ) : (

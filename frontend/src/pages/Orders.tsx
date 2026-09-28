@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { Package } from "lucide-react";
+import { Button, EmptyState, SkeletonRows } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { STATUS_COPY } from "../lib/orderStatus";
@@ -14,6 +16,7 @@ interface OrderRow {
 
 export function Orders() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,8 +33,16 @@ export function Orders() {
       });
   }, [user]);
 
-  if (loading) return <p className="text-gray-500">Loading orders...</p>;
-  if (orders.length === 0) return <p className="text-gray-500">You have no orders yet.</p>;
+  if (loading) return <SkeletonRows count={4} />;
+  if (orders.length === 0)
+    return (
+      <EmptyState
+        icon={Package}
+        title="No orders yet"
+        description="Your past orders will show up here."
+        action={<Button onClick={() => navigate("/")}>Browse the marketplace</Button>}
+      />
+    );
 
   return (
     <div>

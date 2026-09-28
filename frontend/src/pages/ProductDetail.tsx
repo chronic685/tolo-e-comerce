@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { Heart } from "lucide-react";
+import { SkeletonPage } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
@@ -45,7 +47,7 @@ export function ProductDetail() {
       });
   }, [slug]);
 
-  if (!product) return <p className="text-gray-500">Loading...</p>;
+  if (!product) return <SkeletonPage />;
 
   const variant = product.product_variants.find((v) => v.id === variantId);
   const image =
@@ -88,9 +90,9 @@ export function ProductDetail() {
             <button
               onClick={() => toggleFavorite(product.id)}
               aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
-              className="text-2xl flex-shrink-0"
+              className="flex-shrink-0"
             >
-              {isFavorite(product.id) ? "❤️" : "🤍"}
+              <Heart className={`w-6 h-6 ${isFavorite(product.id) ? "fill-current text-red-500" : "text-gray-400"}`} />
             </button>
           )}
         </div>

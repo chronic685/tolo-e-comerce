@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Store } from "lucide-react";
+import { EmptyState, SkeletonRows } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 
 interface ShopRow {
@@ -99,9 +101,9 @@ export function BrowseShops() {
       <p className="text-sm text-gray-500 mb-6">Browse every shop on Tolo.</p>
 
       {shops === null ? (
-        <p className="text-gray-500">Loading...</p>
+        <SkeletonRows count={4} />
       ) : shops.length === 0 ? (
-        <p className="text-gray-500">No shops are open right now.</p>
+        <EmptyState icon={Store} title="No shops are open right now" description="Check back again soon." />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {shops.map((shop) => {

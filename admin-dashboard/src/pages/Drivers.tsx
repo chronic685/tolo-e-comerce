@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { toast } from "@tolo/ui";
 import type { Driver } from "../types";
 
 export function Drivers() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [form, setForm] = useState({ full_name: "", phone: "", vehicle_type: "", vehicle_plate: "" });
-  const [error, setError] = useState<string | null>(null);
 
   async function load() {
     const { data } = await supabase.from("drivers").select("*").order("full_name");
@@ -21,12 +21,11 @@ export function Drivers() {
     if (!form.full_name.trim() || !form.phone.trim()) return;
     const { data, error } = await supabase.from("drivers").insert(form).select().single();
     if (error) {
-      setError(error.message);
+      toast.error(error.message);
       return;
     }
     setDrivers((prev) => [...prev, data as Driver]);
     setForm({ full_name: "", phone: "", vehicle_type: "", vehicle_plate: "" });
-    setError(null);
   }
 
   async function toggleActive(d: Driver) {
@@ -68,7 +67,6 @@ export function Drivers() {
           Add driver
         </button>
       </form>
-      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
       <div className="bg-white border rounded-lg divide-y">
         {drivers.map((d) => (

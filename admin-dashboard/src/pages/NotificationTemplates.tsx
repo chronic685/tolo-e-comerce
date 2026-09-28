@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { SkeletonPage, toast } from "@tolo/ui";
 import type { NotificationTemplate } from "../types";
 
 export function NotificationTemplates() {
   const [templates, setTemplates] = useState<NotificationTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Record<string, { title: string; body: string }>>({});
-  const [message, setMessage] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -25,13 +25,15 @@ export function NotificationTemplates() {
 
   async function save(t: NotificationTemplate) {
     const d = draft(t);
-    setMessage(null);
     const { error } = await supabase
       .from("notification_templates")
       .update({ title_template: d.title, body_template: d.body })
       .eq("id", t.id);
-    setMessage(error ? error.message : `Saved "${t.event_type}".`);
-    if (error) return;
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Saved "${t.event_type}".`);
     setTemplates((prev) => prev.map((tpl) => (tpl.id === t.id ? { ...tpl, title_template: d.title, body_template: d.body } : tpl)));
     // Clears this row's draft now that it matches the saved value, so
     // `dirty` goes back to false and the Save button disappears again --
@@ -50,7 +52,7 @@ export function NotificationTemplates() {
     setTemplates((prev) => prev.map((tpl) => (tpl.id === t.id ? { ...tpl, enabled: !tpl.enabled } : tpl)));
   }
 
-  if (loading) return <p className="text-gray-500">Loading...</p>;
+  if (loading) return <SkeletonPage />;
 
   return (
     <div className="max-w-3xl">
@@ -58,7 +60,6 @@ export function NotificationTemplates() {
       <p className="text-sm text-gray-500 mb-4">
         Edit the in-app copy for each event. Use <code>{"{{variable}}"}</code> placeholders — e.g. order_id_short, merchant_name, amount.
       </p>
-      {message && <p className="text-sm bg-navy-50 text-navy rounded-md px-3 py-2 mb-4">{message}</p>}
 
       <div className="space-y-3">
         {templates.map((t) => {

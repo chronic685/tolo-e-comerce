@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
+import { toast } from "@tolo/ui";
 
 type RecoveryState = "checking" | "ready" | "invalid";
 
@@ -15,7 +16,6 @@ export function ResetPassword() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
@@ -40,19 +40,18 @@ export function ResetPassword() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password.length < 6) {
-      setError("Please choose a stronger password (at least 6 characters).");
+      toast.error("Please choose a stronger password (at least 6 characters).");
       return;
     }
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      toast.error("Passwords do not match.");
       return;
     }
     setSubmitting(true);
-    setError(null);
     const { error } = await updatePassword(password);
     setSubmitting(false);
     if (error) {
-      setError("We couldn't complete the request. Please try again.");
+      toast.error("We couldn't complete the request. Please try again.");
       return;
     }
     setDone(true);
@@ -109,7 +108,6 @@ export function ResetPassword() {
                 minLength={6}
                 className="w-full border rounded-md px-3 py-2 text-sm"
               />
-              {error && <p className="text-red-600 text-sm">{error}</p>}
               <button
                 type="submit"
                 disabled={submitting}

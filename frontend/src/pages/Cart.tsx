@@ -1,4 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
+import { ShoppingCart } from "lucide-react";
+import { Button, EmptyState, SkeletonRows } from "@tolo/ui";
 import { useCart } from "../lib/CartContext";
 
 export function Cart() {
@@ -7,16 +9,16 @@ export function Cart() {
 
   const total = items.reduce((sum, item) => sum + item.product_variants.customer_price * item.quantity, 0);
 
-  if (loading) return <p className="text-gray-500">Loading cart...</p>;
+  if (loading) return <SkeletonRows count={3} />;
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-16">
-        <p className="text-gray-500 mb-4">Your cart is empty.</p>
-        <Link to="/" className="text-navy font-medium">
-          Browse the marketplace
-        </Link>
-      </div>
+      <EmptyState
+        icon={ShoppingCart}
+        title="Your cart is empty"
+        description="Add items from the marketplace to get started."
+        action={<Button onClick={() => navigate("/")}>Browse the marketplace</Button>}
+      />
     );
   }
 

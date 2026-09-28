@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import { isEligibleForListing, LISTING_ELIGIBILITY_ERROR, parseAttributes, slugify } from "../lib/productRules";
@@ -34,23 +35,20 @@ export function ProductForm() {
     { sku: "", attributesText: "", price: "", stock: "0" },
   ]);
   const [images, setImages] = useState<ImageDraft[]>([{ url: "" }]);
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [commissionRate, setCommissionRate] = useState<number | null>(null);
   const [uploadingImageIdx, setUploadingImageIdx] = useState<number | null>(null);
-  const [imageError, setImageError] = useState<string | null>(null);
 
   async function handleImageUpload(idx: number, file: File) {
     if (!merchant) return;
     setUploadingImageIdx(idx);
-    setImageError(null);
 
     const path = `${merchant.id}/${Date.now()}-${file.name}`;
     const { error: uploadError } = await supabase.storage.from("product-images").upload(path, file);
 
     setUploadingImageIdx(null);
     if (uploadError) {
-      setImageError(uploadError.message);
+      toast.error(uploadError.message);
       return;
     }
 
@@ -112,7 +110,7 @@ export function ProductForm() {
   async function handleSave(targetStatus: "draft" | "published" | "submitted") {
     if (!merchant || !store) return;
     if (!name.trim() || !basePrice) {
-      setError("Name and base price are required.");
+      toast.error("Name and base price are required.");
       return;
     }
 
@@ -126,13 +124,12 @@ export function ProductForm() {
       const allEligible =
         pricedVariants.length > 0 && pricedVariants.every((v) => isEligibleForListing(Number(v.price), Number(v.stock) || 0));
       if (!allEligible) {
-        setError(LISTING_ELIGIBILITY_ERROR);
+        toast.error(LISTING_ELIGIBILITY_ERROR);
         return;
       }
     }
 
     setSaving(true);
-    setError(null);
 
     const result = await saveProduct(
       {
@@ -161,7 +158,7 @@ export function ProductForm() {
 
     setSaving(false);
     if (!result.ok) {
-      setError(result.error);
+      toast.error(result.error);
       return;
     }
     navigate("/products");
@@ -265,7 +262,6 @@ export function ProductForm() {
             + Add another
           </button>
         </div>
-        {imageError && <p className="text-red-600 text-xs mb-2">{imageError}</p>}
         {images.map((img, idx) => (
           <div key={idx} className="flex items-center gap-2 mb-2">
             {img.url && (
@@ -297,8 +293,6 @@ export function ProductForm() {
           </div>
         ))}
       </div>
-
-      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
       <div className="flex gap-2">
         <button

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { SkeletonRows } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 
 const WINDOW_OPTIONS = [7, 30, 90] as const;
@@ -95,7 +96,7 @@ export function RevenueChart({ merchantId }: { merchantId: string }) {
       </div>
 
       {!buckets ? (
-        <p className="text-gray-500 text-sm">Loading...</p>
+        <SkeletonRows count={5} />
       ) : (
         <>
           <p className="text-sm text-gray-600 mb-3">

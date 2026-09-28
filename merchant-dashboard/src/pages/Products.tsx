@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Package } from "lucide-react";
+import { Button, EmptyState, SkeletonRows } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import type { Product } from "../types";
@@ -87,9 +89,18 @@ export function Products() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Loading...</p>
+        <SkeletonRows />
       ) : products.length === 0 ? (
-        <p className="text-gray-500">No products yet.</p>
+        <EmptyState
+          icon={Package}
+          title="No products yet"
+          description="Add your first product to start selling on Tolo."
+          action={
+            <Link to="/products/new">
+              <Button>Add your first product</Button>
+            </Link>
+          }
+        />
       ) : (
         <div className="bg-white border rounded-lg divide-y">
           {products.map((p) => {

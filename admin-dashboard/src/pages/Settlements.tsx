@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
+import { ExportCsvButton, toast } from "@tolo/ui";
 import type { FinancialAdjustment, Merchant, Settlement } from "../types";
 
 const ADJUSTMENT_TYPES = ["correction", "bonus", "penalty", "goodwill", "other"];
@@ -12,7 +13,6 @@ export function Settlements() {
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
   const [running, setRunning] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [adjustments, setAdjustments] = useState<FinancialAdjustment[]>([]);
   const [showAdjustmentForm, setShowAdjustmentForm] = useState(false);
   const [adjMerchantId, setAdjMerchantId] = useState("");
@@ -70,7 +70,6 @@ export function Settlements() {
     e.preventDefault();
     if (!merchantId || !periodStart || !periodEnd) return;
     setRunning(true);
-    setMessage(null);
 
     const { data, error } = await supabase.functions.invoke("settlement-run", {
       body: { merchant_id: merchantId, period_start: periodStart, period_end: periodEnd },
@@ -78,10 +77,10 @@ export function Settlements() {
 
     setRunning(false);
     if (error) {
-      setMessage(`Error: ${error.message}`);
+      toast.error(error.message);
       return;
     }
-    setMessage(data?.message ?? `Settled ${data?.total_amount ?? 0} ETB across ${data?.item_count ?? 0} order(s).`);
+    toast.success(data?.message ?? `Settled ${data?.total_amount ?? 0} ETB across ${data?.item_count ?? 0} order(s).`);
     // The function's response only carries totals, not the full settlement
     // row -- everything else needed to render one (period, merchant name,
     // default status) is already in hand from the form + the merchants
@@ -124,13 +123,7 @@ export function Settlements() {
     <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Settlements</h1>
-        <button
-          onClick={handleExport}
-          disabled={settlements.length === 0}
-          className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-40"
-        >
-          ⬇ Export CSV
-        </button>
+        <ExportCsvButton onExport={handleExport} disabled={settlements.length === 0} />
       </div>
 
       <form onSubmit={handleRun} className="bg-white border rounded-lg p-4 mb-4 flex gap-2 items-end flex-wrap">
@@ -161,7 +154,6 @@ export function Settlements() {
           {running ? "Running..." : "Run settlement"}
         </button>
       </form>
-      {message && <p className="text-sm mb-4">{message}</p>}
 
       <div className="bg-white border rounded-lg divide-y mb-6">
         {settlements.map((s) => (

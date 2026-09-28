@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { MapPin } from "lucide-react";
+import { Button, EmptyState, SkeletonRows, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { getCurrentLocation } from "../lib/geolocation";
@@ -23,7 +25,6 @@ export function SavedLocations() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [locating, setLocating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,7 +46,6 @@ export function SavedLocations() {
 
   async function handleUseCurrentLocation() {
     setLocating(true);
-    setError(null);
     try {
       const loc = await getCurrentLocation();
       setForm((f) => ({
@@ -57,7 +57,7 @@ export function SavedLocations() {
         sub_city: loc.subCity || f.sub_city,
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not get your location.");
+      toast.error(err instanceof Error ? err.message : "Could not get your location.");
     } finally {
       setLocating(false);
     }
@@ -66,14 +66,13 @@ export function SavedLocations() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
-    setError(null);
     const { data, error } = await supabase
       .from("addresses")
       .insert({ customer_id: user.id, ...form, country: "ET", is_default: addresses.length === 0 })
       .select()
       .single();
     if (error) {
-      setError("Could not save this location. Please try again.");
+      toast.error("Could not save this location. Please try again.");
       return;
     }
     setAddresses((prev) => [...prev, data as Address]);
@@ -93,10 +92,9 @@ export function SavedLocations() {
   // the "Yes, delete" button below, never on the first click.
   async function handleDelete(id: string) {
     setConfirmingDeleteId(null);
-    setError(null);
     const { error } = await supabase.from("addresses").delete().eq("id", id);
     if (error) {
-      setError("This location is used by a past order and can't be deleted.");
+      toast.error("This location is used by a past order and can't be deleted.");
       return;
     }
     setAddresses((prev) => prev.filter((a) => a.id !== id));
@@ -107,9 +105,16 @@ export function SavedLocations() {
       <h1 className="text-xl font-bold mb-4">Saved locations</h1>
 
       {loading ? (
-        <p className="text-gray-500 text-sm">Loading...</p>
+        <SkeletonRows count={3} />
       ) : addresses.length === 0 && !showForm ? (
-        <p className="text-gray-500 text-sm mb-4">You haven't saved a delivery location yet.</p>
+        <EmptyState
+          icon={MapPin}
+          title="No saved locations yet"
+          description="Add a delivery location to speed up checkout."
+          action={
+            <Button onClick={() => setShowForm(true)}>Add a location</Button>
+          }
+        />
       ) : (
         <div className="space-y-2 mb-4">
           {addresses.map((a) => (
@@ -123,8 +128,9 @@ export function SavedLocations() {
                   <p className="text-gray-600 mt-0.5">
                     {a.recipient_name}, {a.phone}
                   </p>
-                  <p className="text-gray-500">
-                    📍 {a.line1}, {a.city}
+                  <p className="text-gray-500 flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                    {a.line1}, {a.city}
                     {a.latitude && <span className="text-xs text-gray-400"> (GPS confirmed)</span>}
                   </p>
                 </div>
@@ -163,8 +169,6 @@ export function SavedLocations() {
         </div>
       )}
 
-      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
-
       {!showForm ? (
         <button onClick={() => setShowForm(true)} className="text-navy text-sm font-medium">
           + Add new location
@@ -177,10 +181,20 @@ export function SavedLocations() {
             disabled={locating}
             className="w-full border-2 border-navy text-navy rounded-md px-3 py-2 text-sm font-medium hover:bg-navy-50 disabled:opacity-60"
           >
-            {locating ? "Getting your location..." : "📍 Use my current location"}
+            {locating ? (
+              "Getting your location..."
+            ) : (
+              <span className="inline-flex items-center justify-center gap-1.5 w-full">
+                <MapPin className="w-4 h-4" />
+                Use my current location
+              </span>
+            )}
           </button>
           {form.latitude && (
-            <p className="text-xs text-navy bg-navy-50 rounded-md px-3 py-2">📍 Location confirmed — you can still edit the details below.</p>
+            <p className="text-xs text-navy bg-navy-50 rounded-md px-3 py-2 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+              Location confirmed — you can still edit the details below.
+            </p>
           )}
           <select
             value={form.label}

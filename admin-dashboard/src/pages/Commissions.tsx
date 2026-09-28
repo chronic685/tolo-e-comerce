@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { toast } from "@tolo/ui";
 import type { Category, CommissionRule, Merchant } from "../types";
 
 export function Commissions() {
@@ -10,7 +11,6 @@ export function Commissions() {
   const [scopeType, setScopeType] = useState("platform");
   const [scopeId, setScopeId] = useState("");
   const [rate, setRate] = useState("5");
-  const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   async function load() {
@@ -33,7 +33,6 @@ export function Commissions() {
   // just by convention.
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     const payload = {
       scope_type: scopeType,
       scope_id: scopeType === "platform" ? null : scopeId || null,
@@ -43,7 +42,7 @@ export function Commissions() {
       ? await supabase.from("commission_rules").update(payload).eq("id", editingId).select().single()
       : await supabase.from("commission_rules").insert(payload).select().single();
     if (error) {
-      setError(error.message);
+      toast.error(error.message);
       return;
     }
     setRules((prev) => (editingId ? prev.map((r) => (r.id === editingId ? data : r)) : [...prev, data]));
@@ -55,7 +54,6 @@ export function Commissions() {
     setScopeType(r.scope_type);
     setScopeId(r.scope_id ?? "");
     setRate(String(r.rate_percent));
-    setError(null);
   }
 
   function resetForm() {
@@ -123,7 +121,6 @@ export function Commissions() {
           </button>
         )}
       </form>
-      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
       <div className="bg-white border rounded-lg divide-y">
         {rules.map((r) => (

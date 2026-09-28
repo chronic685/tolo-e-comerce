@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { AlertTriangle } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { SkeletonPage } from "@tolo/ui";
 
 interface Stats {
   // Customers
@@ -145,7 +147,7 @@ export function Dashboard() {
     load();
   }, []);
 
-  if (!stats) return <p className="text-gray-500">Loading...</p>;
+  if (!stats) return <SkeletonPage />;
 
   return (
     <div>
@@ -155,24 +157,27 @@ export function Dashboard() {
       {stats.unacknowledgedOrders > 0 && (
         <Link
           to="/orders?filter=unacknowledged"
-          className="block bg-red-50 border border-red-300 text-red-800 rounded-lg p-4 mb-3 text-sm font-bold hover:bg-red-100"
+          className="flex items-center gap-2 bg-red-50 border border-red-300 text-red-800 rounded-lg p-4 mb-3 text-sm font-bold hover:bg-red-100"
         >
-          ⚠ {stats.unacknowledgedOrders} order(s) not acknowledged by their merchant — customer may be waiting →
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          {stats.unacknowledgedOrders} order(s) not acknowledged by their merchant — customer may be waiting →
         </Link>
       )}
       {stats.pendingMerchants > 0 && (
         <Link
           to="/merchants?status=registered"
-          className="block bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-lg p-4 mb-3 text-sm font-medium hover:bg-yellow-100"
+          className="flex items-center gap-2 bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-lg p-4 mb-3 text-sm font-medium hover:bg-yellow-100"
         >
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
           {stats.pendingMerchants} merchant application(s) awaiting review →
         </Link>
       )}
       {stats.openTickets > 0 && (
         <Link
           to="/support"
-          className="block bg-blue-50 border border-blue-300 text-blue-800 rounded-lg p-4 mb-6 text-sm font-medium hover:bg-blue-100"
+          className="flex items-center gap-2 bg-blue-50 border border-blue-300 text-blue-800 rounded-lg p-4 mb-6 text-sm font-medium hover:bg-blue-100"
         >
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
           {stats.openTickets} open support ticket(s) →
         </Link>
       )}

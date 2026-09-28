@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { CheckCircle2 } from "lucide-react";
+import { SkeletonPage } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 
 interface ConfirmationOrderRow {
@@ -48,13 +50,13 @@ export function OrderConfirmation() {
     setLoading(false);
   }
 
-  if (loading) return <p className="text-gray-500">Loading...</p>;
+  if (loading) return <SkeletonPage />;
   if (!order) return <p className="text-gray-500">Order not found.</p>;
 
   return (
     <div className="max-w-lg text-center">
-      <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-3xl mx-auto mb-4">
-        ✓
+      <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-4">
+        <CheckCircle2 className="w-8 h-8" />
       </div>
       <h1 className="text-xl font-bold mb-1">Order placed!</h1>
       <p className="text-gray-500 text-sm mb-6">Order #{order.id.slice(0, 8)}</p>

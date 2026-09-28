@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { PackageSearch } from "lucide-react";
+import { EmptyState, SkeletonPage, SkeletonRows } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { ProductCard } from "../components/ProductCard";
 import { RatingBadge } from "../components/RatingBadge";
@@ -99,7 +101,7 @@ export function Storefront() {
   // (there isn't one anywhere in this codebase to reuse).
   const storePhoto = store?.logo_url ?? products[0]?.product_images.find((i) => i.is_primary)?.url ?? products[0]?.product_images[0]?.url ?? null;
 
-  if (store === undefined) return <p className="text-gray-500">Loading...</p>;
+  if (store === undefined) return <SkeletonPage />;
 
   // A slug that matches nothing is a genuine 404 — an invalid/mistyped link.
   // This is also what a real but non-active store's slug looks like from
@@ -150,9 +152,9 @@ export function Storefront() {
       </div>
 
       {productsLoading ? (
-        <p className="text-gray-500">Loading products...</p>
+        <SkeletonRows count={4} />
       ) : products.length === 0 ? (
-        <p className="text-gray-500">This store doesn't have any products listed yet.</p>
+        <EmptyState icon={PackageSearch} title="No products yet" description="This store hasn't listed anything yet." />
       ) : categoryGroups.length > 1 ? (
         <div className="space-y-6">
           {categoryGroups.map((group) => (

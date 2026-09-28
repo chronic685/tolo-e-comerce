@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Bell } from "lucide-react";
+import { EmptyState, SkeletonRows } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import type { Notification } from "../types";
@@ -49,7 +51,7 @@ export function Notifications() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Loading notifications...</p>
+        <SkeletonRows count={4} />
       ) : error ? (
         <div className="text-sm">
           <p className="text-red-600 mb-2">We couldn't load your notifications.</p>
@@ -58,7 +60,7 @@ export function Notifications() {
           </button>
         </div>
       ) : items.length === 0 ? (
-        <p className="text-gray-500">You have no notifications yet.</p>
+        <EmptyState icon={Bell} title="No notifications yet" />
       ) : (
         <div className="space-y-2">
           {items.map((n) => (

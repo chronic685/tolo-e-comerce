@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { toast } from "@tolo/ui";
 import type { DeliveryZone } from "../types";
 
 const emptyForm = {
@@ -18,7 +19,6 @@ export function DeliveryZones() {
   const [zones, setZones] = useState<DeliveryZone[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function load() {
@@ -38,9 +38,8 @@ export function DeliveryZones() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     if (!form.name.trim() || !form.center_latitude || !form.center_longitude) {
-      setError("Name and center coordinates are required.");
+      toast.error("Name and center coordinates are required.");
       return;
     }
     setSaving(true);
@@ -61,7 +60,7 @@ export function DeliveryZones() {
       .single();
     setSaving(false);
     if (error) {
-      setError(error.message);
+      toast.error(error.message);
       return;
     }
     setZones((prev) => [data as DeliveryZone, ...prev]);
@@ -149,7 +148,6 @@ export function DeliveryZones() {
               />
             </div>
           </div>
-          {error && <p className="text-red-600 text-sm">{error}</p>}
           <button
             type="submit"
             disabled={saving}

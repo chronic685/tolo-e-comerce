@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Heart } from "lucide-react";
+import { Button, EmptyState, SkeletonRows } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { ProductCard } from "../components/ProductCard";
@@ -14,6 +17,7 @@ const PRODUCT_SELECT = `
 
 export function Favorites() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,13 +36,18 @@ export function Favorites() {
   }, [user]);
 
   if (!user) return <p className="text-gray-500">Sign in to see your favorites.</p>;
-  if (loading) return <p className="text-gray-500">Loading...</p>;
+  if (loading) return <SkeletonRows count={4} />;
 
   return (
     <div>
       <h1 className="text-xl font-bold mb-4">Favorites</h1>
       {products.length === 0 ? (
-        <p className="text-gray-500">You haven't favorited any products yet.</p>
+        <EmptyState
+          icon={Heart}
+          title="No favorites yet"
+          description="Tap the heart icon on any product to save it here."
+          action={<Button onClick={() => navigate("/")}>Browse the marketplace</Button>}
+        />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {products.map((p) => (

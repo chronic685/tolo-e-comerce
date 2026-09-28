@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Star } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
+import { ExportCsvButton, SkeletonRows } from "@tolo/ui";
 import type { AdminProduct } from "../types";
 import { Categories } from "./Categories";
 
@@ -153,13 +155,7 @@ function ProductCatalog() {
   return (
     <div>
       <div className="flex items-center justify-end mb-4">
-        <button
-          onClick={handleExport}
-          disabled={products.length === 0}
-          className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-40"
-        >
-          ⬇ Export CSV
-        </button>
+        <ExportCsvButton onExport={handleExport} disabled={products.length === 0} />
       </div>
 
       <div className="flex gap-2 mb-4 flex-wrap items-center">
@@ -185,7 +181,7 @@ function ProductCatalog() {
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Loading...</p>
+        <SkeletonRows />
       ) : products.length === 0 ? (
         <p className="text-gray-500">No products in this view.</p>
       ) : (
@@ -194,8 +190,13 @@ function ProductCatalog() {
             <div key={p.id} className="p-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-medium text-sm truncate">
-                    {p.name} {p.is_featured && <span title="Featured">⭐</span>}
+                  <p className="font-medium text-sm truncate flex items-center gap-1">
+                    {p.name}{" "}
+                    {p.is_featured && (
+                      <span title="Featured">
+                        <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                      </span>
+                    )}
                   </p>
                   <p className="text-xs text-gray-500">
                     {p.merchants?.business_name ?? "—"} · {p.categories?.name ?? "Uncategorized"} · {p.base_price.toFixed(2)} ETB

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 
 // Standard multi-color Google "G" mark — inline rather than a new icon
@@ -30,18 +31,16 @@ export function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setError(null);
     const { error } = await signIn(email, password);
     setLoading(false);
     if (error) {
-      setError(error);
+      toast.error(error);
       return;
     }
     navigate("/");
@@ -49,12 +48,11 @@ export function Login() {
 
   async function handleGoogleSignIn() {
     setGoogleLoading(true);
-    setError(null);
     const { error } = await signInWithGoogle();
     // Only reached if the redirect to Google never happened at all — on
     // success the browser navigates away before this line matters.
     setGoogleLoading(false);
-    if (error) setError(error);
+    if (error) toast.error(error);
   }
 
   return (
@@ -95,7 +93,6 @@ export function Login() {
           required
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
-        {error && <p className="text-red-600 text-sm">{error}</p>}
         <div className="text-right">
           <Link to="/forgot-password" className="text-xs text-navy font-medium">
             Forgot password?

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { MapPin } from "lucide-react";
+import { toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
@@ -35,9 +37,7 @@ export function Checkout() {
     longitude: null as number | null,
   });
   const [locating, setLocating] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<[string, string][]>([]);
   const [paymentProvider, setPaymentProvider] = useState<string | null>(null);
 
@@ -133,7 +133,6 @@ export function Checkout() {
 
   async function handleUseCurrentLocation() {
     setLocating(true);
-    setLocationError(null);
     try {
       const loc = await getCurrentLocation();
       setForm((f) => ({
@@ -145,7 +144,7 @@ export function Checkout() {
         sub_city: loc.subCity || f.sub_city,
       }));
     } catch (err) {
-      setLocationError(err instanceof Error ? err.message : "Could not get your location.");
+      toast.error(err instanceof Error ? err.message : "Could not get your location.");
     } finally {
       setLocating(false);
     }
@@ -159,7 +158,7 @@ export function Checkout() {
       .select()
       .single();
     if (error) {
-      setError(error.message);
+      toast.error(error.message);
       return;
     }
     setAddresses((prev) => [...prev, data]);
@@ -219,19 +218,18 @@ export function Checkout() {
 
   async function handlePlaceOrder() {
     if (!addressId) {
-      setError("Please select or add a delivery address.");
+      toast.error("Please select or add a delivery address.");
       return;
     }
     if (!paymentProvider) {
-      setError("No payment method is currently available. Please try again later.");
+      toast.error("No payment method is currently available. Please try again later.");
       return;
     }
     if (scheduledOrdersEnabled && deliveryTiming === "scheduled" && !scheduledFor) {
-      setError("Please choose a delivery date and time, or switch back to \"Deliver now\".");
+      toast.error("Please choose a delivery date and time, or switch back to \"Deliver now\".");
       return;
     }
     setPlacing(true);
-    setError(null);
 
     const { data: checkoutData, error: checkoutError } = await supabase.functions.invoke("checkout", {
       body: {
@@ -262,7 +260,7 @@ export function Checkout() {
           // Non-JSON error body — fall back to the generic message above.
         }
       }
-      setError(message);
+      toast.error(message);
       setPlacing(false);
       return;
     }
@@ -291,7 +289,10 @@ export function Checkout() {
             <span>
               <strong>{a.label ?? "Address"}</strong> — {a.recipient_name}, {a.phone}
               <br />
-              📍 {a.line1}, {a.city}
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                {a.line1}, {a.city}
+              </span>
               {a.latitude && <span className="text-xs text-gray-400"> (GPS confirmed)</span>}
             </span>
           </label>
@@ -311,13 +312,20 @@ export function Checkout() {
               type="button"
               className="w-full border-2 border-navy text-navy rounded-md px-3 py-2 text-sm font-medium hover:bg-navy-50 disabled:opacity-60"
             >
-              {locating ? "Getting your location..." : "📍 Use my current location"}
+              {locating ? (
+                "Getting your location..."
+              ) : (
+                <span className="inline-flex items-center justify-center gap-1.5 w-full">
+                  <MapPin className="w-4 h-4" />
+                  Use my current location
+                </span>
+              )}
             </button>
-            {locationError && <p className="text-red-600 text-xs">{locationError}</p>}
 
             {form.latitude && (
-              <p className="text-xs text-navy bg-navy-50 rounded-md px-3 py-2">
-                📍 Location confirmed — you can still edit the details below if needed.
+              <p className="text-xs text-navy bg-navy-50 rounded-md px-3 py-2 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                Location confirmed — you can still edit the details below if needed.
               </p>
             )}
 
@@ -476,8 +484,6 @@ export function Checkout() {
         Delivery fee isn't included yet, and a better automatic discount can still apply instead of a promo code — the final amount is
         always shown on your order confirmation.
       </p>
-
-      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
       <button
         onClick={handlePlaceOrder}

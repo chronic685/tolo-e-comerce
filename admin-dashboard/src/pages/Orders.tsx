@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
+import { ExportCsvButton, SkeletonRows } from "@tolo/ui";
 import type { OrderRow } from "../types";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -78,7 +79,7 @@ export function Orders() {
       });
   }, []);
 
-  if (loading) return <p className="text-gray-500">Loading...</p>;
+  if (loading) return <SkeletonRows />;
 
   const visibleOrders =
     !linkedOrderId && onlyUnacknowledged
@@ -106,13 +107,7 @@ export function Orders() {
         <h1 className="text-xl font-bold">
           {linkedOrderId ? "Order (from support ticket)" : onlyUnacknowledged ? "Unacknowledged Orders" : "All Orders"}
         </h1>
-        <button
-          onClick={handleExport}
-          disabled={visibleOrders.length === 0}
-          className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-40"
-        >
-          ⬇ Export CSV
-        </button>
+        <ExportCsvButton onExport={handleExport} disabled={visibleOrders.length === 0} />
       </div>
       {visibleOrders.length === 0 ? (
         <p className="text-gray-500">Nothing here.</p>

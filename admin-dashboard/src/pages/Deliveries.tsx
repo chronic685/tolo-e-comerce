@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { SkeletonRows } from "@tolo/ui";
 import type { Delivery, Driver } from "../types";
 
 const STATUS_FLOW: Record<string, string[]> = {
@@ -64,12 +65,12 @@ export function Deliveries() {
     setDeliveries((prev) => prev.map((d) => (d.id === delivery.id ? { ...d, status } : d)));
   }
 
-  if (loading) return <p className="text-gray-500">Loading...</p>;
-
   return (
     <div>
       <h1 className="text-xl font-bold mb-4">Deliveries</h1>
-      {deliveries.length === 0 ? (
+      {loading ? (
+        <SkeletonRows />
+      ) : deliveries.length === 0 ? (
         <p className="text-gray-500">No deliveries yet.</p>
       ) : (
         <div className="bg-white border rounded-lg divide-y">

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { CheckCircle2 } from "lucide-react";
+import { toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
@@ -28,23 +30,20 @@ export function MerchantApplication() {
     owner_email: "",
   });
   const [agreed, setAgreed] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [merchantId, setMerchantId] = useState<string | null>(null);
   const [uploadedTypes, setUploadedTypes] = useState<Set<string>>(new Set());
   const [uploadingType, setUploadingType] = useState<string | null>(null);
-  const [docError, setDocError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
     if (!agreed) {
-      setError("You must accept the merchant agreement to continue.");
+      toast.error("You must accept the merchant agreement to continue.");
       return;
     }
     setSubmitting(true);
-    setError(null);
 
     const { data, error } = await supabase
       .from("merchants")
@@ -70,7 +69,7 @@ export function MerchantApplication() {
 
     setSubmitting(false);
     if (error) {
-      setError(error.message);
+      toast.error(error.message);
       return;
     }
     setMerchantId(data.id);
@@ -79,14 +78,13 @@ export function MerchantApplication() {
   async function handleUpload(docType: string, file: File) {
     if (!merchantId) return;
     setUploadingType(docType);
-    setDocError(null);
 
     const path = `${merchantId}/${docType}-${Date.now()}-${file.name}`;
     const { error: uploadError } = await supabase.storage.from("merchant-documents").upload(path, file);
 
     if (uploadError) {
       setUploadingType(null);
-      setDocError(uploadError.message);
+      toast.error(uploadError.message);
       return;
     }
 
@@ -100,7 +98,7 @@ export function MerchantApplication() {
 
     setUploadingType(null);
     if (insertError) {
-      setDocError(insertError.message);
+      toast.error(insertError.message);
       return;
     }
     setUploadedTypes((prev) => new Set(prev).add(docType));
@@ -118,7 +116,10 @@ export function MerchantApplication() {
             <div key={doc.type} className="flex items-center justify-between border rounded-md p-3">
               <span className="text-sm">{doc.label}</span>
               {uploadedTypes.has(doc.type) ? (
-                <span className="text-xs text-emerald-700 font-medium">Uploaded ✓</span>
+                <span className="text-xs text-emerald-700 font-medium inline-flex items-center gap-1">
+                  Uploaded
+                  <CheckCircle2 className="w-4 h-4" />
+                </span>
               ) : (
                 <label className="text-xs text-gray-700 border rounded-md px-2 py-1 cursor-pointer hover:bg-gray-50">
                   {uploadingType === doc.type ? "Uploading..." : "Choose file"}
@@ -137,7 +138,6 @@ export function MerchantApplication() {
             </div>
           ))}
         </div>
-        {docError && <p className="text-red-600 text-sm mt-3">{docError}</p>}
         <button
           onClick={() => refresh()}
           className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark mt-4"
@@ -237,7 +237,6 @@ export function MerchantApplication() {
           <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
           I agree to the Tolo merchant terms and commission structure.
         </label>
-        {error && <p className="text-red-600 text-sm">{error}</p>}
         <button
           type="submit"
           disabled={submitting}

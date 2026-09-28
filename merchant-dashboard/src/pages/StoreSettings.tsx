@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { MapPin } from "lucide-react";
+import { toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import { getCurrentLocation } from "../lib/geolocation";
@@ -23,11 +25,8 @@ export function StoreSettings() {
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [locating, setLocating] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [logoError, setLogoError] = useState<string | null>(null);
 
   useEffect(() => {
     if (store) {
@@ -43,14 +42,13 @@ export function StoreSettings() {
 
   async function handleUseCurrentLocation() {
     setLocating(true);
-    setLocationError(null);
     try {
       const loc = await getCurrentLocation();
       setLatitude(loc.latitude);
       setLongitude(loc.longitude);
       setPickupAddress(loc.address || pickupAddress);
     } catch (err) {
-      setLocationError(err instanceof Error ? err.message : "Could not get your location.");
+      toast.error(err instanceof Error ? err.message : "Could not get your location.");
     } finally {
       setLocating(false);
     }
@@ -63,14 +61,13 @@ export function StoreSettings() {
   async function handleLogoUpload(file: File) {
     if (!merchant) return;
     setUploadingLogo(true);
-    setLogoError(null);
 
     const path = `${merchant.id}/logo-${Date.now()}-${file.name}`;
     const { error: uploadError } = await supabase.storage.from("product-images").upload(path, file);
 
     setUploadingLogo(false);
     if (uploadError) {
-      setLogoError(uploadError.message);
+      toast.error(uploadError.message);
       return;
     }
 
@@ -82,7 +79,6 @@ export function StoreSettings() {
     e.preventDefault();
     if (!merchant) return;
     setSaving(true);
-    setMessage(null);
 
     const payload = {
       name,
@@ -105,11 +101,11 @@ export function StoreSettings() {
 
     setSaving(false);
     if (error) {
-      setMessage(error.message);
+      toast.error(error.message);
       return;
     }
     setStoreLocal(data as Store);
-    setMessage("Saved.");
+    toast.success("Saved.");
   }
 
   return (
@@ -167,7 +163,6 @@ export function StoreSettings() {
               )}
             </div>
           </div>
-          {logoError && <p className="text-red-600 text-xs mt-1">{logoError}</p>}
           <input
             value={logoUrl}
             onChange={(e) => setLogoUrl(e.target.value)}
@@ -185,14 +180,21 @@ export function StoreSettings() {
             type="button"
             onClick={handleUseCurrentLocation}
             disabled={locating}
-            className="w-full border-2 border-navy text-navy rounded-md px-3 py-2 text-sm font-medium hover:bg-navy-50 disabled:opacity-60 mb-2"
+            className="w-full border-2 border-navy text-navy rounded-md px-3 py-2 text-sm font-medium hover:bg-navy-50 disabled:opacity-60 mb-2 inline-flex items-center justify-center gap-1.5"
           >
-            {locating ? "Getting your location..." : "📍 Use my current location"}
+            {locating ? (
+              "Getting your location..."
+            ) : (
+              <>
+                <MapPin className="w-4 h-4" />
+                Use my current location
+              </>
+            )}
           </button>
-          {locationError && <p className="text-red-600 text-xs mb-2">{locationError}</p>}
           {latitude && (
-            <p className="text-xs text-navy bg-navy-50 rounded-md px-3 py-2 mb-2">
-              📍 GPS location set ({latitude.toFixed(5)}, {longitude?.toFixed(5)})
+            <p className="text-xs text-navy bg-navy-50 rounded-md px-3 py-2 mb-2 inline-flex items-center gap-1.5">
+              <MapPin className="w-4 h-4" />
+              GPS location set ({latitude.toFixed(5)}, {longitude?.toFixed(5)})
             </p>
           )}
           <input
@@ -212,7 +214,6 @@ export function StoreSettings() {
             </select>
           </div>
         )}
-        {message && <p className="text-emerald-700 text-sm">{message}</p>}
         <button
           type="submit"
           disabled={saving}
