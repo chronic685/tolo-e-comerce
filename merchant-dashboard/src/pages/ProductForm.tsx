@@ -13,6 +13,7 @@ interface VariantDraft {
   attributesText: string;
   price: string;
   stock: string;
+  lowStockThreshold: string;
 }
 
 interface ImageDraft {
@@ -32,7 +33,7 @@ export function ProductForm() {
   const [categoryId, setCategoryId] = useState("");
   const [basePrice, setBasePrice] = useState("");
   const [variants, setVariants] = useState<VariantDraft[]>([
-    { sku: "", attributesText: "", price: "", stock: "0" },
+    { sku: "", attributesText: "", price: "", stock: "0", lowStockThreshold: "5" },
   ]);
   const [images, setImages] = useState<ImageDraft[]>([{ url: "" }]);
   const [saving, setSaving] = useState(false);
@@ -77,7 +78,7 @@ export function ProductForm() {
       .from("products")
       .select(
         `name, description, category_id, base_price,
-         product_variants ( id, sku, attributes, price, inventory ( stock_quantity ) ),
+         product_variants ( id, sku, attributes, price, inventory ( stock_quantity, low_stock_threshold ) ),
          product_images ( id, url )`,
       )
       .eq("id", id)
@@ -88,7 +89,10 @@ export function ProductForm() {
         setDescription(data.description ?? "");
         setCategoryId(data.category_id ?? "");
         setBasePrice(String(data.base_price));
-        const vs = (data.product_variants as unknown as (ProductVariant & { inventory: { stock_quantity: number } | null })[]) ?? [];
+        const vs =
+          (data.product_variants as unknown as (ProductVariant & {
+            inventory: { stock_quantity: number; low_stock_threshold: number } | null;
+          })[]) ?? [];
         if (vs.length > 0) {
           setVariants(
             vs.map((v) => ({
@@ -99,6 +103,7 @@ export function ProductForm() {
                 .join(", "),
               price: String(v.price),
               stock: String(v.inventory?.stock_quantity ?? 0),
+              lowStockThreshold: String(v.inventory?.low_stock_threshold ?? 5),
             })),
           );
         }
@@ -151,6 +156,7 @@ export function ProductForm() {
           price: Number(v.price),
           stock: Number(v.stock) || 0,
           isDefault: idx === 0,
+          lowStockThreshold: v.lowStockThreshold.trim() ? Number(v.lowStockThreshold) : undefined,
         })),
       images,
       isNew ? undefined : id,
@@ -211,14 +217,14 @@ export function ProductForm() {
         <div className="flex justify-between items-center mb-2">
           <h2 className="font-medium text-sm">Variants &amp; stock</h2>
           <button
-            onClick={() => setVariants([...variants, { sku: "", attributesText: "", price: basePrice, stock: "0" }])}
+            onClick={() => setVariants([...variants, { sku: "", attributesText: "", price: basePrice, stock: "0", lowStockThreshold: "5" }])}
             className="text-xs text-navy font-medium"
           >
             + Add variant
           </button>
         </div>
         {variants.map((v, idx) => (
-          <div key={idx} className="grid grid-cols-4 gap-2 mb-2">
+          <div key={idx} className="grid grid-cols-5 gap-2 mb-2">
             <input
               placeholder="Attributes (color:Red)"
               value={v.attributesText}
@@ -251,8 +257,22 @@ export function ProductForm() {
               }}
               className="border rounded-md px-2 py-1.5 text-sm"
             />
+            <input
+              type="number"
+              min={0}
+              placeholder="Low-stock alert at"
+              title="You'll get an alert when stock falls to or below this number"
+              value={v.lowStockThreshold}
+              onChange={(e) => {
+                const next = [...variants];
+                next[idx] = { ...v, lowStockThreshold: e.target.value };
+                setVariants(next);
+              }}
+              className="border rounded-md px-2 py-1.5 text-sm"
+            />
           </div>
         ))}
+        <p className="text-xs text-gray-400 mt-1">"Low-stock alert at" — you'll be notified when a variant's stock falls to or below this number.</p>
       </div>
 
       <div className="bg-white border rounded-lg p-4 mb-4">

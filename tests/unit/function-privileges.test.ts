@@ -123,6 +123,7 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   // deliberately not touched in migration 0035 pending a safer, isolated
   // check of exactly how revoking these interacts with trigger firing.
   "claw_back_wallet_on_refund_completed",
+  "notify_low_stock",
   "restock_on_return_received",
   "trg_check_listing_on_product_status_change",
   "trg_check_listing_on_variant_price_change",
