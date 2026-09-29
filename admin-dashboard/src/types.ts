@@ -51,6 +51,7 @@ export interface CommissionRule {
 
 export interface OrderRow {
   id: string;
+  order_number: number;
   customer_id: string;
   total: number;
   payment_status: string;
@@ -65,6 +66,23 @@ export interface OrderRow {
     escalated_at: string | null;
     merchants: { business_name: string } | null;
   }[];
+}
+
+// One row per unacknowledged merchant_order (queried directly off
+// merchant_orders, not orders — see merchant_orders_unacknowledged(),
+// migration 0055) rather than grouped by parent order, so the queue can be
+// exactly-counted and .range()-paginated by the database instead of a
+// capped fetch that could hide older, more-overdue rows.
+export interface UnacknowledgedMerchantOrderRow {
+  id: string;
+  merchant_id: string;
+  status: string;
+  subtotal: number;
+  notification_sent_at: string | null;
+  order_received_at: string | null;
+  escalated_at: string | null;
+  merchants: { business_name: string } | null;
+  orders: { id: string; order_number: number; total: number; payment_status: string; created_at: string } | null;
 }
 
 export interface Settlement {
@@ -159,6 +177,24 @@ export interface ReturnRow {
   refunds: { id: string; amount: number; status: string }[];
 }
 
+// Refunds.tsx's "Refunds" queue, queried directly from `refunds` (each row
+// is a refund that actually exists) rather than derived client-side from
+// `returns` -- the nested `returns` carries what the row needs to display.
+export interface RefundRow {
+  id: string;
+  amount: number;
+  status: string;
+  processed_at: string | null;
+  return_id: string;
+  returns: {
+    id: string;
+    reason: string;
+    created_at: string;
+    merchant_orders: { subtotal: number; merchants: { business_name: string } | null } | null;
+    profiles: { full_name: string | null; phone: string | null } | null;
+  } | null;
+}
+
 export interface StaffProfile {
   id: string;
   full_name: string | null;
@@ -249,7 +285,7 @@ export interface Payment {
   currency: string;
   status: "pending" | "verified" | "failed" | "refunded";
   created_at: string;
-  orders: { customer_id: string; profiles: { full_name: string | null; phone: string | null } | null } | null;
+  orders: { order_number: number; customer_id: string; profiles: { full_name: string | null; phone: string | null } | null } | null;
 }
 
 export interface SupportTicket {

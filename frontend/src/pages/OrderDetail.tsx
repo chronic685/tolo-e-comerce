@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Calendar, CheckCircle2, Star } from "lucide-react";
-import { Badge, SkeletonPage, Stepper, formatDateTime, toast } from "@tolo/ui";
+import { Badge, SkeletonPage, Stepper, formatDateTime, formatOrderNumber, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { STATUS_COPY } from "../lib/orderStatus";
@@ -28,6 +28,7 @@ interface MerchantOrderRow {
 
 interface OrderRow {
   id: string;
+  order_number: number;
   subtotal: number;
   total: number;
   delivery_fee: number;
@@ -82,7 +83,7 @@ export function OrderDetail() {
     const { data } = await supabase
       .from("orders")
       .select(
-        `id, subtotal, total, delivery_fee, discount_amount, payment_status, created_at, scheduled_for,
+        `id, order_number, subtotal, total, delivery_fee, discount_amount, payment_status, created_at, scheduled_for,
          addresses ( recipient_name, line1, city, phone ),
          payments ( provider ),
          merchant_orders (
@@ -190,7 +191,7 @@ export function OrderDetail() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-bold mb-1">Order #{order.id.slice(0, 8)}</h1>
+      <h1 className="text-xl font-bold mb-1">Order {formatOrderNumber(order.order_number)}</h1>
       <p className="text-sm text-gray-500 mb-1">{new Date(order.created_at).toLocaleString()}</p>
       {order.scheduled_for ? (
         <p className="text-sm font-medium text-navy bg-navy-50 inline-flex items-center gap-1.5 rounded-md px-2 py-1 mb-5">

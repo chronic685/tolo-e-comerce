@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Package } from "lucide-react";
-import { Button, EmptyState, SkeletonRows } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Button, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import type { Product } from "../types";
@@ -25,8 +25,10 @@ const statusColors: Record<string, string> = {
 export function Products() {
   const { merchant, store } = useMerchant();
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [bulkUploadEnabled, setBulkUploadEnabled] = useState(false);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
 
   useEffect(() => {
     // Platform-wide toggle (admin-dashboard Settings.tsx, merchant_features
@@ -47,19 +49,21 @@ export function Products() {
   async function load() {
     if (!merchant) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data, count } = await supabase
       .from("products")
-      .select(PRODUCT_SELECT)
+      .select(PRODUCT_SELECT, { count: "exact" })
       .eq("merchant_id", merchant.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
     setProducts((data as unknown as Product[]) ?? []);
+    setTotalCount(count ?? 0);
     setLoading(false);
   }
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [merchant]);
+  }, [merchant, from, to]);
 
   async function togglePause(p: Product) {
     const next = p.status === "published" ? "paused" : "published";
@@ -102,6 +106,7 @@ export function Products() {
           }
         />
       ) : (
+        <>
         <div className="bg-white border rounded-lg divide-y">
           {products.map((p) => {
             const totalStock = p.product_variants.reduce((sum, v) => sum + (v.inventory?.stock_quantity ?? 0), 0);
@@ -136,6 +141,10 @@ export function Products() {
             );
           })}
         </div>
+        <div className="mt-4">
+          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+        </div>
+        </>
       )}
     </div>
   );

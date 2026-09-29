@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Receipt } from "lucide-react";
-import { EmptyState } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import type { WalletTransaction } from "../types";
@@ -17,19 +17,32 @@ export function Wallet() {
   const { merchant } = useMerchant();
   const [balance, setBalance] = useState<number | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
 
   useEffect(() => {
     if (!merchant) return;
     supabase.from("merchant_wallets").select("balance").eq("merchant_id", merchant.id).maybeSingle().then(({ data }) => {
       setBalance(data?.balance ?? 0);
     });
+  }, [merchant]);
+
+  useEffect(() => {
+    if (!merchant) return;
+    setLoading(true);
     supabase
       .from("wallet_transactions")
-      .select("id, type, amount, balance_after, note, created_at")
+      .select("id, type, amount, balance_after, note, created_at", { count: "exact" })
       .eq("merchant_id", merchant.id)
       .order("created_at", { ascending: false })
-      .then(({ data }) => setTransactions(data ?? []));
-  }, [merchant]);
+      .range(from, to)
+      .then(({ data, count }) => {
+        setTransactions(data ?? []);
+        setTotalCount(count ?? 0);
+        setLoading(false);
+      });
+  }, [merchant, from, to]);
 
   return (
     <div className="max-w-xl">
@@ -40,28 +53,37 @@ export function Wallet() {
         <p className="text-3xl font-bold mt-1">{balance !== null ? `${balance.toFixed(2)} ETB` : "..."}</p>
       </div>
 
-      <div className="bg-white border rounded-lg divide-y">
-        {transactions.length === 0 ? (
+      {loading ? (
+        <SkeletonRows />
+      ) : transactions.length === 0 ? (
+        <div className="bg-white border rounded-lg">
           <EmptyState icon={Receipt} title="No transactions yet" description="Wallet activity from sales and payouts will show up here." />
-        ) : (
-          transactions.map((t) => (
-            <div key={t.id} className="flex justify-between items-center p-4">
-              <div>
-                <p className="text-sm font-medium capitalize">{t.type}</p>
-                <p className="text-xs text-gray-500">{new Date(t.created_at).toLocaleString()}</p>
-                {t.note && <p className="text-xs text-gray-400">{t.note}</p>}
+        </div>
+      ) : (
+        <>
+          <div className="bg-white border rounded-lg divide-y">
+            {transactions.map((t) => (
+              <div key={t.id} className="flex justify-between items-center p-4">
+                <div>
+                  <p className="text-sm font-medium capitalize">{t.type}</p>
+                  <p className="text-xs text-gray-500">{new Date(t.created_at).toLocaleString()}</p>
+                  {t.note && <p className="text-xs text-gray-400">{t.note}</p>}
+                </div>
+                <div className="text-right">
+                  <p className={`font-semibold text-sm ${typeColors[t.type] ?? ""}`}>
+                    {t.amount >= 0 ? "+" : ""}
+                    {t.amount.toFixed(2)} ETB
+                  </p>
+                  <p className="text-xs text-gray-400">Balance: {t.balance_after.toFixed(2)}</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className={`font-semibold text-sm ${typeColors[t.type] ?? ""}`}>
-                  {t.amount >= 0 ? "+" : ""}
-                  {t.amount.toFixed(2)} ETB
-                </p>
-                <p className="text-xs text-gray-400">Balance: {t.balance_after.toFixed(2)}</p>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+            ))}
+          </div>
+          <div className="mt-4">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

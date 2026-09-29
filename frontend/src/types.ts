@@ -23,6 +23,11 @@ export interface ProductVariant {
   is_default: boolean;
   /** Server-computed: merchant price + commission. Always use this for display — never compute it client-side. */
   customer_price: number;
+  /** Server-computed (variant_stock_status, migration 0054) — only present
+   * where explicitly selected. Never a raw stock number; "low" is the only
+   * case stock_remaining is non-null, and even then it's capped at 5. */
+  stock_status?: "in_stock" | "low" | "out_of_stock";
+  stock_remaining?: number | null;
 }
 
 export interface Product {
@@ -44,10 +49,6 @@ export interface Product {
   product_variants: ProductVariant[];
   product_images: ProductImage[];
   stores?: { name: string; slug: string; logo_url?: string | null } | null;
-  /** Only present when explicitly selected (Marketplace.tsx, for the rating
-   * sort) — no aggregate/average rating column exists anywhere, so this is
-   * the raw per-review rows, averaged client-side where needed. */
-  reviews?: { rating: number }[];
   /** Only present on ProductDetail.tsx's single-product fetch — the
    * merchant-level rating, server-computed (merchants_avg_rating/
    * merchants_review_count). Not selected on grid pages (Marketplace.tsx/
@@ -70,6 +71,8 @@ export interface StorefrontStore {
   logo_url: string | null;
   banner_url: string | null;
   status: string;
+  operating_hours: import("@tolo/ui").OperatingHours;
+  is_open_now: boolean;
   merchants: ({ status: string } & MerchantRating) | null;
 }
 

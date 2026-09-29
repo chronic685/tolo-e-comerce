@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Users } from "lucide-react";
-import { EmptyState, SkeletonPage, SkeletonRows, toast } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, EmptyState, Pagination, SkeletonPage, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
@@ -36,7 +36,9 @@ export function Staff() {
   const [featureEnabled, setFeatureEnabled] = useState(false);
   const [featureLoading, setFeatureLoading] = useState(true);
   const [staff, setStaff] = useState<MerchantStaffRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
 
   const [phone, setPhone] = useState("");
   const [searching, setSearching] = useState(false);
@@ -64,19 +66,21 @@ export function Staff() {
   async function load() {
     if (!merchant) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data, count } = await supabase
       .from("merchant_staff")
-      .select("id, role, created_at, user_id, profiles ( full_name, phone )")
+      .select("id, role, created_at, user_id, profiles ( full_name, phone )", { count: "exact" })
       .eq("merchant_id", merchant.id)
-      .order("created_at");
+      .order("created_at")
+      .range(from, to);
     setStaff((data as unknown as MerchantStaffRow[]) ?? []);
+    setTotalCount(count ?? 0);
     setLoading(false);
   }
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [merchant]);
+  }, [merchant, from, to]);
 
   async function handleSearch() {
     if (!phone.trim()) return;
@@ -95,7 +99,7 @@ export function Staff() {
   async function handleAdd() {
     if (!merchant || !found) return;
     setAdding(true);
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("merchant_staff")
       .insert({ merchant_id: merchant.id, user_id: found.id, role })
       .select("id, created_at")
@@ -105,10 +109,10 @@ export function Staff() {
       toast.error(error.message);
       return;
     }
-    // `found` already has the full_name/phone this row's profiles embed
-    // would return, from the phone-number search above — no need to
-    // re-fetch the whole staff list just to get them back.
-    setStaff((prev) => [...prev, { id: data.id, role, created_at: data.created_at, user_id: found.id, profiles: { full_name: found.full_name, phone: found.phone } }]);
+    // Reloads rather than patching the array in place, now that the list
+    // is paginated -- the canonical page + total count is whatever the
+    // server says after the insert, not assembled from `found` locally.
+    await load();
     setPhone("");
     setFound(undefined);
     setRole("store_manager");
@@ -117,7 +121,7 @@ export function Staff() {
   async function handleRemove(staffId: string) {
     const { error } = await supabase.from("merchant_staff").delete().eq("id", staffId);
     if (error) return;
-    setStaff((prev) => prev.filter((s) => s.id !== staffId));
+    await load();
   }
 
   if (featureLoading) return <SkeletonPage />;
@@ -208,6 +212,7 @@ export function Staff() {
           <EmptyState icon={Users} title="No staff yet" description="People you add will show up here." />
         </div>
       ) : (
+        <>
         <div className="bg-white border rounded-lg divide-y">
           {staff.map((s) => (
             <div key={s.id} className="p-3 flex items-center justify-between gap-3">
@@ -225,6 +230,10 @@ export function Staff() {
             </div>
           ))}
         </div>
+        <div className="mt-4">
+          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+        </div>
+        </>
       )}
     </div>
   );

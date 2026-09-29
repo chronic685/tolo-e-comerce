@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { toast } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import type { Category, CommissionRule, Merchant } from "../types";
 
 export function Commissions() {
   const [rules, setRules] = useState<CommissionRule[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
   const [categories, setCategories] = useState<Category[]>([]);
   const [merchants, setMerchants] = useState<Merchant[]>([]);
 
@@ -14,12 +16,17 @@ export function Commissions() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   async function load() {
-    const { data } = await supabase.from("commission_rules").select("*").order("scope_type");
+    const { data, count } = await supabase.from("commission_rules").select("*", { count: "exact" }).order("scope_type").range(from, to);
     setRules(data ?? []);
+    setTotalCount(count ?? 0);
   }
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
+
+  useEffect(() => {
     supabase.from("categories").select("id, name, slug").then(({ data }) => setCategories((data as Category[]) ?? []));
     supabase.from("merchants").select("id, business_name").eq("status", "active").then(({ data }) => setMerchants((data as Merchant[]) ?? []));
   }, []);
@@ -45,7 +52,8 @@ export function Commissions() {
       toast.error(error.message);
       return;
     }
-    setRules((prev) => (editingId ? prev.map((r) => (r.id === editingId ? data : r)) : [...prev, data]));
+    if (editingId) setRules((prev) => prev.map((r) => (r.id === editingId ? data : r)));
+    else await load();
     resetForm();
   }
 
@@ -145,6 +153,9 @@ export function Commissions() {
             </div>
           </div>
         ))}
+      </div>
+      <div className="mt-4">
+        <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
       </div>
     </div>
   );

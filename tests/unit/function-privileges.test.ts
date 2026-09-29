@@ -61,6 +61,36 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   "merchants_avg_rating",
   "merchants_review_count",
 
+  // Same rationale, product-level: Marketplace.tsx's "Highest rated" sort
+  // needs the database to order by this directly for real .range()-based
+  // pagination to produce a correct order (migration 0053) -- previously
+  // this was computed client-side from embedded review rows, which only
+  // worked when every row was loaded into memory at once.
+  "products_avg_rating",
+
+  // Product availability (migration 0054): customers can't read
+  // `inventory` directly (RLS, 0014), so these expose only a derived
+  // status/small integer -- never stock_quantity/reserved_quantity/
+  // available_quantity itself, and the integer is only ever non-null in
+  // the narrow "5 or fewer left" case the product page is allowed to show.
+  "variant_stock_status",
+  "variant_stock_remaining",
+
+  // PR #6 review fix (migration 0055): lets the admin "Unacknowledged
+  // Orders" and "Approved — Awaiting Refund" queues filter server-side
+  // instead of an unpaginated .limit(200) fetch that could silently hide
+  // older, overdue rows. Both only ever return a derived boolean over rows
+  // the admin caller already has RLS access to -- see the migration.
+  "merchant_orders_unacknowledged",
+  "returns_awaiting_refund",
+
+  // Group 1, item 4 (migration 0057): customer-facing "Open now"/"Closed
+  // now" badge on Storefront.tsx (as a computed column). Not security
+  // definer -- reads only the `stores` row already passed in, which the
+  // caller could already read directly under stores_public_select_active
+  // RLS (only ever a status='active' row is visible to a customer anyway).
+  "store_is_open_now",
+
   // Phase 5d, item 9: mirrors resolve_delivery_fee's nearest-active-zone
   // lookup but returns only estimated_delivery_minutes -- no fee, no zone
   // identity -- for the order-confirmation screen. Unlike resolve_delivery_fee
@@ -142,6 +172,8 @@ describe("function privileges: no un-reviewed function is callable by anon/authe
       "check_and_record_rate_limit",
       "get_rate_limit_config",
       "escalate_unacknowledged_orders",
+      "refund_merchant_order_if_paid",
+      "auto_cancel_unresponsive_orders",
       "list_function_privileges",
     ];
 

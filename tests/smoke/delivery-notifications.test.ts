@@ -19,7 +19,9 @@ async function createDisposableOrder(customerUserId: string, addressId: string, 
   if (error) throw error;
   const { data: mo, error: moError } = await db.from("merchant_orders").select("id").eq("order_id", orderId as string).single();
   if (moError) throw moError;
-  return mo.id as string;
+  const { data: order, error: orderError } = await db.from("orders").select("order_number").eq("id", orderId as string).single();
+  if (orderError) throw orderError;
+  return { merchantOrderId: mo.id as string, orderNumber: order.order_number as number };
 }
 
 async function latestNotification(userId: string, type: string) {
@@ -64,7 +66,8 @@ describe("delivery-dispatch: customer notifications for picked_up/delivered", ()
   });
 
   it("notifies the customer at picked_up and at delivered, and completes the order", async () => {
-    const merchantOrderId = await createDisposableOrder(customerUserId, addressId, variantId);
+    const { merchantOrderId, orderNumber } = await createDisposableOrder(customerUserId, addressId, variantId);
+    const readableOrderNumber = `TL-${orderNumber}`;
 
     // Walk the order to ready_for_pickup, which is what creates the
     // deliveries row this test then drives via delivery-dispatch.
@@ -88,7 +91,7 @@ describe("delivery-dispatch: customer notifications for picked_up/delivered", ()
 
     const pickedUpNotification = await latestNotification(customerUserId, "order_picked_up");
     expect(pickedUpNotification).not.toBeNull();
-    expect(pickedUpNotification!.body).toContain(merchantOrderId.slice(0, 8));
+    expect(pickedUpNotification!.body).toContain(readableOrderNumber);
     expect(pickedUpNotification!.body).not.toContain("{{");
 
     const deliveredRes = await callFunction("delivery-dispatch", {
@@ -99,7 +102,7 @@ describe("delivery-dispatch: customer notifications for picked_up/delivered", ()
 
     const deliveredNotification = await latestNotification(customerUserId, "order_delivered");
     expect(deliveredNotification).not.toBeNull();
-    expect(deliveredNotification!.body).toContain(merchantOrderId.slice(0, 8));
+    expect(deliveredNotification!.body).toContain(readableOrderNumber);
 
     const { data: finalOrder, error: finalOrderError } = await db
       .from("merchant_orders")

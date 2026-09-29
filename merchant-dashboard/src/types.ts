@@ -42,6 +42,7 @@ export interface Store {
   latitude: number | null;
   longitude: number | null;
   pickup_address: string | null;
+  operating_hours: import("@tolo/ui").OperatingHours;
 }
 
 export interface Category {
@@ -104,6 +105,7 @@ export interface MerchantOrder {
   scheduled_for: string | null;
   order_items: OrderItem[];
   orders: {
+    order_number: number;
     addresses: { recipient_name: string; phone: string; line1: string; city: string } | null;
   } | null;
 }

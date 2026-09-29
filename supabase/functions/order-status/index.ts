@@ -6,6 +6,7 @@
 import { serviceClient, userClient } from "../_shared/client.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { sendNotification } from "../_shared/notify.ts";
+import { formatOrderNumber } from "../_shared/format.ts";
 
 const MERCHANT_TRANSITIONS: Record<string, string[]> = {
   new: ["accepted", "rejected"],
@@ -137,6 +138,15 @@ Deno.serve(async (req) => {
           p_as_sale: false,
         });
       }
+
+      // Auto-refund (migration 0058): a no-op if the order was never paid
+      // (e.g. cash on delivery, still pending) or a refund already exists
+      // for this merchant_order -- see refund_merchant_order_if_paid()'s
+      // own idempotency check.
+      await db.rpc("refund_merchant_order_if_paid", {
+        p_merchant_order_id: mo.id,
+        p_reason: status === "rejected" ? "Merchant declined the order" : "Order cancelled",
+      });
     }
 
     const CUSTOMER_NOTIFY_EVENTS: Record<string, string> = {
@@ -151,15 +161,16 @@ Deno.serve(async (req) => {
       const [{ data: orderInfo }, { data: merchantInfo }] = await Promise.all([
         db
           .from("merchant_orders")
-          .select("orders!inner(customer_id)")
+          .select("orders!inner(customer_id, order_number)")
           .eq("id", mo.id)
           .single(),
         db.from("merchants").select("business_name").eq("id", mo.merchant_id).single(),
       ]);
-      const customerId = (orderInfo as unknown as { orders: { customer_id: string } } | null)?.orders?.customer_id;
-      if (customerId) {
-        await sendNotification(db, customerId, notifyEvent, {
+      const orderDetails = (orderInfo as unknown as { orders: { customer_id: string; order_number: number } } | null)?.orders;
+      if (orderDetails?.customer_id) {
+        await sendNotification(db, orderDetails.customer_id, notifyEvent, {
           order_id_short: mo.id.slice(0, 8),
+          order_number: formatOrderNumber(orderDetails.order_number),
           merchant_name: merchantInfo?.business_name ?? "the merchant",
         });
       }

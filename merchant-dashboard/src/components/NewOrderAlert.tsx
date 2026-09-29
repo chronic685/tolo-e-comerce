@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { formatOrderNumber } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 
@@ -6,6 +7,7 @@ interface PendingOrder {
   id: string;
   merchant_payable: number;
   created_at: string;
+  orders: { order_number: number } | null;
   items: { product_name_snapshot: string; quantity: number; variant_attributes_snapshot: Record<string, string> }[];
 }
 
@@ -56,7 +58,7 @@ export function NewOrderAlert() {
   const loadOrder = useCallback(async (merchantOrderId: string) => {
     const { data: mo } = await supabase
       .from("merchant_orders")
-      .select("id, merchant_payable, created_at, status, scheduled_for")
+      .select("id, merchant_payable, created_at, status, scheduled_for, orders ( order_number )")
       .eq("id", merchantOrderId)
       .maybeSingle();
     if (!mo || mo.status !== "new") return;
@@ -73,7 +75,14 @@ export function NewOrderAlert() {
       .select("product_name_snapshot, quantity, variant_attributes_snapshot")
       .eq("merchant_order_id", merchantOrderId);
 
-    setQueue((prev) => (prev.some((o) => o.id === mo.id) ? prev : [...prev, { ...mo, items: items ?? [] }]));
+    // Supabase's untyped client infers every embedded resource as an array
+    // (it has no FK metadata to know merchant_orders -> orders is many-to-
+    // one) -- normalize to the single row it actually is, same as every
+    // other `orders ( ... )` embed in this codebase (cast via `as unknown as`).
+    const ordersEmbed = (Array.isArray(mo.orders) ? mo.orders[0] : mo.orders) as { order_number: number } | undefined;
+    setQueue((prev) =>
+      prev.some((o) => o.id === mo.id) ? prev : [...prev, { ...mo, orders: ordersEmbed ?? null, items: items ?? [] }],
+    );
   }, []);
 
   // Catch orders that arrived while the merchant wasn't looking (page reload,
@@ -141,7 +150,9 @@ export function NewOrderAlert() {
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg max-w-sm w-full p-6 shadow-2xl border-2 border-red-500">
         <p className="text-xs font-bold text-red-600 tracking-wide mb-1">NEW ORDER</p>
-        <h2 className="text-xl font-bold mb-1">Order #{current.id.slice(0, 8)}</h2>
+        <h2 className="text-xl font-bold mb-1">
+          Order {current.orders?.order_number ? formatOrderNumber(current.orders.order_number) : `#${current.id.slice(0, 8)}`}
+        </h2>
         <p className="text-xs text-gray-500 mb-4">{new Date(current.created_at).toLocaleTimeString()}</p>
 
         <div className="space-y-1 mb-4 border-t border-b py-3">

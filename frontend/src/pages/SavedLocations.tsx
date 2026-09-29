@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
-import { Button, EmptyState, SkeletonRows, toast } from "@tolo/ui";
+import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { getCurrentLocation } from "../lib/geolocation";
@@ -21,26 +21,30 @@ const EMPTY_FORM = {
 export function SavedLocations() {
   const { user } = useAuth();
   const [addresses, setAddresses] = useState<Address[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [locating, setLocating] = useState(false);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const { page, from, to, setPage } = usePagination({ pageSize: CUSTOMER_PAGE_SIZE });
 
   useEffect(() => {
     if (user) load();
-  }, [user]);
+  }, [user, from, to]);
 
   async function load() {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data, count } = await supabase
       .from("addresses")
-      .select("*")
+      .select("*", { count: "exact" })
       .eq("customer_id", user.id)
       .order("is_default", { ascending: false })
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
     setAddresses(data ?? []);
+    setTotalCount(count ?? 0);
     setLoading(false);
   }
 
@@ -66,25 +70,29 @@ export function SavedLocations() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("addresses")
-      .insert({ customer_id: user.id, ...form, country: "ET", is_default: addresses.length === 0 })
+      .insert({ customer_id: user.id, ...form, country: "ET", is_default: totalCount === 0 })
       .select()
       .single();
     if (error) {
       toast.error("Could not save this location. Please try again.");
       return;
     }
-    setAddresses((prev) => [...prev, data as Address]);
     setForm(EMPTY_FORM);
     setShowForm(false);
+    // Reloads rather than patching the array in place -- with a paginated
+    // list, the canonical page + total count only the server knows for
+    // sure, especially now that a new row can push the current page's
+    // count/ordering around.
+    await load();
   }
 
   async function handleSetDefault(id: string) {
     if (!user) return;
-    setAddresses((prev) => prev.map((a) => ({ ...a, is_default: a.id === id })));
     await supabase.from("addresses").update({ is_default: false }).eq("customer_id", user.id);
     await supabase.from("addresses").update({ is_default: true }).eq("id", id);
+    await load();
   }
 
   // Same inline-confirm pattern as OrderDetail.tsx's "Cancel order" button —
@@ -97,7 +105,7 @@ export function SavedLocations() {
       toast.error("This location is used by a past order and can't be deleted.");
       return;
     }
-    setAddresses((prev) => prev.filter((a) => a.id !== id));
+    await load();
   }
 
   return (
@@ -166,6 +174,12 @@ export function SavedLocations() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {!loading && addresses.length > 0 && (
+        <div className="mb-4">
+          <Pagination page={page} totalPages={totalPagesFor(totalCount, CUSTOMER_PAGE_SIZE)} onPageChange={setPage} />
         </div>
       )}
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Calendar, Inbox } from "lucide-react";
-import { EmptyState, SkeletonRows } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, EmptyState, formatOrderNumber, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import type { MerchantOrder } from "../types";
@@ -35,8 +35,10 @@ const FILTERS = ["all", "new", "accepted", "processing", "ready_for_pickup", "co
 export function Orders() {
   const { merchant } = useMerchant();
   const [orders, setOrders] = useState<MerchantOrder[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE, resetKey: filter });
 
   useEffect(() => {
     if (!merchant) return;
@@ -45,18 +47,20 @@ export function Orders() {
       .from("merchant_orders")
       .select(
         "id, order_id, merchant_id, status, subtotal, commission_amount, merchant_payable, created_at, scheduled_for, " +
-          "order_items ( id, product_name_snapshot, quantity )",
+          "order_items ( id, product_name_snapshot, quantity ), orders ( order_number )",
+        { count: "exact" },
       )
       .eq("merchant_id", merchant.id)
       .order("created_at", { ascending: false });
 
     if (filter !== "all") query = query.eq("status", filter);
 
-    query.then(({ data }) => {
+    query.range(from, to).then(({ data, count }) => {
       setOrders((data as unknown as MerchantOrder[]) ?? []);
+      setTotalCount(count ?? 0);
       setLoading(false);
     });
-  }, [merchant, filter]);
+  }, [merchant, filter, from, to]);
 
   return (
     <div>
@@ -80,11 +84,12 @@ export function Orders() {
       ) : orders.length === 0 ? (
         <EmptyState icon={Inbox} title="No orders in this view" description="Orders matching this filter will show up here." />
       ) : (
+        <>
         <div className="bg-white border rounded-lg divide-y">
           {orders.map((o) => (
             <Link key={o.id} to={`/orders/${o.id}`} className="flex items-center justify-between p-4 hover:bg-gray-50">
               <div>
-                <p className="font-medium text-sm">Order #{o.id.slice(0, 8)}</p>
+                <p className="font-medium text-sm">Order {o.orders?.order_number ? formatOrderNumber(o.orders.order_number) : `#${o.id.slice(0, 8)}`}</p>
                 <p className="text-xs text-gray-500">{o.order_items.length} item(s) · {new Date(o.created_at).toLocaleDateString()}</p>
                 {o.scheduled_for && (
                   <p className="text-xs text-navy font-medium mt-0.5 inline-flex items-center gap-1">
@@ -102,6 +107,10 @@ export function Orders() {
             </Link>
           ))}
         </div>
+        <div className="mt-4">
+          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+        </div>
+        </>
       )}
     </div>
   );

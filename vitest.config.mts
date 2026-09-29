@@ -46,6 +46,10 @@ export default defineConfig({
       },
       // Auto-discovers frontend/vitest.config.ts (jsdom).
       "frontend",
+      // Auto-discovers packages/ui/vitest.config.mts (jsdom) -- without this,
+      // @tolo/ui's own tests (e.g. Pagination.test.tsx) are never picked up
+      // by root `vitest run` / `npm test` at all.
+      "packages/ui",
     ],
   },
 });

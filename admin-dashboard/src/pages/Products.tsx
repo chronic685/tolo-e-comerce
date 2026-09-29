@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Star } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ExportCsvButton, SkeletonRows } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import type { AdminProduct } from "../types";
 import { Categories } from "./Categories";
 
@@ -69,19 +69,24 @@ export function Products() {
 
 function ProductCatalog() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [committedSearch, setCommittedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE, resetKey: `${statusFilter}:${committedSearch}` });
 
   async function load() {
     setLoading(true);
     let query = supabase
       .from("products")
-      .select("id, merchant_id, name, slug, sku, base_price, status, rejection_reason, is_featured, created_at, merchants ( business_name ), categories ( name )")
-      .order("created_at", { ascending: false })
-      .limit(200);
+      .select(
+        "id, merchant_id, name, slug, sku, base_price, status, rejection_reason, is_featured, created_at, merchants ( business_name ), categories ( name )",
+        { count: "exact" },
+      )
+      .order("created_at", { ascending: false });
     // "rejected" isn't its own status — a rejected product falls back to
     // status='draft' with rejection_reason set (see setStatus's "draft"
     // branch below). Filtering on that combination surfaces it as its own
@@ -91,16 +96,17 @@ function ProductCatalog() {
     } else if (statusFilter !== "all") {
       query = query.eq("status", statusFilter);
     }
-    if (search.trim()) query = query.or(`name.ilike.%${search.trim()}%,sku.ilike.%${search.trim()}%`);
-    const { data } = await query;
+    if (committedSearch.trim()) query = query.or(`name.ilike.%${committedSearch.trim()}%,sku.ilike.%${committedSearch.trim()}%`);
+    const { data, count } = await query.range(from, to);
     setProducts((data as unknown as AdminProduct[]) ?? []);
+    setTotalCount(count ?? 0);
     setLoading(false);
   }
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, committedSearch, from, to]);
 
   // Was `await load()` after both mutations below -- setLoading(true)
   // inside it wipes the whole filtered list to "Loading..." for a single
@@ -122,11 +128,13 @@ function ProductCatalog() {
     setRejectingId(null);
     setRejectReason("");
     if (error) return;
+    const stillMatches = matchesStatusFilter(status, rejection_reason);
     setProducts((prev) =>
-      matchesStatusFilter(status, rejection_reason)
+      stillMatches
         ? prev.map((prod) => (prod.id === p.id ? { ...prod, status, rejection_reason } : prod))
         : prev.filter((prod) => prod.id !== p.id),
     );
+    if (!stillMatches) setTotalCount((prev) => Math.max(0, prev - 1));
   }
 
   async function toggleFeatured(p: AdminProduct) {
@@ -135,10 +143,22 @@ function ProductCatalog() {
     setProducts((prev) => prev.map((prod) => (prod.id === p.id ? { ...prod, is_featured: !prod.is_featured } : prod)));
   }
 
-  function handleExport() {
+  // Exports every product matching the current status filter/search, not
+  // just the page on screen.
+  async function handleExport() {
+    const rows = (await fetchAllRows((from, to) => {
+      let query = supabase
+        .from("products")
+        .select("id, merchant_id, name, slug, sku, base_price, status, rejection_reason, is_featured, created_at, merchants ( business_name ), categories ( name )")
+        .order("created_at", { ascending: false });
+      if (statusFilter === "rejected") query = query.eq("status", "draft").not("rejection_reason", "is", null);
+      else if (statusFilter !== "all") query = query.eq("status", statusFilter);
+      if (committedSearch.trim()) query = query.or(`name.ilike.%${committedSearch.trim()}%,sku.ilike.%${committedSearch.trim()}%`);
+      return query.range(from, to);
+    })) as unknown as AdminProduct[];
     exportToCsv(
       `products-${statusFilter}-${new Date().toISOString().slice(0, 10)}.csv`,
-      products.map((p) => ({
+      rows.map((p) => ({
         id: p.id,
         name: p.name,
         merchant: p.merchants?.business_name ?? "",
@@ -174,8 +194,8 @@ function ProductCatalog() {
           placeholder="Search name or SKU..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && load()}
-          onBlur={load}
+          onKeyDown={(e) => e.key === "Enter" && setCommittedSearch(search)}
+          onBlur={() => setCommittedSearch(search)}
           className="border rounded-md px-3 py-1.5 text-sm ml-auto"
         />
       </div>
@@ -185,6 +205,7 @@ function ProductCatalog() {
       ) : products.length === 0 ? (
         <p className="text-gray-500">No products in this view.</p>
       ) : (
+        <>
         <div className="bg-white border rounded-lg divide-y">
           {products.map((p) => (
             <div key={p.id} className="p-3">
@@ -266,6 +287,10 @@ function ProductCatalog() {
             </div>
           ))}
         </div>
+        <div className="mt-4">
+          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+        </div>
+        </>
       )}
     </div>
   );

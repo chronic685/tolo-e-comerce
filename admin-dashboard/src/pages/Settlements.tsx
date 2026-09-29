@@ -1,19 +1,23 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ExportCsvButton, toast } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import type { FinancialAdjustment, Merchant, Settlement } from "../types";
 
 const ADJUSTMENT_TYPES = ["correction", "bonus", "penalty", "goodwill", "other"];
 
 export function Settlements() {
   const [settlements, setSettlements] = useState<Settlement[]>([]);
+  const [settlementsTotal, setSettlementsTotal] = useState(0);
+  const settlementsPage = usePagination({ pageSize: ADMIN_PAGE_SIZE, paramName: "settlements_page" });
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [merchantId, setMerchantId] = useState("");
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
   const [running, setRunning] = useState(false);
   const [adjustments, setAdjustments] = useState<FinancialAdjustment[]>([]);
+  const [adjustmentsTotal, setAdjustmentsTotal] = useState(0);
+  const adjustmentsPage = usePagination({ pageSize: ADMIN_PAGE_SIZE, paramName: "adjustments_page" });
   const [showAdjustmentForm, setShowAdjustmentForm] = useState(false);
   const [adjMerchantId, setAdjMerchantId] = useState("");
   const [adjType, setAdjType] = useState(ADJUSTMENT_TYPES[0]);
@@ -21,44 +25,51 @@ export function Settlements() {
   const [adjReason, setAdjReason] = useState("");
 
   async function load() {
-    const { data } = await supabase
+    const { data, count } = await supabase
       .from("settlements")
-      .select("id, merchant_id, period_start, period_end, total_amount, status, created_at, merchants ( business_name )")
-      .order("created_at", { ascending: false });
+      .select("id, merchant_id, period_start, period_end, total_amount, status, created_at, merchants ( business_name )", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(settlementsPage.from, settlementsPage.to);
     setSettlements((data as unknown as Settlement[]) ?? []);
+    setSettlementsTotal(count ?? 0);
   }
 
   async function loadAdjustments() {
-    const { data } = await supabase
+    const { data, count } = await supabase
       .from("financial_adjustments")
-      .select("id, merchant_id, order_id, settlement_id, type, amount, reason, created_at, merchants ( business_name )")
+      .select("id, merchant_id, order_id, settlement_id, type, amount, reason, created_at, merchants ( business_name )", { count: "exact" })
       .order("created_at", { ascending: false })
-      .limit(100);
+      .range(adjustmentsPage.from, adjustmentsPage.to);
     setAdjustments((data as unknown as FinancialAdjustment[]) ?? []);
+    setAdjustmentsTotal(count ?? 0);
   }
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settlementsPage.from, settlementsPage.to]);
+
+  useEffect(() => {
     loadAdjustments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adjustmentsPage.from, adjustmentsPage.to]);
+
+  useEffect(() => {
     supabase.from("merchants").select("id, business_name").eq("status", "active").then(({ data }) => setMerchants((data as Merchant[]) ?? []));
   }, []);
 
   async function handleAddAdjustment(e: React.FormEvent) {
     e.preventDefault();
     if (!adjMerchantId || !adjAmount || !adjReason.trim()) return;
-    const { data, error } = await supabase
-      .from("financial_adjustments")
-      .insert({
-        merchant_id: adjMerchantId,
-        type: adjType,
-        amount: Number(adjAmount),
-        reason: adjReason.trim(),
-      })
-      .select("id, merchant_id, order_id, settlement_id, type, amount, reason, created_at")
-      .single();
+    const { error } = await supabase.from("financial_adjustments").insert({
+      merchant_id: adjMerchantId,
+      type: adjType,
+      amount: Number(adjAmount),
+      reason: adjReason.trim(),
+    });
     if (!error) {
-      const merchant = merchants.find((m) => m.id === adjMerchantId);
-      setAdjustments((prev) => [{ ...data, merchants: merchant ? { business_name: merchant.business_name } : null }, ...prev]);
+      if (adjustmentsPage.page === 1) await loadAdjustments();
+      else adjustmentsPage.setPage(1);
       setAdjMerchantId("");
       setAdjAmount("");
       setAdjReason("");
@@ -81,33 +92,27 @@ export function Settlements() {
       return;
     }
     toast.success(data?.message ?? `Settled ${data?.total_amount ?? 0} ETB across ${data?.item_count ?? 0} order(s).`);
-    // The function's response only carries totals, not the full settlement
-    // row -- everything else needed to render one (period, merchant name,
-    // default status) is already in hand from the form + the merchants
-    // list already loaded, so no need to re-fetch the whole settlements
-    // list just to add this one.
+    // Newest-first ordering means a brand-new settlement always belongs on
+    // page 1 -- reload only when that's the page currently showing, and
+    // land there otherwise so it's visible.
     if (data?.settlement_id) {
-      const merchant = merchants.find((m) => m.id === merchantId);
-      setSettlements((prev) => [
-        {
-          id: data.settlement_id,
-          merchant_id: merchantId,
-          period_start: periodStart,
-          period_end: periodEnd,
-          total_amount: data.total_amount ?? 0,
-          status: "pending",
-          created_at: new Date().toISOString(),
-          merchants: merchant ? { business_name: merchant.business_name } : null,
-        },
-        ...prev,
-      ]);
+      if (settlementsPage.page === 1) await load();
+      else settlementsPage.setPage(1);
     }
   }
 
-  function handleExport() {
+  // Exports every settlement, not just the page on screen.
+  async function handleExport() {
+    const rows = (await fetchAllRows((from, to) =>
+      supabase
+        .from("settlements")
+        .select("id, merchant_id, period_start, period_end, total_amount, status, created_at, merchants ( business_name )")
+        .order("created_at", { ascending: false })
+        .range(from, to),
+    )) as unknown as Settlement[];
     exportToCsv(
       `settlements-${new Date().toISOString().slice(0, 10)}.csv`,
-      settlements.map((s) => ({
+      rows.map((s) => ({
         id: s.id,
         merchant: s.merchants?.business_name ?? "",
         period_start: s.period_start,
@@ -170,6 +175,9 @@ export function Settlements() {
             </div>
           </div>
         ))}
+      </div>
+      <div className="mb-6">
+        <Pagination page={settlementsPage.page} totalPages={totalPagesFor(settlementsTotal, ADMIN_PAGE_SIZE)} onPageChange={settlementsPage.setPage} />
       </div>
 
       <div className="flex items-center justify-between mb-2">
@@ -248,6 +256,9 @@ export function Settlements() {
             </div>
           ))
         )}
+      </div>
+      <div className="mt-4">
+        <Pagination page={adjustmentsPage.page} totalPages={totalPagesFor(adjustmentsTotal, ADMIN_PAGE_SIZE)} onPageChange={adjustmentsPage.setPage} />
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, LifeBuoy } from "lucide-react";
-import { EmptyState, SkeletonRows, toast } from "@tolo/ui";
+import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import type { SupportTicket } from "../types";
@@ -16,22 +16,28 @@ const STATUS_LABEL: Record<string, string> = {
 export function Support() {
   const { user } = useAuth();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const { page, from, to, setPage } = usePagination({ pageSize: CUSTOMER_PAGE_SIZE });
 
   useEffect(() => {
     if (user) load();
-  }, [user]);
+  }, [user, from, to]);
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase
+    const { data, count } = await supabase
       .from("support_tickets")
-      .select("id, subject, body, status, created_at, merchant_order_id, merchant_orders ( order_id, merchants ( business_name ) )")
-      .order("created_at", { ascending: false });
+      .select("id, subject, body, status, created_at, merchant_order_id, merchant_orders ( order_id, merchants ( business_name ) )", {
+        count: "exact",
+      })
+      .order("created_at", { ascending: false })
+      .range(from, to);
     setTickets((data as unknown as SupportTicket[]) ?? []);
+    setTotalCount(count ?? 0);
     setLoading(false);
   }
 
@@ -52,7 +58,10 @@ export function Support() {
     // A brand-new ticket never has a merchant_order_id from this form (no
     // "report an issue" flow attaches one here), so merchant_orders is
     // always null for it -- safe to construct locally without a re-fetch.
-    setTickets((prev) => [{ ...data, merchant_orders: null }, ...prev]);
+    // Only spliced into view when page 1 is showing -- it belongs there
+    // (newest first), but on any other page it belongs on page 1, not here.
+    if (page === 1) setTickets((prev) => [{ ...data, merchant_orders: null }, ...prev].slice(0, CUSTOMER_PAGE_SIZE));
+    setTotalCount((prev) => prev + 1);
     setSubject("");
     setBody("");
   }
@@ -92,6 +101,7 @@ export function Support() {
       ) : tickets.length === 0 ? (
         <EmptyState icon={LifeBuoy} title="No support tickets yet" description="Need help? Use the form above to reach us." />
       ) : (
+        <>
         <div className="space-y-2">
           {tickets.map((t) => (
             <div key={t.id} className="bg-white border rounded-lg p-3">
@@ -115,6 +125,10 @@ export function Support() {
             </div>
           ))}
         </div>
+        <div className="mt-6">
+          <Pagination page={page} totalPages={totalPagesFor(totalCount, CUSTOMER_PAGE_SIZE)} onPageChange={setPage} />
+        </div>
+        </>
       )}
     </div>
   );

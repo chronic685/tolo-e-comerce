@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Package } from "lucide-react";
-import { Badge, Button, EmptyState, SkeletonRows } from "@tolo/ui";
+import { Badge, Button, CUSTOMER_PAGE_SIZE, EmptyState, formatOrderNumber, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { STATUS_COPY } from "../lib/orderStatus";
@@ -9,6 +9,7 @@ import { statusBadgeVariant } from "../lib/orderTrack";
 
 interface OrderRow {
   id: string;
+  order_number: number;
   total: number;
   payment_status: string;
   created_at: string;
@@ -19,20 +20,25 @@ export function Orders() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { page, from, to, setPage } = usePagination({ pageSize: CUSTOMER_PAGE_SIZE });
 
   useEffect(() => {
     if (!user) return;
+    setLoading(true);
     supabase
       .from("orders")
-      .select("id, total, payment_status, created_at, merchant_orders ( id, status, merchant_id )")
+      .select("id, order_number, total, payment_status, created_at, merchant_orders ( id, status, merchant_id )", { count: "exact" })
       .eq("customer_id", user.id)
       .order("created_at", { ascending: false })
-      .then(({ data }) => {
+      .range(from, to)
+      .then(({ data, count }) => {
         setOrders((data as unknown as OrderRow[]) ?? []);
+        setTotalCount(count ?? 0);
         setLoading(false);
       });
-  }, [user]);
+  }, [user, from, to]);
 
   if (loading) return <SkeletonRows count={4} />;
   if (orders.length === 0)
@@ -57,7 +63,7 @@ export function Orders() {
           >
             <div className="flex justify-between items-center">
               <div>
-                <p className="font-medium">Order #{o.id.slice(0, 8)}</p>
+                <p className="font-medium">Order {formatOrderNumber(o.order_number)}</p>
                 <p className="text-xs text-gray-500">{new Date(o.created_at).toLocaleString()}</p>
               </div>
               <div className="text-right">
@@ -74,6 +80,9 @@ export function Orders() {
             </div>
           </Link>
         ))}
+      </div>
+      <div className="mt-6">
+        <Pagination page={page} totalPages={totalPagesFor(totalCount, CUSTOMER_PAGE_SIZE)} onPageChange={setPage} />
       </div>
     </div>
   );

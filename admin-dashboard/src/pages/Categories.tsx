@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { toast } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import type { Category } from "../types";
 
 function slugify(name: string) {
@@ -13,6 +13,8 @@ function slugify(name: string) {
 
 export function Categories() {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
@@ -23,30 +25,28 @@ export function Categories() {
   const [deleting, setDeleting] = useState(false);
 
   async function load() {
-    const { data } = await supabase.from("categories").select("*").order("sort_order");
+    const { data, count } = await supabase.from("categories").select("*", { count: "exact" }).order("sort_order").range(from, to);
     setCategories(data ?? []);
+    setTotalCount(count ?? 0);
   }
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim()) return;
-    // .select().single() gets the server-assigned id/created_at/sort_order
-    // back in the same round trip, so the new row can be appended directly
-    // instead of re-fetching the whole list to find it again.
-    const { data, error } = await supabase
-      .from("categories")
-      .insert({ name: newName.trim(), slug: slugify(newName) })
-      .select()
-      .single();
+    const { error } = await supabase.from("categories").insert({ name: newName.trim(), slug: slugify(newName) });
     if (error) {
       toast.error(error.message);
       return;
     }
-    setCategories((prev) => [...prev, data as Category]);
+    // Reloads rather than appending locally, now that the list is
+    // paginated -- a new row sorts by sort_order, not necessarily onto the
+    // page currently showing.
+    await load();
     setNewName("");
   }
 
@@ -99,7 +99,7 @@ export function Categories() {
       setDeleteTarget(null);
       return;
     }
-    setCategories((prev) => prev.filter((cat) => cat.id !== deleteTarget.category.id));
+    await load();
     setDeleteTarget(null);
   }
 
@@ -165,6 +165,9 @@ export function Categories() {
             </div>
           </div>
         ))}
+      </div>
+      <div className="mt-4">
+        <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
       </div>
 
       {deleteTarget && (

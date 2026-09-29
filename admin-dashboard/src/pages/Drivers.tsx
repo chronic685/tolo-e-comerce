@@ -1,30 +1,37 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { toast } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import type { Driver } from "../types";
 
 export function Drivers() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
   const [form, setForm] = useState({ full_name: "", phone: "", vehicle_type: "", vehicle_plate: "" });
 
   async function load() {
-    const { data } = await supabase.from("drivers").select("*").order("full_name");
+    const { data, count } = await supabase.from("drivers").select("*", { count: "exact" }).order("full_name").range(from, to);
     setDrivers(data ?? []);
+    setTotalCount(count ?? 0);
   }
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!form.full_name.trim() || !form.phone.trim()) return;
-    const { data, error } = await supabase.from("drivers").insert(form).select().single();
+    const { error } = await supabase.from("drivers").insert(form);
     if (error) {
       toast.error(error.message);
       return;
     }
-    setDrivers((prev) => [...prev, data as Driver]);
+    // Sorted by name, not newest-first, so a new driver doesn't
+    // predictably belong on the page currently showing -- reload rather
+    // than guess.
+    await load();
     setForm({ full_name: "", phone: "", vehicle_type: "", vehicle_plate: "" });
   }
 
@@ -87,6 +94,9 @@ export function Drivers() {
             </button>
           </div>
         ))}
+      </div>
+      <div className="mt-4">
+        <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
       </div>
     </div>
   );

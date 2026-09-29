@@ -18,7 +18,9 @@ async function createDisposableOrder(customerUserId: string, addressId: string, 
   if (error) throw error;
   const { data: mo, error: moError } = await db.from("merchant_orders").select("id").eq("order_id", orderId as string).single();
   if (moError) throw moError;
-  return mo.id as string;
+  const { data: order, error: orderError } = await db.from("orders").select("order_number").eq("id", orderId as string).single();
+  if (orderError) throw orderError;
+  return { merchantOrderId: mo.id as string, orderNumber: order.order_number as number };
 }
 
 describe("order-status: customer notification on rejection", () => {
@@ -49,7 +51,7 @@ describe("order-status: customer notification on rejection", () => {
   });
 
   it("sends the customer a filled-in order_rejected notification when a merchant declines a new order", async () => {
-    const merchantOrderId = await createDisposableOrder(customerUserId, addressId, variantId);
+    const { merchantOrderId, orderNumber } = await createDisposableOrder(customerUserId, addressId, variantId);
 
     const res = await callFunction("order-status", {
       token: merchantAToken,
@@ -71,7 +73,7 @@ describe("order-status: customer notification on rejection", () => {
     expect(notification.title).toBe("Order declined");
     // Template variables actually substituted, not left as literal {{...}}.
     expect(notification.body).toContain("QA TEST — Merchant A — DO NOT USE");
-    expect(notification.body).toContain(merchantOrderId.slice(0, 8));
+    expect(notification.body).toContain(`TL-${orderNumber}`);
     expect(notification.body).not.toContain("{{");
     expect(notification.is_read).toBe(false);
   });
