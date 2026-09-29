@@ -97,13 +97,19 @@ describe("payout statements: mark as paid + merchant read access (migration for 
 
     const merchantAClient = authedClient(merchantAToken);
 
-    const { error, count } = await merchantAClient
+    // RLS silently filters this update to zero matching rows rather than
+    // erroring -- asserting on the returned representation, not `count`:
+    // PostgREST/supabase-js report `count: null` rather than `0` here (no
+    // Content-Range header when an UPDATE...RETURNING is filtered to zero
+    // rows by RLS before reaching WITH CHECK), so `count` isn't a reliable
+    // "nothing changed" signal for this shape of request.
+    const { error, data: updated } = await merchantAClient
       .from("settlements")
       .update({ status: "paid", paid_at: new Date().toISOString() })
       .eq("id", settlementId)
-      .select("id", { count: "exact" });
+      .select("id");
     expect(error).toBeNull();
-    expect(count).toBe(0);
+    expect(updated).toEqual([]);
 
     const { data } = await db.from("settlements").select("status").eq("id", settlementId).single();
     expect(data!.status).toBe("pending");
