@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
 import { getCurrentLocation } from "../lib/geolocation";
+import { isEmbedMode, notifyOrderPlaced, openPayment } from "../lib/appBridge";
 import type { Address } from "../types";
 
 // Fixed display/default-selection order, matching the admin Settings.tsx
@@ -21,6 +22,7 @@ export function Checkout() {
   const { user } = useAuth();
   const { items, refresh } = useCart();
   const navigate = useNavigate();
+  const embed = isEmbedMode();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressId, setAddressId] = useState<string | null>(null);
@@ -40,6 +42,13 @@ export function Checkout() {
   const [placing, setPlacing] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState<[string, string][]>([]);
   const [paymentProvider, setPaymentProvider] = useState<string | null>(null);
+  // In-app wallet handoff to the native app shell — additive to the normal
+  // payment_provider methods above, not a replacement. The order is still
+  // placed against a real enabled provider (checkout/index.ts only accepts
+  // the keys in system_settings.payment_methods); picking this just also
+  // tells the native app to collect payment via its wallet after checkout
+  // succeeds, alongside the usual order-placed notification.
+  const [useWallet, setUseWallet] = useState(false);
 
   // Dead until this task: system_settings.customer_features.promo_codes_enabled
   // already existed (admin-dashboard Settings.tsx, migration 0027) with no
@@ -276,6 +285,10 @@ export function Checkout() {
     // money has actually moved (see confirm-payment), never assumed here.
     await refresh();
     setPlacing(false);
+    if (embed) {
+      notifyOrderPlaced(checkoutData.order_id);
+      if (useWallet) openPayment(checkoutData.order_id, total);
+    }
     navigate(`/orders/${checkoutData.order_id}/confirmation`);
   }
 
@@ -410,6 +423,12 @@ export function Checkout() {
             {label}
           </label>
         ))
+      )}
+      {embed && (
+        <label className="flex items-center gap-2 mt-2 pt-2 border-t text-sm">
+          <input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} />
+          Pay with Tolo Wallet (in-app)
+        </label>
       )}
     </div>
   );
