@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Minus, Plus, ShoppingCart, Store, Trash2 } from "lucide-react";
-import { Button, Card, CardContent, EmptyState, formatCurrency, LazyImage, SkeletonRows } from "@tolo/ui";
+import { Button, Card, CardContent, EmptyState, formatCurrency, LazyImage, SkeletonRows, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useCart } from "../lib/CartContext";
-
-const UNAVAILABLE_OPTIONS: { value: "remove" | "substitute" | "cancel_order"; label: string }[] = [
-  { value: "remove", label: "Remove just this item" },
-  { value: "substitute", label: "Let the merchant substitute it" },
-  { value: "cancel_order", label: "Cancel my whole order" },
-];
 
 export function Cart() {
   const { items, loading, updateQuantity, updatePreference, removeItem } = useCart();
   const navigate = useNavigate();
+  const { t } = useTranslation();
+
+  const UNAVAILABLE_OPTIONS: { value: "remove" | "substitute" | "cancel_order"; label: string }[] = [
+    { value: "remove", label: t("cart.unavailableRemove") },
+    { value: "substitute", label: t("cart.unavailableSubstitute") },
+    { value: "cancel_order", label: t("cart.unavailableCancelOrder") },
+  ];
 
   // Cart items only carry merchant_id (see CartContext.tsx's CART_ITEM_SELECT),
   // not the shop's display name — one small batched lookup, keyed off the
@@ -57,9 +58,9 @@ export function Cart() {
     return (
       <EmptyState
         icon={ShoppingCart}
-        title="Your cart is empty"
-        description="Add items from the marketplace to get started."
-        action={<Button onClick={() => navigate("/")}>Browse the marketplace</Button>}
+        title={t("cart.empty")}
+        description={t("cart.emptyDescription")}
+        action={<Button onClick={() => navigate("/")}>{t("cart.browseMarketplace")}</Button>}
       />
     );
   }
@@ -126,7 +127,7 @@ export function Cart() {
                       </button>
                     </div>
                     <label className="flex items-center gap-2 mt-3 text-xs text-gray-500">
-                      If unavailable:
+                      {t("cart.ifUnavailable")}
                       <select
                         value={item.on_unavailable}
                         onChange={(e) => updatePreference(item.id, e.target.value as "remove" | "substitute" | "cancel_order")}
@@ -149,12 +150,12 @@ export function Cart() {
       <Card className="h-fit">
         <CardContent>
           <div className="flex justify-between font-semibold text-lg mb-1">
-            <span>Subtotal</span>
+            <span>{t("cart.subtotal")}</span>
             <span>{formatCurrency(total)}</span>
           </div>
           <p className="text-xs text-gray-400 mb-4">Delivery fee isn't included yet — it's calculated at checkout.</p>
           <Button onClick={() => navigate("/checkout")} className="w-full">
-            Proceed to checkout
+            {t("cart.proceedToCheckout")}
           </Button>
         </CardContent>
       </Card>

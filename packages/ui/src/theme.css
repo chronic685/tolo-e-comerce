@@ -1,6 +1,35 @@
+/* Group 5, item 4: a real Ethiopic font, loaded safely with a fallback so
+   Amharic text never renders as boxes. The actual <link> that fetches it
+   lives in each app's index.html (not a CSS @import here) -- nesting an
+   external @import inside this file, which itself gets @import-ed AFTER
+   `@import "tailwindcss"` in every app's index.css, breaks the CSS rule
+   that an @import must precede every other rule in the final bundled
+   stylesheet (Tailwind's own @import expands to @layer rules first) --
+   confirmed by a real build warning when this was tried. */
 @theme {
   --color-navy: #14245c;
   --color-navy-dark: #0b1638;
   --color-navy-light: #24418f;
   --color-navy-50: #eef1fa;
+}
+
+/* I18nProvider sets <html lang="am"> on the Amharic locale (i18n/
+   I18nProvider.tsx) -- :lang() picks that up with no class/attribute
+   wiring needed anywhere else. Per the CSS Selectors spec, :lang(am)
+   matches any element whose EFFECTIVE (inherited) language is Amharic,
+   not just an element carrying the literal attribute -- so this rule
+   still applies specificity (0,1,0) directly to <body>, which is what
+   lets it win over each app's own plain `body { font-family: ... }` rule
+   (specificity (0,0,1)) rather than being silently overridden by it.
+   "Noto Sans Ethiopic" only has glyphs for Ge'ez-script text; the
+   existing Latin/system stack stays right after it as the fallback for
+   the (still very common) Latin characters mixed into Amharic UI text --
+   product SKUs, ETB amounts, phone numbers. */
+:lang(am) {
+  font-family:
+    "Noto Sans Ethiopic",
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
 }

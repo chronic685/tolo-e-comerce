@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { toast } from "@tolo/ui";
+import { toast, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 
 export function Signup() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
 
   const [fullName, setFullName] = useState("");
@@ -47,11 +48,11 @@ export function Signup() {
   if (done) {
     return (
       <div className="max-w-sm mx-auto mt-8 text-center">
-        <h1 className="text-xl font-bold mb-2">Check your email</h1>
+        <h1 className="text-xl font-bold mb-2">{t("auth.checkYourEmail")}</h1>
         <p className="text-gray-600 text-sm">
-          We sent a confirmation link to {email}. Confirm it, then{" "}
+          {t("auth.confirmationSentTo", { email })}{" "}
           <button onClick={() => navigate("/login")} className="text-navy font-medium">
-            sign in
+            {t("nav.signIn").toLowerCase()}
           </button>
           .
         </p>
@@ -61,10 +62,10 @@ export function Signup() {
 
   return (
     <div className="max-w-sm mx-auto mt-8">
-      <h1 className="text-xl font-bold mb-4">Create an account</h1>
+      <h1 className="text-xl font-bold mb-4">{t("auth.createAccount")}</h1>
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
-          placeholder="Full name"
+          placeholder={t("auth.fullName")}
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           required
@@ -72,7 +73,7 @@ export function Signup() {
         />
         <input
           type="email"
-          placeholder="Email"
+          placeholder={t("auth.email")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -80,7 +81,7 @@ export function Signup() {
         />
         <input
           type="password"
-          placeholder="Password"
+          placeholder={t("auth.password")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -89,7 +90,7 @@ export function Signup() {
         />
         {referralsEnabled && (
           <input
-            placeholder="Referral code (optional)"
+            placeholder={t("auth.referralCodeOptional")}
             value={referralCode}
             onChange={(e) => setReferralCode(e.target.value)}
             className="w-full border rounded-md px-3 py-2 text-sm uppercase placeholder:normal-case"
@@ -100,13 +101,13 @@ export function Signup() {
           disabled={loading}
           className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
         >
-          {loading ? "Creating account..." : "Sign up"}
+          {loading ? t("auth.creatingAccount") : t("auth.signup")}
         </button>
       </form>
       <p className="text-sm text-gray-500 mt-4">
-        Already have an account?{" "}
+        {t("auth.haveAccount")}{" "}
         <Link to="/login" className="text-navy font-medium">
-          Sign in
+          {t("nav.signIn")}
         </Link>
       </p>
     </div>

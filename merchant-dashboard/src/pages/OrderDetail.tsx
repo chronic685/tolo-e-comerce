@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Calendar } from "lucide-react";
-import { formatOrderNumber, SkeletonPage, toast } from "@tolo/ui";
+import { formatOrderNumber, SkeletonPage, toast, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 
@@ -23,12 +23,6 @@ interface SubstituteOption {
   product_name: string;
 }
 
-const UNAVAILABLE_PREFERENCE_LABELS: Record<string, string> = {
-  remove: "The customer asked to just remove this item if it's unavailable.",
-  substitute: "The customer said you may substitute this item at your discretion.",
-  cancel_order: "The customer asked to cancel the whole order if this item is unavailable.",
-};
-
 interface MerchantOrderDetail {
   id: string;
   status: string;
@@ -45,41 +39,36 @@ interface MerchantOrderDetail {
   order_status_history: { status: string; changed_at: string; note: string | null }[];
 }
 
-const TRANSITIONS: Record<string, { status: string; label: string; primary?: boolean }[]> = {
-  new: [
-    { status: "accepted", label: "ORDER RECEIVED", primary: true },
-    { status: "rejected", label: "Reject order" },
-  ],
-  accepted: [
-    { status: "processing", label: "Start preparing", primary: true },
-    { status: "cancelled", label: "Cancel order" },
-  ],
-  processing: [
-    { status: "ready_for_pickup", label: "Ready for pickup", primary: true },
-    { status: "cancelled", label: "Cancel order" },
-  ],
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  new: "New order",
-  accepted: "Order received",
-  processing: "Preparing",
-  ready_for_pickup: "Ready for pickup",
-  picked_up: "Picked up",
-  delivered: "Delivered",
-  completed: "Completed",
-  cancelled: "Cancelled",
-  rejected: "Rejected",
-};
-
 export function OrderDetail() {
   const { id } = useParams();
   const { merchant } = useMerchant();
+  const { t } = useTranslation();
   const [order, setOrder] = useState<MerchantOrderDetail | null>(null);
   const [busy, setBusy] = useState(false);
   const [resolvingItemId, setResolvingItemId] = useState<string | null>(null);
   const [substituteOptions, setSubstituteOptions] = useState<SubstituteOption[]>([]);
   const [chosenSubstitute, setChosenSubstitute] = useState("");
+
+  const UNAVAILABLE_PREFERENCE_LABELS: Record<string, string> = {
+    remove: t("substitution.customerAskedRemove"),
+    substitute: t("substitution.customerAskedSubstitute"),
+    cancel_order: t("substitution.customerAskedCancel"),
+  };
+
+  const TRANSITIONS: Record<string, { status: string; label: string; primary?: boolean }[]> = {
+    new: [
+      { status: "accepted", label: t("merchant.orderReceived"), primary: true },
+      { status: "rejected", label: t("merchant.rejectOrder") },
+    ],
+    accepted: [
+      { status: "processing", label: t("merchant.startPreparing"), primary: true },
+      { status: "cancelled", label: t("orders.cancelOrder") },
+    ],
+    processing: [
+      { status: "ready_for_pickup", label: t("orderStatus.ready_for_pickup"), primary: true },
+      { status: "cancelled", label: t("orders.cancelOrder") },
+    ],
+  };
 
   async function load() {
     const { data } = await supabase
@@ -120,7 +109,7 @@ export function OrderDetail() {
 
   async function handleResolveItem(item: OrderItemRow, action: "remove" | "substitute") {
     if (action === "substitute" && !chosenSubstitute) {
-      toast.error("Please choose a replacement product.");
+      toast.error(t("merchant.chooseReplacementProduct"));
       return;
     }
     setBusy(true);
@@ -132,7 +121,7 @@ export function OrderDetail() {
       toast.error(error.message);
       return;
     }
-    toast.success(action === "remove" ? "Item removed from the order." : "Substitute applied.");
+    toast.success(action === "remove" ? t("merchant.itemRemovedToast") : t("merchant.substituteAppliedToast"));
     setResolvingItemId(null);
     await load();
   }
@@ -168,7 +157,7 @@ export function OrderDetail() {
     });
     setBusy(false);
     if (error) {
-      toast.error("Could not confirm this payment. Please try again.");
+      toast.error(t("merchant.confirmCashFailed"));
       return;
     }
     setOrder((prev) =>
@@ -185,18 +174,20 @@ export function OrderDetail() {
   return (
     <div className="max-w-xl">
       <h1 className={`text-xl font-bold ${order.scheduled_for ? "mb-1" : "mb-4"}`}>
-        Order {order.orders?.order_number ? formatOrderNumber(order.orders.order_number) : `#${order.id.slice(0, 8)}`}
+        {t("orders.orderLabel", {
+          orderNumber: order.orders?.order_number ? formatOrderNumber(order.orders.order_number) : `#${order.id.slice(0, 8)}`,
+        })}
       </h1>
       {order.scheduled_for && (
         <p className="text-sm font-medium text-navy bg-navy-50 inline-flex items-center gap-1.5 rounded-md px-2 py-1 mb-4">
           <Calendar className="w-4 h-4" />
-          Scheduled for {new Date(order.scheduled_for).toLocaleString()} — no rush, this doesn't need to be prepared yet
+          {t("merchant.scheduledForNoRush", { datetime: new Date(order.scheduled_for).toLocaleString() })}
         </p>
       )}
 
       {order.orders?.addresses && (
         <div className="bg-white border rounded-lg p-4 mb-4 text-sm">
-          <p className="font-medium mb-1">Deliver to</p>
+          <p className="font-medium mb-1">{t("merchant.deliverTo")}</p>
           <p>
             {order.orders.addresses.recipient_name} — {order.orders.addresses.phone}
           </p>
@@ -207,7 +198,7 @@ export function OrderDetail() {
       )}
 
       <div className="bg-white border rounded-lg p-4 mb-4">
-        <p className="font-medium text-sm mb-2">Items</p>
+        <p className="font-medium text-sm mb-2">{t("merchant.itemsHeading")}</p>
         {order.order_items.map((item) => {
           const canResolve = item.item_status === "active" && ["new", "accepted", "processing"].includes(order.status);
           return (
@@ -223,13 +214,13 @@ export function OrderDetail() {
               </div>
               {item.item_status !== "active" && (
                 <p className="text-xs text-amber-700 mt-0.5">
-                  {item.item_status === "removed" ? "Removed" : "Substituted"}
+                  {item.item_status === "removed" ? t("merchant.removed") : t("merchant.substituted")}
                   {item.resolution_note ? ` — ${item.resolution_note}` : ""}
                 </p>
               )}
               {canResolve && resolvingItemId !== item.id && (
                 <button onClick={() => openResolvePanel(item)} className="text-xs text-red-600 hover:underline mt-0.5">
-                  Can't fulfill this item
+                  {t("substitution.cantFulfill")}
                 </button>
               )}
               {resolvingItemId === item.id && (
@@ -241,7 +232,7 @@ export function OrderDetail() {
                       disabled={busy}
                       className="bg-navy text-white px-3 py-1.5 rounded-md font-medium disabled:opacity-60"
                     >
-                      Confirm removed (refund if paid)
+                      {t("substitution.confirmRemoved")}
                     </button>
                   )}
                   {item.on_unavailable === "substitute" && (
@@ -251,7 +242,7 @@ export function OrderDetail() {
                         onChange={(e) => setChosenSubstitute(e.target.value)}
                         className="border rounded-md px-2 py-1 flex-1"
                       >
-                        <option value="">Choose a replacement product…</option>
+                        <option value="">{t("substitution.chooseReplacement")}</option>
                         {substituteOptions.map((opt) => (
                           <option key={opt.variant_id} value={opt.variant_id}>
                             {opt.product_name}
@@ -263,7 +254,7 @@ export function OrderDetail() {
                         disabled={busy}
                         className="bg-navy text-white px-3 py-1.5 rounded-md font-medium disabled:opacity-60"
                       >
-                        Apply
+                        {t("substitution.applySubstitute")}
                       </button>
                     </div>
                   )}
@@ -273,11 +264,11 @@ export function OrderDetail() {
                       disabled={busy}
                       className="bg-red-600 text-white px-3 py-1.5 rounded-md font-medium disabled:opacity-60"
                     >
-                      Cancel order (refund if paid)
+                      {t("substitution.cancelOrderRefund")}
                     </button>
                   )}
                   <button onClick={() => setResolvingItemId(null)} className="text-gray-500 hover:underline block">
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                 </div>
               )}
@@ -286,15 +277,15 @@ export function OrderDetail() {
         })}
         <div className="border-t mt-2 pt-2 text-sm space-y-1">
           <div className="flex justify-between">
-            <span>Subtotal</span>
+            <span>{t("orders.subtotal")}</span>
             <span>{order.subtotal.toFixed(2)} ETB</span>
           </div>
           <div className="flex justify-between text-gray-500">
-            <span>Platform commission</span>
+            <span>{t("merchant.platformCommission")}</span>
             <span>-{order.commission_amount.toFixed(2)} ETB</span>
           </div>
           <div className="flex justify-between font-semibold">
-            <span>You receive</span>
+            <span>{t("merchant.youReceive")}</span>
             <span>{order.merchant_payable.toFixed(2)} ETB</span>
           </div>
         </div>
@@ -303,7 +294,7 @@ export function OrderDetail() {
       {order.orders?.payments[0] && (
         <div className="bg-white border rounded-lg p-4 mb-4 flex items-center justify-between text-sm">
           <div>
-            <p className="font-medium">Payment: {order.orders.payments[0].provider.replace(/_/g, " ")}</p>
+            <p className="font-medium">{t("merchant.paymentLabel", { provider: order.orders.payments[0].provider.replace(/_/g, " ") })}</p>
             <p className="text-xs text-gray-500 capitalize">{order.orders.payments[0].status}</p>
           </div>
           {order.orders.payments[0].provider === "cash_on_delivery" && order.orders.payments[0].status === "pending" && (
@@ -312,7 +303,7 @@ export function OrderDetail() {
               disabled={busy}
               className="bg-navy text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-navy-dark disabled:opacity-60"
             >
-              Confirm cash received
+              {t("merchant.confirmCashReceived")}
             </button>
           )}
         </div>
@@ -336,14 +327,14 @@ export function OrderDetail() {
       )}
 
       <div className="bg-white border rounded-lg p-4">
-        <p className="text-xs font-medium text-gray-500 mb-2">Status history</p>
+        <p className="text-xs font-medium text-gray-500 mb-2">{t("orders.statusHistory")}</p>
         <ol className="text-xs text-gray-600 space-y-1">
           {order.order_status_history
             .slice()
             .sort((a, b) => new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime())
             .map((h, idx) => (
               <li key={idx}>
-                {new Date(h.changed_at).toLocaleString()} — {STATUS_LABELS[h.status] ?? h.status.replace(/_/g, " ")}
+                {new Date(h.changed_at).toLocaleString()} — {t(`orderStatus.${h.status}`)}
                 {h.note ? ` (${h.note})` : ""}
               </li>
             ))}

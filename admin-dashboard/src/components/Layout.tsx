@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { KeyRound, LogOut, Menu, X } from "lucide-react";
+import { LanguageSwitcher, useTranslation } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 import { ADMIN_PAGES, type AdminPage } from "../lib/adminPages";
 import { supabase } from "../lib/supabase";
@@ -11,6 +12,7 @@ export function Layout() {
   const { user, role, adminTier, hasAccess, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [fullName, setFullName] = useState<string | null>(null);
 
@@ -55,9 +57,9 @@ export function Layout() {
       <div className="md:hidden fixed top-0 inset-x-0 z-20 bg-navy-dark text-white flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2 min-w-0">
           <img src="/logo.png" alt="" className="h-7 w-7 flex-shrink-0" />
-          <p className="text-sm font-bold truncate">Tolo Admin</p>
+          <p className="text-sm font-bold truncate">{t("admin.appName")}</p>
         </div>
-        <button onClick={() => setMenuOpen(true)} aria-label="Open menu" className="p-1">
+        <button onClick={() => setMenuOpen(true)} aria-label={t("nav.openMenu")} className="p-1">
           <Menu className="w-6 h-6" />
         </button>
       </div>
@@ -72,13 +74,13 @@ export function Layout() {
         <div className="px-4 py-5 border-b border-navy-light/40 flex items-center gap-2">
           <img src="/logo.png" alt="" className="h-8 w-8 flex-shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="text-lg font-bold text-white leading-tight">Tolo Admin</p>
+            <p className="text-lg font-bold text-white leading-tight">{t("admin.appName")}</p>
             <p className="text-xs text-slate-400 truncate">{fullName ?? "..."}</p>
             <span className="inline-block mt-1 text-[10px] font-medium capitalize bg-navy-light/50 text-white rounded-full px-2 py-0.5">
               {tierLabel}
             </span>
           </div>
-          <button onClick={() => setMenuOpen(false)} aria-label="Close menu" className="md:hidden p-1 flex-shrink-0">
+          <button onClick={() => setMenuOpen(false)} aria-label={t("nav.closeMenu")} className="md:hidden p-1 flex-shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -104,6 +106,9 @@ export function Layout() {
           ))}
         </nav>
 
+        <div className="px-4 py-2 border-t border-navy-light/40">
+          <LanguageSwitcher variant="full" className="text-slate-300" />
+        </div>
         <NavLink
           to="/account/password"
           className={({ isActive }) =>
@@ -111,14 +116,14 @@ export function Layout() {
           }
         >
           <KeyRound className="w-4 h-4" />
-          Change password
+          {t("admin.changePassword")}
         </NavLink>
         <button
           onClick={handleSignOut}
           className="flex items-center gap-3 px-4 py-3 text-sm text-left text-slate-300 hover:bg-navy border-t border-navy-light/40"
         >
           <LogOut className="w-4 h-4" />
-          Sign out
+          {t("common.signOut")}
         </button>
       </aside>
 

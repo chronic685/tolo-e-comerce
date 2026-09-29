@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MapPin, Heart, Bell, LifeBuoy, LogOut, PartyPopper, ScrollText } from "lucide-react";
-import { Skeleton, toast } from "@tolo/ui";
+import { LanguageSwitcher, Skeleton, toast, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 
@@ -15,6 +15,7 @@ interface ReferralReward {
 
 export function Account() {
   const { user, signOut } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -200,34 +201,43 @@ export function Account() {
       <div className="bg-white border rounded-lg mt-4 divide-y">
         <Link to="/locations" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
           <MapPin className="w-4 h-4 text-gray-400" />
-          Saved locations
+          {t("account.savedLocations")}
         </Link>
         <Link to="/favorites" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
           <Heart className="w-4 h-4 text-gray-400" />
-          Favorites
+          {t("account.favorites")}
         </Link>
         <Link to="/notifications" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
           <Bell className="w-4 h-4 text-gray-400" />
-          Notifications
+          {t("account.notifications")}
         </Link>
         <Link to="/support" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
           <LifeBuoy className="w-4 h-4 text-gray-400" />
-          Support
+          {t("account.support")}
         </Link>
+      </div>
+
+      {/* This app has no hamburger/slide-out mobile menu -- the bottom
+          tab bar (Layout.tsx) is the whole mobile nav -- so the language
+          switcher's "mobile menu" presence (Group 5, item 2) lives here
+          instead, the natural settings surface for a bottom-tab-bar app. */}
+      <div className="bg-white border rounded-lg mt-4 px-4 py-3 flex items-center justify-between">
+        <span className="text-sm text-gray-700">{t("account.language")}</span>
+        <LanguageSwitcher variant="full" />
       </div>
 
       <div className="bg-white border rounded-lg mt-4 divide-y">
         <Link to="/legal/terms" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
           <ScrollText className="w-4 h-4 text-gray-400" />
-          Terms of Service
+          {t("legal.termsTitle")}
         </Link>
         <Link to="/legal/privacy" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
           <ScrollText className="w-4 h-4 text-gray-400" />
-          Privacy Policy
+          {t("legal.privacyTitle")}
         </Link>
         <Link to="/legal/refund-policy" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
           <ScrollText className="w-4 h-4 text-gray-400" />
-          Refund Policy
+          {t("legal.refundPolicyTitle")}
         </Link>
       </div>
 
@@ -236,7 +246,7 @@ export function Account() {
         className="flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 bg-white border rounded-lg mt-4 w-full"
       >
         <LogOut className="w-4 h-4" />
-        Sign out
+        {t("common.signOut")}
       </button>
     </div>
   );

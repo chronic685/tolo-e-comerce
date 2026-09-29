@@ -1,10 +1,21 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Package } from "lucide-react";
-import { Badge, Button, CUSTOMER_PAGE_SIZE, EmptyState, formatOrderNumber, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import {
+  Badge,
+  Button,
+  CUSTOMER_PAGE_SIZE,
+  EmptyState,
+  formatOrderNumber,
+  Pagination,
+  SkeletonRows,
+  totalPagesFor,
+  useTranslation,
+  usePagination,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
-import { STATUS_COPY } from "../lib/orderStatus";
+import { useStatusCopy } from "../lib/orderStatus";
 import { statusBadgeVariant } from "../lib/orderTrack";
 
 interface OrderRow {
@@ -19,6 +30,8 @@ interface OrderRow {
 export function Orders() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const statusCopy = useStatusCopy();
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -45,15 +58,15 @@ export function Orders() {
     return (
       <EmptyState
         icon={Package}
-        title="No orders yet"
-        description="Your past orders will show up here."
-        action={<Button onClick={() => navigate("/")}>Browse the marketplace</Button>}
+        title={t("orders.empty")}
+        description={t("orders.emptyDescription")}
+        action={<Button onClick={() => navigate("/")}>{t("cart.browseMarketplace")}</Button>}
       />
     );
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4">My Orders</h1>
+      <h1 className="text-xl font-bold mb-4">{t("orders.title")}</h1>
       <div className="space-y-3">
         {orders.map((o) => (
           <Link
@@ -63,7 +76,7 @@ export function Orders() {
           >
             <div className="flex justify-between items-center">
               <div>
-                <p className="font-medium">Order {formatOrderNumber(o.order_number)}</p>
+                <p className="font-medium">{t("orders.orderLabel", { orderNumber: formatOrderNumber(o.order_number) })}</p>
                 <p className="text-xs text-gray-500">{new Date(o.created_at).toLocaleString()}</p>
               </div>
               <div className="text-right">
@@ -74,7 +87,7 @@ export function Orders() {
             <div className="flex gap-2 mt-2 flex-wrap">
               {o.merchant_orders.map((mo) => (
                 <Badge key={mo.id} variant={statusBadgeVariant(mo.status)}>
-                  {STATUS_COPY[mo.status]?.label ?? mo.status.replace(/_/g, " ")}
+                  {statusCopy[mo.status]?.label ?? mo.status.replace(/_/g, " ")}
                 </Badge>
               ))}
             </div>
