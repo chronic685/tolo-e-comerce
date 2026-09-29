@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Calendar, CheckCircle2, Star } from "lucide-react";
-import { SkeletonPage, toast } from "@tolo/ui";
+import { Badge, SkeletonPage, Stepper, formatDateTime, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { STATUS_COPY } from "../lib/orderStatus";
+import { buildTrackSteps, getTrackIndex } from "../lib/orderTrack";
 
 interface OrderItemRow {
   id: string;
@@ -212,9 +213,12 @@ export function OrderDetail() {
         </div>
       )}
 
-      {order.merchant_orders.map((mo) => (
+      {order.merchant_orders.map((mo) => {
+        const trackIndex = getTrackIndex(mo.status);
+        const isTerminal = trackIndex === null;
+        return (
         <div key={mo.id} className="bg-white border rounded-lg p-4 mb-4">
-          <div className="flex justify-between items-center mb-1">
+          <div className="flex justify-between items-center mb-2">
             {mo.merchants?.stores ? (
               <Link to={`/stores/${mo.merchants.stores.slug}`} className="font-medium hover:text-navy hover:underline">
                 {mo.merchants.business_name}
@@ -222,11 +226,24 @@ export function OrderDetail() {
             ) : (
               <p className="font-medium">{mo.merchants?.business_name}</p>
             )}
-            <span className="text-xs bg-emerald-100 text-emerald-800 rounded-full px-2 py-0.5">
-              {STATUS_COPY[mo.status]?.label ?? mo.status.replace(/_/g, " ")}
-            </span>
+            {isTerminal && (
+              <Badge variant="danger">{STATUS_COPY[mo.status]?.label ?? mo.status.replace(/_/g, " ")}</Badge>
+            )}
           </div>
-          {STATUS_COPY[mo.status] && <p className="text-xs text-gray-500 mb-2">{STATUS_COPY[mo.status].detail}</p>}
+          {isTerminal ? (
+            STATUS_COPY[mo.status] && <p className="text-xs text-gray-500 mb-3">{STATUS_COPY[mo.status].detail}</p>
+          ) : (
+            <div className="mb-3 -mx-1 overflow-x-auto">
+              <Stepper
+                steps={buildTrackSteps(mo.order_status_history, trackIndex)}
+                currentIndex={trackIndex}
+                className="min-w-[300px] px-1"
+              />
+              {STATUS_COPY[mo.status] && (
+                <p className="text-xs text-gray-500 text-center mt-1">{STATUS_COPY[mo.status].detail}</p>
+              )}
+            </div>
+          )}
           {mo.status === "new" && cancellationEnabled && (
             <div className="mb-3">
               {confirmingCancelId === mo.id ? (
@@ -279,14 +296,14 @@ export function OrderDetail() {
             ))}
           </div>
           <div className="border-t pt-2">
-            <p className="text-xs font-medium text-gray-500 mb-1">Status history</p>
+            <p className="text-xs font-medium text-gray-500 mb-1">Activity</p>
             <ol className="text-xs text-gray-600 space-y-0.5">
               {mo.order_status_history
                 .slice()
                 .sort((a, b) => new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime())
                 .map((h, idx) => (
                   <li key={idx}>
-                    {new Date(h.changed_at).toLocaleString()} — {STATUS_COPY[h.status]?.label ?? h.status.replace(/_/g, " ")}
+                    {formatDateTime(h.changed_at)} — {STATUS_COPY[h.status]?.label ?? h.status.replace(/_/g, " ")}
                     {h.note ? ` (${h.note})` : ""}
                   </li>
                 ))}
@@ -309,7 +326,8 @@ export function OrderDetail() {
             </div>
           )}
         </div>
-      ))}
+        );
+      })}
 
       <div className="bg-white border rounded-lg p-4 space-y-1">
         <div className="flex justify-between text-sm">

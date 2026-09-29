@@ -9,3 +9,6 @@ export { Skeleton, SkeletonPage, SkeletonRows } from "./components/Skeleton";
 export { EmptyState, type EmptyStateProps } from "./components/EmptyState";
 export { Toaster, toast } from "./components/Toaster";
 export { ExportCsvButton, type ExportCsvButtonProps } from "./components/ExportCsvButton";
+export { Sheet, type SheetProps } from "./components/Sheet";
+export { Stepper, type StepperProps, type StepperStep } from "./components/Stepper";
+export { LazyImage, type LazyImageProps } from "./components/LazyImage";

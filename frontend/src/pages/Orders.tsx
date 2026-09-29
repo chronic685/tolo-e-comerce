@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Package } from "lucide-react";
-import { Button, EmptyState, SkeletonRows } from "@tolo/ui";
+import { Badge, Button, EmptyState, SkeletonRows } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { STATUS_COPY } from "../lib/orderStatus";
+import { statusBadgeVariant } from "../lib/orderTrack";
 
 interface OrderRow {
   id: string;
@@ -66,9 +67,9 @@ export function Orders() {
             </div>
             <div className="flex gap-2 mt-2 flex-wrap">
               {o.merchant_orders.map((mo) => (
-                <span key={mo.id} className="text-xs bg-gray-100 rounded-full px-2 py-0.5">
+                <Badge key={mo.id} variant={statusBadgeVariant(mo.status)}>
                   {STATUS_COPY[mo.status]?.label ?? mo.status.replace(/_/g, " ")}
-                </span>
+                </Badge>
               ))}
             </div>
           </Link>

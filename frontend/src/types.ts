@@ -10,6 +10,8 @@ export interface ProductImage {
   url: string;
   is_primary: boolean;
   variant_id: string | null;
+  /** Only present where explicitly selected (ProductDetail.tsx, for gallery ordering). */
+  sort_order?: number;
 }
 
 export interface ProductVariant {
@@ -41,7 +43,7 @@ export interface Product {
   customer_price: number;
   product_variants: ProductVariant[];
   product_images: ProductImage[];
-  stores?: { name: string; slug: string } | null;
+  stores?: { name: string; slug: string; logo_url?: string | null } | null;
   /** Only present when explicitly selected (Marketplace.tsx, for the rating
    * sort) — no aggregate/average rating column exists anywhere, so this is
    * the raw per-review rows, averaged client-side where needed. */
@@ -83,6 +85,7 @@ export interface CartItem {
       slug: string;
       merchant_id: string;
       category_id: string | null;
+      product_images: { url: string; is_primary: boolean }[];
     };
   };
 }
