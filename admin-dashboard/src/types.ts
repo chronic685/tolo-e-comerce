@@ -297,5 +297,6 @@ export interface SupportTicket {
   status: string;
   created_at: string;
   merchant_order_id: string | null;
+  photo_url: string | null;
   merchant_orders?: { order_id: string; merchants: { business_name: string } | null } | null;
 }

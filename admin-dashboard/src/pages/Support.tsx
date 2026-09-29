@@ -23,6 +23,15 @@ export function Support() {
     setLoading(false);
   }
 
+  // Private bucket (migration 0064) -- generated on demand, not stored,
+  // same pattern Merchants.tsx uses for merchant-documents.
+  async function viewPhoto(t: SupportTicket) {
+    if (!t.photo_url) return;
+    const { data, error } = await supabase.storage.from("support-ticket-photos").createSignedUrl(t.photo_url, 300);
+    if (error || !data) return;
+    window.open(data.signedUrl, "_blank");
+  }
+
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -51,6 +60,11 @@ export function Support() {
                 <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 capitalize">{t.status}</span>
               </div>
               {t.body && <p className="text-sm text-gray-600 mb-2">{t.body}</p>}
+              {t.photo_url && (
+                <button onClick={() => viewPhoto(t)} className="text-xs text-navy hover:underline mb-2 block">
+                  View attached photo
+                </button>
+              )}
               {t.merchant_orders && (
                 <Link
                   to={`/orders?order_id=${t.merchant_orders.order_id}`}

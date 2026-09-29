@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { PackageSearch, Search, SlidersHorizontal, Store as StoreIcon } from "lucide-react";
 import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Input, Pagination, Sheet, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
@@ -9,6 +9,13 @@ import { CategoryTile } from "../components/CategoryTile";
 import { ShopCard } from "../components/ShopCard";
 import { ScrollRow } from "../components/ScrollRow";
 import type { Category, MerchantRating, Product } from "../types";
+
+interface Banner {
+  id: string;
+  image_url: string;
+  link_url: string | null;
+  title: string | null;
+}
 
 const PRODUCT_SELECT = `
   id, merchant_id, store_id, category_id, name, slug, description, base_price, discount_price, status,
@@ -57,6 +64,7 @@ export function Marketplace() {
   const hasActiveFilters = Boolean(search.trim() || activeCategory || minPrice || maxPrice || sort !== "newest");
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [banners, setBanners] = useState<Banner[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -89,7 +97,20 @@ export function Marketplace() {
       .eq("is_active", true)
       .order("sort_order")
       .then(({ data }) => setCategories(data ?? []));
+    // Group 4, item 18. is_active is also enforced server-side (RLS,
+    // migration 0068) -- filtering it here too just avoids a flash of a
+    // banner an admin just deactivated before the next full reload.
+    supabase
+      .from("homepage_banners")
+      .select("id, image_url, link_url, title")
+      .eq("is_active", true)
+      .order("sort_order")
+      .then(({ data }) => setBanners((data as Banner[]) ?? []));
   }, []);
+
+  // Only the true, unfiltered homepage — not every search/category view
+  // that happens to share this same route/component.
+  const isHomepage = !search && !activeCategory && !minPrice && !maxPrice;
 
   useEffect(() => {
     setLoading(true);
@@ -161,6 +182,28 @@ export function Marketplace() {
 
   return (
     <div>
+      {isHomepage && banners.length > 0 && (
+        <div className="mb-6 -mx-1 flex gap-3 overflow-x-auto pb-1">
+          {banners.map((b) => {
+            const image = (
+              <img src={b.image_url} alt={b.title ?? ""} className="h-32 sm:h-40 w-auto rounded-lg object-cover flex-shrink-0" />
+            );
+            if (!b.link_url) return <div key={b.id}>{image}</div>;
+            // link_url can point at an external URL or an internal route --
+            // <a> handles both, react-router's <Link> only the latter.
+            return /^https?:\/\//.test(b.link_url) ? (
+              <a key={b.id} href={b.link_url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                {image}
+              </a>
+            ) : (
+              <Link key={b.id} to={b.link_url} className="flex-shrink-0">
+                {image}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />

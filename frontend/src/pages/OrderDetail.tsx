@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { Calendar, CheckCircle2, Star } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Calendar, CheckCircle2, RotateCcw, Star } from "lucide-react";
 import { Badge, SkeletonPage, Stepper, formatDateTime, formatOrderNumber, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
+import { useCart } from "../lib/CartContext";
 import { STATUS_COPY } from "../lib/orderStatus";
 import { buildTrackSteps, getTrackIndex } from "../lib/orderTrack";
+import { isVariantReorderable, type VariantAvailability } from "../lib/reorder";
 
 interface OrderItemRow {
   id: string;
@@ -14,6 +16,9 @@ interface OrderItemRow {
   unit_price: number;
   quantity: number;
   subtotal: number;
+  variant_id: string;
+  item_status: "active" | "removed" | "substituted";
+  resolution_note: string | null;
   product_variants: { product_id: string } | null;
 }
 
@@ -33,6 +38,7 @@ interface OrderRow {
   total: number;
   delivery_fee: number;
   discount_amount: number;
+  rider_tip: number;
   payment_status: string;
   created_at: string;
   scheduled_for: string | null;
@@ -50,6 +56,8 @@ const PAYMENT_PENDING_COPY: Record<string, string> = {
 export function OrderDetail() {
   const { id } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { addItem } = useCart();
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
@@ -58,6 +66,7 @@ export function OrderDetail() {
   const [reviewsEnabled, setReviewsEnabled] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
 
   useEffect(() => {
     load();
@@ -83,13 +92,13 @@ export function OrderDetail() {
     const { data } = await supabase
       .from("orders")
       .select(
-        `id, order_number, subtotal, total, delivery_fee, discount_amount, payment_status, created_at, scheduled_for,
+        `id, order_number, subtotal, total, delivery_fee, discount_amount, rider_tip, payment_status, created_at, scheduled_for,
          addresses ( recipient_name, line1, city, phone ),
          payments ( provider ),
          merchant_orders (
            id, status, subtotal,
            merchants ( business_name, stores ( slug ) ),
-           order_items ( id, product_name_snapshot, variant_attributes_snapshot, unit_price, quantity, subtotal, product_variants ( product_id ) ),
+           order_items ( id, product_name_snapshot, variant_attributes_snapshot, unit_price, quantity, subtotal, variant_id, item_status, resolution_note, product_variants ( product_id ) ),
            order_status_history ( status, changed_at, note )
          )`,
       )
@@ -115,16 +124,74 @@ export function OrderDetail() {
     setLoading(false);
   }
 
-  async function reportIssue(merchantOrderId: string, subject: string, body: string) {
+  // photo is optional -- uploaded to the private support-ticket-photos
+  // bucket under "<merchant_order_id>/..." (migration 0064), which is what
+  // lets both the reporting customer and the merchant that order belongs
+  // to read it back later, without a public URL.
+  async function reportIssue(merchantOrderId: string, subject: string, body: string, photo: File | null) {
     if (!user) return { error: "Not signed in." };
+
+    let photoUrl: string | null = null;
+    if (photo) {
+      const path = `${merchantOrderId}/${Date.now()}-${photo.name}`;
+      const { error: uploadError } = await supabase.storage.from("support-ticket-photos").upload(path, photo);
+      if (uploadError) return { error: uploadError.message };
+      photoUrl = path;
+    }
+
     const { error } = await supabase.from("support_tickets").insert({
       user_id: user.id,
       merchant_order_id: merchantOrderId,
       subject,
       body: body || null,
+      photo_url: photoUrl,
     });
     if (!error) setReportedMerchantOrders((prev) => new Set(prev).add(merchantOrderId));
     return { error: error?.message };
+  }
+
+  // Group 4, item 13: adds every item back to the cart at its current
+  // price (never the price snapshotted on this old order), skipping
+  // anything no longer orderable -- unpublished, or out of stock right
+  // now -- and telling the customer exactly what was skipped rather than
+  // silently dropping it or failing the whole reorder.
+  async function handleReorder() {
+    if (!order) return;
+    setReordering(true);
+    try {
+      const allItems = order.merchant_orders.flatMap((mo) => mo.order_items);
+      const variantIds = [...new Set(allItems.map((i) => i.variant_id))];
+      const { data: variants } = await supabase
+        .from("product_variants")
+        .select("id, stock_status:variant_stock_status, products ( status )")
+        .in("id", variantIds);
+      const availability = new Map(
+        ((variants as unknown as ({ id: string } & VariantAvailability)[]) ?? []).map((v) => [v.id, v]),
+      );
+
+      const skipped: string[] = [];
+      let addedCount = 0;
+      for (const item of allItems) {
+        if (!isVariantReorderable(availability.get(item.variant_id))) {
+          skipped.push(item.product_name_snapshot);
+          continue;
+        }
+        await addItem(item.variant_id, item.quantity);
+        addedCount++;
+      }
+
+      if (skipped.length > 0) {
+        toast.error(`No longer available, skipped: ${skipped.join(", ")}`);
+      }
+      if (addedCount > 0) {
+        toast.success(`Added ${addedCount} item(s) to your cart.`);
+        navigate("/cart");
+      } else if (skipped.length === 0) {
+        toast.error("This order has no items to reorder.");
+      }
+    } finally {
+      setReordering(false);
+    }
   }
 
   async function cancelOrder(merchantOrderId: string) {
@@ -191,7 +258,17 @@ export function OrderDetail() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-bold mb-1">Order {formatOrderNumber(order.order_number)}</h1>
+      <div className="flex items-start justify-between gap-3 mb-1">
+        <h1 className="text-xl font-bold">Order {formatOrderNumber(order.order_number)}</h1>
+        <button
+          onClick={handleReorder}
+          disabled={reordering}
+          className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-navy border-2 border-navy rounded-md px-3 py-1.5 hover:bg-navy-50 disabled:opacity-60"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          {reordering ? "Adding to cart..." : "Reorder"}
+        </button>
+      </div>
       <p className="text-sm text-gray-500 mb-1">{new Date(order.created_at).toLocaleString()}</p>
       {order.scheduled_for ? (
         <p className="text-sm font-medium text-navy bg-navy-50 inline-flex items-center gap-1.5 rounded-md px-2 py-1 mb-5">
@@ -279,7 +356,7 @@ export function OrderDetail() {
             {mo.order_items.map((item) => (
               <div key={item.id}>
                 <div className="flex justify-between text-sm">
-                  <span>
+                  <span className={item.item_status === "removed" ? "line-through text-gray-400" : ""}>
                     {item.product_name_snapshot}
                     {Object.values(item.variant_attributes_snapshot ?? {}).length > 0 &&
                       ` (${Object.values(item.variant_attributes_snapshot).join(" / ")})`}{" "}
@@ -287,6 +364,12 @@ export function OrderDetail() {
                   </span>
                   <span>{item.subtotal.toFixed(2)} ETB</span>
                 </div>
+                {item.item_status !== "active" && (
+                  <p className="text-xs text-amber-700">
+                    {item.item_status === "removed" ? "Removed by the merchant" : "Substituted by the merchant"}
+                    {item.resolution_note ? ` — ${item.resolution_note}` : ""}
+                  </p>
+                )}
                 {reviewsEnabled && mo.status === "completed" && item.product_variants?.product_id && (
                   <ReviewWidget
                     alreadyReviewed={reviewed.has(`${mo.id}:${item.product_variants.product_id}`)}
@@ -322,7 +405,7 @@ export function OrderDetail() {
               <DisputeWidget
                 alreadyReported={reportedMerchantOrders.has(mo.id)}
                 merchantName={mo.merchants?.business_name ?? "this merchant"}
-                onSubmit={(subject, body) => reportIssue(mo.id, subject, body)}
+                onSubmit={(subject, body, photo) => reportIssue(mo.id, subject, body, photo)}
               />
             </div>
           )}
@@ -351,6 +434,12 @@ export function OrderDetail() {
           <span>Total ({order.payment_status})</span>
           <span>{order.total.toFixed(2)} ETB</span>
         </div>
+        {order.rider_tip > 0 && (
+          <div className="flex justify-between text-sm">
+            <span>Rider tip</span>
+            <span>{order.rider_tip.toFixed(2)} ETB</span>
+          </div>
+        )}
         {order.payment_status === "pending" && order.payments[0] && PAYMENT_PENDING_COPY[order.payments[0].provider] && (
           <p className="text-xs text-gray-500 pt-1">{PAYMENT_PENDING_COPY[order.payments[0].provider]}</p>
         )}
@@ -450,10 +539,11 @@ function DisputeWidget({
 }: {
   alreadyReported: boolean;
   merchantName: string;
-  onSubmit: (subject: string, body: string) => Promise<{ error?: string }>;
+  onSubmit: (subject: string, body: string, photo: File | null) => Promise<{ error?: string }>;
 }) {
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(alreadyReported);
 
@@ -475,7 +565,7 @@ function DisputeWidget({
       return;
     }
     setSubmitting(true);
-    const { error } = await onSubmit(`Issue with order from ${merchantName}`, body.trim());
+    const { error } = await onSubmit(`Issue with order from ${merchantName}`, body.trim(), photo);
     setSubmitting(false);
     if (error) {
       toast.error("Could not submit your report. Please try again.");
@@ -494,6 +584,15 @@ function DisputeWidget({
         rows={2}
         className="w-full border rounded-md px-2 py-1 text-xs mb-1"
       />
+      <label className="block text-xs text-gray-600 mb-1">
+        Photo (optional)
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+          className="block w-full text-xs mt-0.5"
+        />
+      </label>
       <div className="flex gap-2">
         <button
           onClick={handleSubmit}

@@ -88,6 +88,15 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   "merchant_orders_unacknowledged",
   "returns_awaiting_refund",
 
+  // Group 4, item 17 (migration 0067): admin finance reconciliation
+  // report (Finance.tsx). Both cross multiple tables as SECURITY DEFINER
+  // (rather than being gated by any single table's own RLS), so each has
+  // its own explicit is_tolo_finance()/'finance_reconciliation' check and
+  // raises for anyone else -- same "self-authorizing, safe to leave on
+  // the default PUBLIC grant" treatment as my_referral_stats below.
+  "finance_reconciliation_summary",
+  "finance_reconciliation_rows",
+
   // Group 1, item 4 (migration 0057): customer-facing "Open now"/"Closed
   // now" badge on Storefront.tsx (as a computed column). Not security
   // definer -- reads only the `stores` row already passed in, which the
@@ -180,6 +189,7 @@ describe("function privileges: no un-reviewed function is callable by anon/authe
       "refund_merchant_order_if_paid",
       "auto_cancel_unresponsive_orders",
       "list_function_privileges",
+      "resolve_unavailable_order_item",
     ];
 
     const { data, error } = await db.rpc("list_function_privileges");

@@ -77,11 +77,14 @@ export interface StorefrontStore {
   merchants: ({ status: string } & MerchantRating) | null;
 }
 
+export type UnavailablePreference = "remove" | "substitute" | "cancel_order";
+
 export interface CartItem {
   id: string;
   cart_id: string;
   variant_id: string;
   quantity: number;
+  on_unavailable: UnavailablePreference;
   product_variants: ProductVariant & {
     products: {
       id: string;

@@ -15,6 +15,8 @@ import {
   UserCog,
   History,
   Settings as SettingsIcon,
+  FileBarChart,
+  Image as ImageIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -50,6 +52,7 @@ export const ADMIN_PAGES: AdminPage[] = [
   { key: "merchants", label: "Merchants", to: "/merchants", icon: Store, group: "Catalog" },
   { key: "products", label: "Products", to: "/products", icon: Package, group: "Catalog" },
   { key: "customers", label: "Customers", to: "/customers", icon: UsersIcon, group: "Catalog" },
+  { key: "banners", label: "Homepage Banners", to: "/banners", icon: ImageIcon, group: "Catalog" },
   {
     key: "inventory_movements",
     label: "Inventory Movements",
@@ -62,6 +65,13 @@ export const ADMIN_PAGES: AdminPage[] = [
   { key: "payments", label: "Payments", to: "/payments", icon: CreditCard, group: "Finance" },
   { key: "pricing_rules", label: "Pricing Rules", to: "/pricing-rules", icon: Tag, group: "Finance" },
   { key: "settlements", label: "Settlements", to: "/settlements", icon: Wallet, group: "Finance" },
+  {
+    key: "finance_reconciliation",
+    label: "Finance Reconciliation",
+    to: "/finance-reconciliation",
+    icon: FileBarChart,
+    group: "Finance",
+  },
 
   { key: "notification_templates", label: "Notification Templates", to: "/notification-templates", icon: Bell, group: "Platform" },
   { key: "users", label: "Users & Roles", to: "/users", icon: UserCog, group: "Platform" },

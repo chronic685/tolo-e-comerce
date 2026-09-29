@@ -1,5 +1,5 @@
 // POST /checkout
-// body: { address_id: string, payment_provider: string, promo_code?: string, scheduled_for?: string }
+// body: { address_id: string, payment_provider: string, promo_code?: string, scheduled_for?: string, rider_tip?: number }
 // Reads the caller's cart, atomically creates the master order + merchant
 // orders + reserves stock (via the create_order() SQL function), then opens
 // a pending payment record. Stock reservations are rolled back automatically
@@ -66,12 +66,15 @@ Deno.serve(async (req) => {
     }
     const customerId = userData.user.id;
 
-    const { address_id, payment_provider, promo_code, scheduled_for } = await req.json();
+    const { address_id, payment_provider, promo_code, scheduled_for, rider_tip } = await req.json();
     if (!address_id || !payment_provider) {
       return jsonResponse({ error: "address_id and payment_provider are required" }, 400);
     }
     if (scheduled_for && Number.isNaN(Date.parse(scheduled_for))) {
       return jsonResponse({ error: "scheduled_for is not a valid date/time." }, 400);
+    }
+    if (rider_tip !== undefined && (typeof rider_tip !== "number" || !Number.isFinite(rider_tip) || rider_tip < 0)) {
+      return jsonResponse({ error: "rider_tip must be a non-negative number." }, 400);
     }
 
     const db = serviceClient();
@@ -135,7 +138,7 @@ Deno.serve(async (req) => {
 
     const { data: items } = await db
       .from("cart_items")
-      .select("variant_id, quantity")
+      .select("variant_id, quantity, on_unavailable")
       .eq("cart_id", cart.id);
 
     if (!items || items.length === 0) {
@@ -154,6 +157,7 @@ Deno.serve(async (req) => {
       p_items: items,
       p_code: promo_code || null,
       p_scheduled_for: scheduled_for || null,
+      p_rider_tip: rider_tip || 0,
     });
 
     if (orderError) {
@@ -163,16 +167,22 @@ Deno.serve(async (req) => {
 
     const { data: order } = await db
       .from("orders")
-      .select("total")
+      .select("total, rider_tip")
       .eq("id", orderId)
       .single();
+
+    // The tip is collected alongside the order (same "not automated" money
+    // movement every payment provider already gets here) but is never part
+    // of order.total -- it must never feed into merchant_orders splits or
+    // commission. See migration 0066.
+    const amountDue = order!.total + order!.rider_tip;
 
     const { data: payment, error: paymentError } = await db
       .from("payments")
       .insert({
         order_id: orderId,
         provider: payment_provider,
-        amount: order!.total,
+        amount: amountDue,
       })
       .select()
       .single();
@@ -181,7 +191,7 @@ Deno.serve(async (req) => {
 
     await db.from("cart_items").delete().eq("cart_id", cart.id);
 
-    return jsonResponse({ order_id: orderId, payment_id: payment.id, amount: order!.total });
+    return jsonResponse({ order_id: orderId, payment_id: payment.id, amount: amountDue });
   } catch (err) {
     return jsonResponse({ error: String(err) }, 500);
   }

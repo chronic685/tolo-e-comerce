@@ -17,6 +17,8 @@ import { Users } from "./pages/Users";
 import { AuditLog } from "./pages/AuditLog";
 import { Settings } from "./pages/Settings";
 import { Settlements } from "./pages/Settlements";
+import { FinanceReconciliation } from "./pages/FinanceReconciliation";
+import { Banners } from "./pages/Banners";
 import { Support } from "./pages/Support";
 import { DeliveryOps } from "./pages/DeliveryOps";
 import { NotificationTemplates } from "./pages/NotificationTemplates";
@@ -60,6 +62,14 @@ export default function App() {
           {/* Categories folded into the Products page as a tab — gated the
               same as /products itself, since that's where it actually lands. */}
           <Route path="/categories" element={<Navigate to="/products?tab=categories" replace />} />
+          <Route
+            path="/banners"
+            element={
+              <PageGuard pageKey="banners">
+                <Banners />
+              </PageGuard>
+            }
+          />
           <Route
             path="/customers"
             element={
@@ -120,6 +130,14 @@ export default function App() {
             element={
               <PageGuard pageKey="settlements">
                 <Settlements />
+              </PageGuard>
+            }
+          />
+          <Route
+            path="/finance-reconciliation"
+            element={
+              <PageGuard pageKey="finance_reconciliation">
+                <FinanceReconciliation />
               </PageGuard>
             }
           />
