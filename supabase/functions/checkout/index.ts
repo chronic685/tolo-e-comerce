@@ -88,6 +88,22 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "This payment method is not currently available. Please choose another." }, 400);
     }
 
+    // Fraud control (migration 0061): cash on delivery has no upfront
+    // payment verification, so it's the easiest method to abuse from a
+    // fresh/throwaway account -- capped for new accounts only, and only
+    // when this specific request is itself a COD checkout.
+    if (payment_provider === "cash_on_delivery") {
+      const { data: codCheck } = await db.rpc("customer_cod_fraud_check", { p_customer_id: customerId }).single();
+      if (codCheck && !codCheck.allowed) {
+        return jsonResponse(
+          {
+            error: `New accounts are limited to ${codCheck.max_cod_orders} cash-on-delivery order(s) totaling up to ${codCheck.max_cod_amount_etb} ETB while your account is being verified. Please choose another payment method, or try again once your account is more established.`,
+          },
+          403,
+        );
+      }
+    }
+
     // Rate-limit only after authentication and basic input validation have
     // passed — an unauthenticated or malformed request must never consume a
     // real customer's quota, and this check must happen before the

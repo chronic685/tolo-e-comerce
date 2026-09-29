@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MapPin, Heart, Bell, LifeBuoy, LogOut, PartyPopper } from "lucide-react";
+import { MapPin, Heart, Bell, LifeBuoy, LogOut, PartyPopper, ScrollText } from "lucide-react";
 import { Skeleton, toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
@@ -213,6 +213,21 @@ export function Account() {
         <Link to="/support" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
           <LifeBuoy className="w-4 h-4 text-gray-400" />
           Support
+        </Link>
+      </div>
+
+      <div className="bg-white border rounded-lg mt-4 divide-y">
+        <Link to="/legal/terms" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
+          <ScrollText className="w-4 h-4 text-gray-400" />
+          Terms of Service
+        </Link>
+        <Link to="/legal/privacy" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
+          <ScrollText className="w-4 h-4 text-gray-400" />
+          Privacy Policy
+        </Link>
+        <Link to="/legal/refund-policy" className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50">
+          <ScrollText className="w-4 h-4 text-gray-400" />
+          Refund Policy
         </Link>
       </div>
 

@@ -13,6 +13,9 @@ export interface VariantInput {
   price: number;
   stock: number;
   isDefault: boolean;
+  // Undefined lets the inventory table's own default (5) apply -- only
+  // ProductForm.tsx's per-variant editor sets this explicitly today.
+  lowStockThreshold?: number;
 }
 
 export interface ImageInput {
@@ -86,9 +89,9 @@ export async function saveProduct(
       variantId = data?.id;
     }
     if (variantId) {
-      const { error } = await supabase
-        .from("inventory")
-        .upsert({ variant_id: variantId, stock_quantity: v.stock }, { onConflict: "variant_id" });
+      const inventoryPayload: Record<string, unknown> = { variant_id: variantId, stock_quantity: v.stock };
+      if (v.lowStockThreshold !== undefined) inventoryPayload.low_stock_threshold = v.lowStockThreshold;
+      const { error } = await supabase.from("inventory").upsert(inventoryPayload, { onConflict: "variant_id" });
       if (error) return { ok: false, error: error.message };
     }
   }

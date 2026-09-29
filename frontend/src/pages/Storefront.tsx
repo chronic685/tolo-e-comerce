@@ -58,7 +58,7 @@ export function Storefront() {
     supabase
       .from("stores")
       .select(
-        "id, merchant_id, name, slug, description, logo_url, banner_url, status, operating_hours, " +
+        "id, merchant_id, name, slug, description, logo_url, banner_url, status, operating_hours, prep_time_minutes, " +
           "is_open_now:store_is_open_now, " +
           "merchants ( status, avg_rating:merchants_avg_rating, review_count:merchants_review_count )",
       )
@@ -163,6 +163,11 @@ export function Storefront() {
             >
               {store.is_open_now ? "Open now" : "Closed now"}
             </span>
+            {store.prep_time_minutes != null && (
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-navy-50 text-navy">
+                Usually ready in ~{store.prep_time_minutes} min
+              </span>
+            )}
           </div>
           {store.description && <p className="text-sm text-gray-500 mt-0.5">{store.description}</p>}
           {!store.is_open_now &&

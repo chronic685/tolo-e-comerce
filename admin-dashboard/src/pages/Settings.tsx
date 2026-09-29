@@ -46,6 +46,13 @@ interface AutoCancelSettings {
   after_minutes: number;
 }
 
+interface CodFraudControls {
+  enabled: boolean;
+  new_account_age_days: number;
+  max_cod_orders: number;
+  max_cod_amount_etb: number;
+}
+
 interface NotificationChannels {
   push: boolean; // UI-only — no push provider is connected, _shared/notify.ts never checks this
   sms: boolean;
@@ -79,6 +86,12 @@ const DEFAULTS = {
     escalate_after_minutes: 5,
   } satisfies NewOrderAlertSettings,
   auto_cancel_unresponsive_orders: { enabled: true, after_minutes: 30 } satisfies AutoCancelSettings,
+  cod_fraud_controls: {
+    enabled: true,
+    new_account_age_days: 7,
+    max_cod_orders: 3,
+    max_cod_amount_etb: 2000,
+  } satisfies CodFraudControls,
   notification_channels: { push: true, sms: true, email: true, in_app: true } satisfies NotificationChannels,
 };
 
@@ -91,6 +104,7 @@ export function Settings() {
   const [merchantFeatures, setMerchantFeatures] = useState<MerchantFeatures>(DEFAULTS.merchant_features);
   const [newOrderAlerts, setNewOrderAlerts] = useState<NewOrderAlertSettings>(DEFAULTS.merchant_new_order_alerts);
   const [autoCancel, setAutoCancel] = useState<AutoCancelSettings>(DEFAULTS.auto_cancel_unresponsive_orders);
+  const [codFraudControls, setCodFraudControls] = useState<CodFraudControls>(DEFAULTS.cod_fraud_controls);
   const [notificationChannels, setNotificationChannels] = useState<NotificationChannels>(DEFAULTS.notification_channels);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -108,6 +122,7 @@ export function Settings() {
         "merchant_features",
         "merchant_new_order_alerts",
         "auto_cancel_unresponsive_orders",
+        "cod_fraud_controls",
         "notification_channels",
       ])
       .then(({ data }) => {
@@ -136,6 +151,9 @@ export function Settings() {
               break;
             case "auto_cancel_unresponsive_orders":
               setAutoCancel({ ...DEFAULTS.auto_cancel_unresponsive_orders, ...(row.value as object) });
+              break;
+            case "cod_fraud_controls":
+              setCodFraudControls({ ...DEFAULTS.cod_fraud_controls, ...(row.value as object) });
               break;
             case "notification_channels":
               setNotificationChannels({ ...DEFAULTS.notification_channels, ...(row.value as object) });
@@ -432,6 +450,60 @@ export function Settings() {
             onChange={(e) => setAutoCancel({ ...autoCancel, after_minutes: Number(e.target.value) })}
             className="w-full border rounded-md px-2 py-1.5 text-sm"
           />
+        </div>
+      </section>
+
+      <section className="bg-white border rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-medium">Cash-on-delivery fraud controls</h2>
+          <button
+            onClick={() => save("cod_fraud_controls", codFraudControls)}
+            disabled={savingKey === "cod_fraud_controls"}
+            className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
+          >
+            Save
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mb-2">
+          Limits how many cash-on-delivery orders a new account can place while unverified. Once an account is older than the age below,
+          these limits stop applying to it.
+        </p>
+        <label className="flex items-center justify-between py-1.5 text-sm">
+          Enabled
+          <input
+            type="checkbox"
+            checked={codFraudControls.enabled}
+            onChange={(e) => setCodFraudControls({ ...codFraudControls, enabled: e.target.checked })}
+          />
+        </label>
+        <div className="grid grid-cols-3 gap-2 mt-2">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">"New" account age (days)</label>
+            <input
+              type="number"
+              value={codFraudControls.new_account_age_days}
+              onChange={(e) => setCodFraudControls({ ...codFraudControls, new_account_age_days: Number(e.target.value) })}
+              className="w-full border rounded-md px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Max COD orders</label>
+            <input
+              type="number"
+              value={codFraudControls.max_cod_orders}
+              onChange={(e) => setCodFraudControls({ ...codFraudControls, max_cod_orders: Number(e.target.value) })}
+              className="w-full border rounded-md px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Max COD total (ETB)</label>
+            <input
+              type="number"
+              value={codFraudControls.max_cod_amount_etb}
+              onChange={(e) => setCodFraudControls({ ...codFraudControls, max_cod_amount_etb: Number(e.target.value) })}
+              className="w-full border rounded-md px-2 py-1.5 text-sm"
+            />
+          </div>
         </div>
       </section>
 
