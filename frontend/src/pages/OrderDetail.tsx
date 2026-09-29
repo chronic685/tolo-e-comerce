@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Calendar, CheckCircle2, RotateCcw, Star } from "lucide-react";
-import { Badge, SkeletonPage, Stepper, formatDateTime, formatOrderNumber, toast } from "@tolo/ui";
+import { Badge, SkeletonPage, Stepper, formatDateTime, formatOrderNumber, toast, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
-import { STATUS_COPY } from "../lib/orderStatus";
+import { useStatusCopy } from "../lib/orderStatus";
 import { buildTrackSteps, getTrackIndex } from "../lib/orderTrack";
 import { isVariantReorderable, type VariantAvailability } from "../lib/reorder";
 
@@ -47,17 +47,18 @@ interface OrderRow {
   payments: { provider: string }[];
 }
 
-const PAYMENT_PENDING_COPY: Record<string, string> = {
-  cash_on_delivery: "Pay the delivery agent in cash when your order arrives.",
-  bank_transfer: "We'll confirm your bank transfer shortly.",
-  mobile_money: "We'll confirm your mobile money payment shortly.",
-};
-
 export function OrderDetail() {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { addItem } = useCart();
+  const { t } = useTranslation();
+  const statusCopy = useStatusCopy();
+  const PAYMENT_PENDING_COPY: Record<string, string> = {
+    cash_on_delivery: t("paymentPending.cashOnDelivery"),
+    bank_transfer: t("paymentPending.bankTransfer"),
+    mobile_money: t("paymentPending.mobileMoney"),
+  };
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
@@ -85,6 +86,7 @@ export function OrderDetail() {
         setCancellationEnabled(features?.order_cancellation_enabled ?? true);
         setReviewsEnabled(features?.reviews_enabled ?? true);
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   async function load() {
@@ -119,7 +121,7 @@ export function OrderDetail() {
         .from("support_tickets")
         .select("merchant_order_id")
         .in("merchant_order_id", moIds);
-      setReportedMerchantOrders(new Set((tickets ?? []).map((t) => t.merchant_order_id as string)));
+      setReportedMerchantOrders(new Set((tickets ?? []).map((ticket) => ticket.merchant_order_id as string)));
     }
     setLoading(false);
   }
@@ -181,13 +183,13 @@ export function OrderDetail() {
       }
 
       if (skipped.length > 0) {
-        toast.error(`No longer available, skipped: ${skipped.join(", ")}`);
+        toast.error(t("orders.noLongerAvailableSkipped", { items: skipped.join(", ") }));
       }
       if (addedCount > 0) {
-        toast.success(`Added ${addedCount} item(s) to your cart.`);
+        toast.success(t("orders.addedToCart", { count: addedCount }));
         navigate("/cart");
       } else if (skipped.length === 0) {
-        toast.error("This order has no items to reorder.");
+        toast.error(t("orders.noItemsToReorder"));
       }
     } finally {
       setReordering(false);
@@ -201,7 +203,7 @@ export function OrderDetail() {
       body: { merchant_order_id: merchantOrderId, status: "cancelled" },
     });
     if (error) {
-      let message = "Could not cancel this order. Please try again.";
+      let message = t("orders.cancelGenericError");
       const context = (error as { context?: Response })?.context;
       if (context) {
         try {
@@ -259,29 +261,29 @@ export function OrderDetail() {
   return (
     <div className="max-w-2xl">
       <div className="flex items-start justify-between gap-3 mb-1">
-        <h1 className="text-xl font-bold">Order {formatOrderNumber(order.order_number)}</h1>
+        <h1 className="text-xl font-bold">{t("orders.orderLabel", { orderNumber: formatOrderNumber(order.order_number) })}</h1>
         <button
           onClick={handleReorder}
           disabled={reordering}
           className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-navy border-2 border-navy rounded-md px-3 py-1.5 hover:bg-navy-50 disabled:opacity-60"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          {reordering ? "Adding to cart..." : "Reorder"}
+          {reordering ? t("orders.reordering") : t("orders.reorder")}
         </button>
       </div>
       <p className="text-sm text-gray-500 mb-1">{new Date(order.created_at).toLocaleString()}</p>
       {order.scheduled_for ? (
         <p className="text-sm font-medium text-navy bg-navy-50 inline-flex items-center gap-1.5 rounded-md px-2 py-1 mb-5">
           <Calendar className="w-3.5 h-3.5" />
-          Scheduled for {new Date(order.scheduled_for).toLocaleString()}
+          {t("orders.scheduledForPrefix", { datetime: new Date(order.scheduled_for).toLocaleString() })}
         </p>
       ) : (
-        <p className="text-sm text-gray-400 mb-5">Delivered as soon as possible</p>
+        <p className="text-sm text-gray-400 mb-5">{t("orders.deliveredAsSoonAsPossible")}</p>
       )}
 
       {order.addresses && (
         <div className="bg-white border rounded-lg p-4 mb-4 text-sm">
-          <p className="font-medium mb-1">Delivering to</p>
+          <p className="font-medium mb-1">{t("orders.deliveringTo")}</p>
           <p>
             {order.addresses.recipient_name} — {order.addresses.phone}
           </p>
@@ -305,11 +307,11 @@ export function OrderDetail() {
               <p className="font-medium">{mo.merchants?.business_name}</p>
             )}
             {isTerminal && (
-              <Badge variant="danger">{STATUS_COPY[mo.status]?.label ?? mo.status.replace(/_/g, " ")}</Badge>
+              <Badge variant="danger">{statusCopy[mo.status]?.label ?? mo.status.replace(/_/g, " ")}</Badge>
             )}
           </div>
           {isTerminal ? (
-            STATUS_COPY[mo.status] && <p className="text-xs text-gray-500 mb-3">{STATUS_COPY[mo.status].detail}</p>
+            statusCopy[mo.status] && <p className="text-xs text-gray-500 mb-3">{statusCopy[mo.status].detail}</p>
           ) : (
             <div className="mb-3 -mx-1 overflow-x-auto">
               <Stepper
@@ -317,8 +319,8 @@ export function OrderDetail() {
                 currentIndex={trackIndex}
                 className="min-w-[300px] px-1"
               />
-              {STATUS_COPY[mo.status] && (
-                <p className="text-xs text-gray-500 text-center mt-1">{STATUS_COPY[mo.status].detail}</p>
+              {statusCopy[mo.status] && (
+                <p className="text-xs text-gray-500 text-center mt-1">{statusCopy[mo.status].detail}</p>
               )}
             </div>
           )}
@@ -326,20 +328,20 @@ export function OrderDetail() {
             <div className="mb-3">
               {confirmingCancelId === mo.id ? (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-gray-700">Cancel this order?</span>
+                  <span className="text-xs text-gray-700">{t("orders.cancelThisOrder")}</span>
                   <button
                     onClick={() => cancelOrder(mo.id)}
                     disabled={cancelling === mo.id}
                     className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700 disabled:opacity-60"
                   >
-                    {cancelling === mo.id ? "Cancelling..." : "Yes, cancel"}
+                    {cancelling === mo.id ? t("orders.cancelling") : t("orders.yesCancel")}
                   </button>
                   <button
                     onClick={() => setConfirmingCancelId(null)}
                     disabled={cancelling === mo.id}
                     className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-60"
                   >
-                    No, keep it
+                    {t("orders.noKeepIt")}
                   </button>
                 </div>
               ) : (
@@ -347,7 +349,7 @@ export function OrderDetail() {
                   onClick={() => setConfirmingCancelId(mo.id)}
                   className="text-xs border border-red-200 text-red-600 px-3 py-1.5 rounded-md hover:bg-red-50"
                 >
-                  Cancel order
+                  {t("orders.cancelOrder")}
                 </button>
               )}
             </div>
@@ -366,7 +368,7 @@ export function OrderDetail() {
                 </div>
                 {item.item_status !== "active" && (
                   <p className="text-xs text-amber-700">
-                    {item.item_status === "removed" ? "Removed by the merchant" : "Substituted by the merchant"}
+                    {item.item_status === "removed" ? t("orders.removedByMerchant") : t("orders.substitutedByMerchant")}
                     {item.resolution_note ? ` — ${item.resolution_note}` : ""}
                   </p>
                 )}
@@ -380,14 +382,14 @@ export function OrderDetail() {
             ))}
           </div>
           <div className="border-t pt-2">
-            <p className="text-xs font-medium text-gray-500 mb-1">Activity</p>
+            <p className="text-xs font-medium text-gray-500 mb-1">{t("orders.statusHistory")}</p>
             <ol className="text-xs text-gray-600 space-y-0.5">
               {mo.order_status_history
                 .slice()
                 .sort((a, b) => new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime())
                 .map((h, idx) => (
                   <li key={idx}>
-                    {formatDateTime(h.changed_at)} — {STATUS_COPY[h.status]?.label ?? h.status.replace(/_/g, " ")}
+                    {formatDateTime(h.changed_at)} — {statusCopy[h.status]?.label ?? h.status.replace(/_/g, " ")}
                     {h.note ? ` (${h.note})` : ""}
                   </li>
                 ))}
@@ -404,7 +406,7 @@ export function OrderDetail() {
             <div className="border-t pt-2 mt-2">
               <DisputeWidget
                 alreadyReported={reportedMerchantOrders.has(mo.id)}
-                merchantName={mo.merchants?.business_name ?? "this merchant"}
+                merchantName={mo.merchants?.business_name ?? t("orders.thisMerchant")}
                 onSubmit={(subject, body, photo) => reportIssue(mo.id, subject, body, photo)}
               />
             </div>
@@ -415,28 +417,28 @@ export function OrderDetail() {
 
       <div className="bg-white border rounded-lg p-4 space-y-1">
         <div className="flex justify-between text-sm">
-          <span>Subtotal</span>
+          <span>{t("orders.subtotal")}</span>
           <span>{order.subtotal.toFixed(2)} ETB</span>
         </div>
         {order.discount_amount > 0 && (
           <div className="flex justify-between text-sm text-emerald-700">
-            <span>Discount</span>
+            <span>{t("orders.discount")}</span>
             <span>-{order.discount_amount.toFixed(2)} ETB</span>
           </div>
         )}
         {order.delivery_fee > 0 && (
           <div className="flex justify-between text-sm">
-            <span>Delivery</span>
+            <span>{t("orders.delivery")}</span>
             <span>{order.delivery_fee.toFixed(2)} ETB</span>
           </div>
         )}
         <div className="flex justify-between font-semibold pt-1 border-t">
-          <span>Total ({order.payment_status})</span>
+          <span>{t("orders.totalWithStatus", { status: order.payment_status })}</span>
           <span>{order.total.toFixed(2)} ETB</span>
         </div>
         {order.rider_tip > 0 && (
           <div className="flex justify-between text-sm">
-            <span>Rider tip</span>
+            <span>{t("orders.riderTip")}</span>
             <span>{order.rider_tip.toFixed(2)} ETB</span>
           </div>
         )}
@@ -455,6 +457,7 @@ function ReviewWidget({
   alreadyReviewed: boolean;
   onSubmit: (rating: number, comment: string) => Promise<{ error?: string; code?: string }>;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
@@ -465,7 +468,7 @@ function ReviewWidget({
     return (
       <p className="text-xs text-emerald-700 mt-0.5 inline-flex items-center gap-1">
         <CheckCircle2 className="w-3.5 h-3.5" />
-        You reviewed this product
+        {t("review.alreadyReviewed")}
       </p>
     );
   }
@@ -473,14 +476,14 @@ function ReviewWidget({
   if (!open) {
     return (
       <button onClick={() => setOpen(true)} className="text-xs text-navy font-medium mt-0.5">
-        Rate this product
+        {t("review.rateProduct")}
       </button>
     );
   }
 
   async function handleSubmit() {
     if (rating === 0) {
-      toast.error("Please select a star rating.");
+      toast.error(t("review.selectRating"));
       return;
     }
     setSubmitting(true);
@@ -490,7 +493,7 @@ function ReviewWidget({
       // PT429 is this project's convention (see migration 0032) for a
       // database trigger to make PostgREST answer 429 — its message is
       // already a safe, pre-written string, unlike other DB errors.
-      toast.error(code === "PT429" ? error : "Could not submit your review. Please try again.");
+      toast.error(code === "PT429" ? error : t("review.genericError"));
       return;
     }
     setDone(true);
@@ -508,7 +511,7 @@ function ReviewWidget({
       <textarea
         value={comment}
         onChange={(e) => setComment(e.target.value)}
-        placeholder="Optional comment..."
+        placeholder={t("review.optionalComment")}
         rows={2}
         className="w-full border rounded-md px-2 py-1 text-xs mb-1"
       />
@@ -518,10 +521,10 @@ function ReviewWidget({
           disabled={submitting}
           className="bg-navy text-white text-xs px-3 py-1 rounded-md font-medium disabled:opacity-60"
         >
-          {submitting ? "Submitting..." : "Submit review"}
+          {submitting ? t("review.submitting") : t("review.submit")}
         </button>
         <button onClick={() => setOpen(false)} className="text-xs text-gray-500">
-          Cancel
+          {t("review.cancel")}
         </button>
       </div>
     </div>
@@ -541,6 +544,7 @@ function DisputeWidget({
   merchantName: string;
   onSubmit: (subject: string, body: string, photo: File | null) => Promise<{ error?: string }>;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
@@ -548,27 +552,27 @@ function DisputeWidget({
   const [done, setDone] = useState(alreadyReported);
 
   if (done) {
-    return <p className="text-xs text-gray-500">You reported an issue with this order — we'll be in touch.</p>;
+    return <p className="text-xs text-gray-500">{t("dispute.alreadyReported")}</p>;
   }
 
   if (!open) {
     return (
       <button onClick={() => setOpen(true)} className="text-xs text-red-600 font-medium">
-        Report an issue (item never arrived, wrong item, etc.)
+        {t("dispute.reportIssueButton")}
       </button>
     );
   }
 
   async function handleSubmit() {
     if (!body.trim()) {
-      toast.error("Please describe the issue.");
+      toast.error(t("dispute.describeIssue"));
       return;
     }
     setSubmitting(true);
-    const { error } = await onSubmit(`Issue with order from ${merchantName}`, body.trim(), photo);
+    const { error } = await onSubmit(t("dispute.subjectPrefix", { merchantName }), body.trim(), photo);
     setSubmitting(false);
     if (error) {
-      toast.error("Could not submit your report. Please try again.");
+      toast.error(t("dispute.genericError"));
       return;
     }
     setDone(true);
@@ -576,16 +580,16 @@ function DisputeWidget({
 
   return (
     <div className="bg-red-50 rounded-md p-2">
-      <p className="text-xs font-medium mb-1">What went wrong?</p>
+      <p className="text-xs font-medium mb-1">{t("dispute.whatWentWrong")}</p>
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder="e.g. item never arrived, wrong item received..."
+        placeholder={t("dispute.placeholder")}
         rows={2}
         className="w-full border rounded-md px-2 py-1 text-xs mb-1"
       />
       <label className="block text-xs text-gray-600 mb-1">
-        Photo (optional)
+        {t("dispute.photoOptional")}
         <input
           type="file"
           accept="image/*"
@@ -599,10 +603,10 @@ function DisputeWidget({
           disabled={submitting}
           className="bg-red-600 text-white text-xs px-3 py-1 rounded-md font-medium disabled:opacity-60"
         >
-          {submitting ? "Submitting..." : "Submit report"}
+          {submitting ? t("review.submitting") : t("dispute.submitReport")}
         </button>
         <button onClick={() => setOpen(false)} className="text-xs text-gray-500">
-          Cancel
+          {t("review.cancel")}
         </button>
       </div>
     </div>

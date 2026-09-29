@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { LifeBuoy } from "lucide-react";
-import { ADMIN_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, useTranslation, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 
@@ -29,6 +29,7 @@ const statusColors: Record<string, string> = {
 // no status-change action here, just visibility.
 export function Support() {
   const { merchant } = useMerchant();
+  const { t } = useTranslation();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -52,41 +53,43 @@ export function Support() {
       });
   }, [merchant, from, to]);
 
-  async function viewPhoto(t: Ticket) {
-    if (!t.photo_url) return;
-    const { data, error } = await supabase.storage.from("support-ticket-photos").createSignedUrl(t.photo_url, 300);
+  async function viewPhoto(ticket: Ticket) {
+    if (!ticket.photo_url) return;
+    const { data, error } = await supabase.storage.from("support-ticket-photos").createSignedUrl(ticket.photo_url, 300);
     if (error || !data) return;
     window.open(data.signedUrl, "_blank");
   }
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-bold mb-4">Reported Issues</h1>
+      <h1 className="text-xl font-bold mb-4">{t("support.title")}</h1>
       {loading ? (
         <SkeletonRows />
       ) : tickets.length === 0 ? (
-        <EmptyState icon={LifeBuoy} title="No issues reported" description="Problems customers report about your orders will show up here." />
+        <EmptyState icon={LifeBuoy} title={t("support.empty")} description={t("support.emptyDescription")} />
       ) : (
         <>
           <div className="bg-white border rounded-lg divide-y">
-            {tickets.map((t) => (
-              <div key={t.id} className="p-4">
+            {tickets.map((ticket) => (
+              <div key={ticket.id} className="p-4">
                 <div className="flex justify-between items-start mb-1">
-                  <p className="font-medium text-sm">{t.subject}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${statusColors[t.status] ?? "bg-gray-100"}`}>{t.status}</span>
+                  <p className="font-medium text-sm">{ticket.subject}</p>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[ticket.status] ?? "bg-gray-100"}`}>
+                    {t(`support.status.${ticket.status}`)}
+                  </span>
                 </div>
-                {t.body && <p className="text-sm text-gray-600 mb-2">{t.body}</p>}
-                {t.photo_url && (
-                  <button onClick={() => viewPhoto(t)} className="text-xs text-navy hover:underline mb-2 block">
-                    View attached photo
+                {ticket.body && <p className="text-sm text-gray-600 mb-2">{ticket.body}</p>}
+                {ticket.photo_url && (
+                  <button onClick={() => viewPhoto(ticket)} className="text-xs text-navy hover:underline mb-2 block">
+                    {t("orders.viewAttachedPhoto")}
                   </button>
                 )}
-                {t.merchant_orders && (
-                  <Link to={`/orders/${t.merchant_order_id}`} className="text-xs text-navy hover:underline mb-2 block">
-                    View order
+                {ticket.merchant_orders && (
+                  <Link to={`/orders/${ticket.merchant_order_id}`} className="text-xs text-navy hover:underline mb-2 block">
+                    {t("orders.viewOrder")}
                   </Link>
                 )}
-                <p className="text-xs text-gray-400">{new Date(t.created_at).toLocaleString()}</p>
+                <p className="text-xs text-gray-400">{new Date(ticket.created_at).toLocaleString()}</p>
               </div>
             ))}
           </div>

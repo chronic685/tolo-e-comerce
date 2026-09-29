@@ -1,28 +1,30 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { LayoutDashboard, ClipboardList, Wallet as WalletIcon, Store, Users, LogOut, Menu, X, Package, Tag, LifeBuoy } from "lucide-react";
+import { LanguageSwitcher, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
 import { NewOrderAlert } from "./NewOrderAlert";
-
-const BASE_NAV_ITEMS = [
-  { to: "/", label: "Dashboard", end: true, icon: LayoutDashboard },
-  { to: "/products", label: "Products", icon: Package },
-  { to: "/promotions", label: "Promotions", icon: Tag },
-  { to: "/orders", label: "Orders", icon: ClipboardList },
-  { to: "/wallet", label: "Wallet", icon: WalletIcon },
-  { to: "/support", label: "Reported Issues", icon: LifeBuoy },
-  { to: "/store", label: "Store Settings", icon: Store },
-];
 
 export function Layout() {
   const { signOut } = useAuth();
   const { merchant, store } = useMerchant();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const [staffAccountsEnabled, setStaffAccountsEnabled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const BASE_NAV_ITEMS = [
+    { to: "/", label: t("nav.dashboard"), end: true, icon: LayoutDashboard },
+    { to: "/products", label: t("nav.products"), icon: Package },
+    { to: "/promotions", label: t("nav.promotions"), icon: Tag },
+    { to: "/orders", label: t("nav.orders"), icon: ClipboardList },
+    { to: "/wallet", label: t("nav.wallet"), icon: WalletIcon },
+    { to: "/support", label: t("nav.reportedIssues"), icon: LifeBuoy },
+    { to: "/store", label: t("nav.storeSettings"), icon: Store },
+  ];
 
   useEffect(() => {
     // Same platform-wide toggle Staff.tsx itself re-checks — hidden from
@@ -43,7 +45,9 @@ export function Layout() {
     setMenuOpen(false);
   }, [location.pathname]);
 
-  const navItems = staffAccountsEnabled ? [...BASE_NAV_ITEMS, { to: "/staff", label: "Staff", end: undefined, icon: Users }] : BASE_NAV_ITEMS;
+  const navItems = staffAccountsEnabled
+    ? [...BASE_NAV_ITEMS, { to: "/staff", label: t("nav.staff"), end: undefined, icon: Users }]
+    : BASE_NAV_ITEMS;
 
   async function handleSignOut() {
     await signOut();
@@ -56,9 +60,9 @@ export function Layout() {
       <div className="md:hidden fixed top-0 inset-x-0 z-20 bg-navy-dark text-white flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2 min-w-0">
           <img src="/logo.png" alt="" className="h-7 w-7 flex-shrink-0" />
-          <p className="text-sm font-bold truncate">{store?.name ?? merchant?.business_name ?? "Tolo Merchant"}</p>
+          <p className="text-sm font-bold truncate">{store?.name ?? merchant?.business_name ?? t("merchant.appName")}</p>
         </div>
-        <button onClick={() => setMenuOpen(true)} aria-label="Open menu" className="p-1">
+        <button onClick={() => setMenuOpen(true)} aria-label={t("nav.openMenu")} className="p-1">
           <Menu className="w-6 h-6" />
         </button>
       </div>
@@ -73,10 +77,10 @@ export function Layout() {
         <div className="px-4 py-5 border-b border-navy-light/40 flex items-center gap-2">
           <img src="/logo.png" alt="" className="h-8 w-8 flex-shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="text-lg font-bold text-white leading-tight">Tolo Merchant</p>
+            <p className="text-lg font-bold text-white leading-tight">{t("merchant.appName")}</p>
             <p className="text-xs text-gray-400 truncate">{store?.name ?? merchant?.business_name}</p>
           </div>
-          <button onClick={() => setMenuOpen(false)} aria-label="Close menu" className="md:hidden p-1 flex-shrink-0">
+          <button onClick={() => setMenuOpen(false)} aria-label={t("nav.closeMenu")} className="md:hidden p-1 flex-shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -95,12 +99,15 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
+        <div className="px-4 py-2 border-t border-navy-light/40">
+          <LanguageSwitcher variant="full" className="text-gray-300" />
+        </div>
         <button
           onClick={handleSignOut}
           className="flex items-center gap-3 px-4 py-3 text-sm text-left text-gray-300 hover:bg-navy border-t border-navy-light/40"
         >
           <LogOut className="w-4 h-4" />
-          Sign out
+          {t("common.signOut")}
         </button>
       </aside>
 

@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { toast } from "@tolo/ui";
+import { toast, useTranslation } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 
 export function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const from = (location.state as { from?: Location })?.from?.pathname ?? "/";
 
   const [email, setEmail] = useState("");
@@ -27,11 +28,11 @@ export function Login() {
 
   return (
     <div className="max-w-sm mx-auto mt-8">
-      <h1 className="text-xl font-bold mb-4">Sign in</h1>
+      <h1 className="text-xl font-bold mb-4">{t("nav.signIn")}</h1>
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
           type="email"
-          placeholder="Email"
+          placeholder={t("auth.email")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -39,7 +40,7 @@ export function Login() {
         />
         <input
           type="password"
-          placeholder="Password"
+          placeholder={t("auth.password")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -47,7 +48,7 @@ export function Login() {
         />
         <div className="text-right">
           <Link to="/forgot-password" className="text-xs text-navy font-medium">
-            Forgot password?
+            {t("auth.forgotPassword")}
           </Link>
         </div>
         <button
@@ -55,13 +56,13 @@ export function Login() {
           disabled={loading}
           className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
         >
-          {loading ? "Signing in..." : "Sign in"}
+          {loading ? t("auth.signingIn") : t("nav.signIn")}
         </button>
       </form>
       <p className="text-sm text-gray-500 mt-4">
-        No account?{" "}
+        {t("auth.noAccount")}{" "}
         <Link to="/signup" className="text-navy font-medium">
-          Sign up
+          {t("auth.signup")}
         </Link>
       </p>
     </div>

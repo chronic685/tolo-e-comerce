@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "@tolo/ui";
+import { toast, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 
@@ -14,6 +14,7 @@ const RECOVERY_DETECTION_TIMEOUT_MS = 4000;
 export function ResetPassword() {
   const { updatePassword, signOut } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [recoveryState, setRecoveryState] = useState<RecoveryState>("checking");
   const [password, setPassword] = useState("");
@@ -45,18 +46,18 @@ export function ResetPassword() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password.length < 6) {
-      toast.error("Please choose a stronger password (at least 6 characters).");
+      toast.error(t("auth.passwordTooWeak"));
       return;
     }
     if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
+      toast.error(t("validation.passwordsDontMatch"));
       return;
     }
     setSubmitting(true);
     const { error } = await updatePassword(password);
     setSubmitting(false);
     if (error) {
-      toast.error("We couldn't complete the request. Please try again.");
+      toast.error(t("auth.resetRequestFailed"));
       return;
     }
     setDone(true);
@@ -67,16 +68,16 @@ export function ResetPassword() {
   }
 
   if (recoveryState === "checking") {
-    return <p className="text-center text-gray-500 py-16">Verifying your reset link...</p>;
+    return <p className="text-center text-gray-500 py-16">{t("auth.verifyingResetLink")}</p>;
   }
 
   if (recoveryState === "invalid") {
     return (
       <div className="max-w-sm mx-auto mt-8 text-center">
-        <h1 className="text-xl font-bold mb-2">Link invalid or expired</h1>
-        <p className="text-gray-600 text-sm mb-4">This password-reset link is invalid or has expired.</p>
+        <h1 className="text-xl font-bold mb-2">{t("auth.linkInvalidTitle")}</h1>
+        <p className="text-gray-600 text-sm mb-4">{t("auth.linkInvalidDescription")}</p>
         <button onClick={() => navigate("/forgot-password")} className="text-navy text-sm font-medium">
-          Request a new reset link
+          {t("auth.requestNewResetLink")}
         </button>
       </div>
     );
@@ -85,13 +86,13 @@ export function ResetPassword() {
   if (done) {
     return (
       <div className="max-w-sm mx-auto mt-8 text-center">
-        <h1 className="text-xl font-bold mb-2">Password updated</h1>
-        <p className="text-gray-600 text-sm mb-4">Your password has been changed. Sign in with your new password.</p>
+        <h1 className="text-xl font-bold mb-2">{t("auth.passwordUpdatedTitle")}</h1>
+        <p className="text-gray-600 text-sm mb-4">{t("auth.passwordUpdatedDescription")}</p>
         <button
           onClick={() => navigate("/login")}
           className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark"
         >
-          Go to login
+          {t("auth.goToLogin")}
         </button>
       </div>
     );
@@ -99,11 +100,11 @@ export function ResetPassword() {
 
   return (
     <div className="max-w-sm mx-auto mt-8">
-      <h1 className="text-xl font-bold mb-1">Set a new password</h1>
+      <h1 className="text-xl font-bold mb-1">{t("auth.setNewPassword")}</h1>
       <form onSubmit={handleSubmit} className="space-y-3 mt-4">
         <input
           type="password"
-          placeholder="New password"
+          placeholder={t("auth.newPassword")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -112,7 +113,7 @@ export function ResetPassword() {
         />
         <input
           type="password"
-          placeholder="Confirm new password"
+          placeholder={t("auth.confirmNewPassword")}
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           required
@@ -124,7 +125,7 @@ export function ResetPassword() {
           disabled={submitting}
           className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
         >
-          {submitting ? "Updating password..." : "Update password"}
+          {submitting ? t("auth.updatingPassword") : t("auth.updatePassword")}
         </button>
       </form>
     </div>

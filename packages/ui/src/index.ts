@@ -1,5 +1,5 @@
 export { cn } from "./lib/cn";
-export { formatCurrency, formatDate, formatDateTime, formatOrderNumber, formatRelativeTime } from "./lib/format";
+export { formatCurrency, formatDate, formatDateEthiopian, formatDateTime, formatOrderNumber, formatRelativeTime } from "./lib/format";
 export { CUSTOMER_PAGE_SIZE, ADMIN_PAGE_SIZE, totalPagesFor, rangeFor } from "./lib/pagination";
 export { fetchAllRows, SUPABASE_MAX_ROWS_PER_REQUEST, type FetchPageResult } from "./lib/fetchAllRows";
 export { exportToCsv } from "./lib/csv";
@@ -27,3 +27,11 @@ export { LazyImage, type LazyImageProps } from "./components/LazyImage";
 export { Pagination, type PaginationProps } from "./components/Pagination";
 
 export { usePagination, type UsePaginationOptions, type UsePaginationResult } from "./hooks/usePagination";
+
+export { LanguageSwitcher, type LanguageSwitcherProps } from "./components/LanguageSwitcher";
+
+export { I18nProvider, type I18nContextValue } from "./i18n/I18nProvider";
+export { useTranslation } from "./i18n/useTranslation";
+export { LOCALES, LOCALE_LABELS, LOCALE_STORAGE_KEY, type Locale } from "./i18n/types";
+export { getCurrentLocale } from "./i18n/locale";
+export { getEnglishStrings, getAmharicStrings } from "./i18n/loadTranslations";

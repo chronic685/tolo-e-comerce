@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MapPin } from "lucide-react";
-import { Button, Stepper, toast } from "@tolo/ui";
+import { Button, Stepper, toast, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
@@ -23,6 +23,13 @@ export function Checkout() {
   const { items, refresh } = useCart();
   const navigate = useNavigate();
   const embed = isEmbedMode();
+  const { t } = useTranslation();
+
+  const PAYMENT_METHOD_LABELS: Record<string, string> = {
+    cash_on_delivery: t("checkout.cashOnDelivery"),
+    bank_transfer: t("checkout.bankTransfer"),
+    mobile_money: t("checkout.mobileMoney"),
+  };
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressId, setAddressId] = useState<string | null>(null);
@@ -119,17 +126,13 @@ export function Checkout() {
       .maybeSingle()
       .then(({ data }) => {
         const methods = (data?.value as Record<string, boolean>) ?? {};
-        const labels: Record<string, string> = {
-          cash_on_delivery: "Cash on delivery",
-          bank_transfer: "Bank transfer",
-          mobile_money: "Mobile money",
-        };
         const enabled = PAYMENT_METHOD_ORDER.filter((key) => methods[key]).map(
-          (key) => [key, labels[key] ?? key] as [string, string],
+          (key) => [key, PAYMENT_METHOD_LABELS[key] ?? key] as [string, string],
         );
         setPaymentMethods(enabled);
         setPaymentProvider(enabled[0]?.[0] ?? null);
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -168,7 +171,7 @@ export function Checkout() {
         sub_city: loc.subCity || f.sub_city,
       }));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not get your location.");
+      toast.error(err instanceof Error ? err.message : t("checkout.couldNotGetLocation"));
     } finally {
       setLocating(false);
     }
@@ -242,19 +245,19 @@ export function Checkout() {
 
   async function handlePlaceOrder() {
     if (!addressId) {
-      toast.error("Please select or add a delivery address.");
+      toast.error(t("checkout.selectAddressError"));
       return;
     }
     if (!paymentProvider) {
-      toast.error("No payment method is currently available. Please try again later.");
+      toast.error(t("checkout.noPaymentMethod"));
       return;
     }
     if (scheduledOrdersEnabled && deliveryTiming === "scheduled" && !scheduledFor) {
-      toast.error("Please choose a delivery date and time, or switch back to \"Deliver now\".");
+      toast.error(t("checkout.selectDeliveryTimeError"));
       return;
     }
     if (!acceptedTerms) {
-      toast.error("Please accept the Terms of Service, Privacy Policy, and Refund Policy to continue.");
+      toast.error(t("checkout.acceptTermsError"));
       return;
     }
     setPlacing(true);
@@ -275,7 +278,7 @@ export function Checkout() {
       // error.message — it has to be read from the raw response ourselves,
       // or the specific message the function returned (e.g. "out of stock",
       // "account suspended") never reaches the user, just a generic failure.
-      let message = "Checkout failed. Please try again.";
+      let message = t("checkout.genericError");
       const context = (checkoutError as { context?: Response })?.context;
       if (context) {
         try {
@@ -307,7 +310,7 @@ export function Checkout() {
   }
 
   if (items.length === 0) {
-    return <p className="text-gray-500">Your cart is empty.</p>;
+    return <p className="text-gray-500">{t("errors.cartEmpty")}</p>;
   }
 
   // Step list for the mobile flow — "Delivery time" is only a step when
@@ -332,25 +335,25 @@ export function Checkout() {
 
   const addressSection = (
     <div className="bg-white border rounded-lg p-4 mb-4">
-      <h2 className="font-medium mb-2">Deliver to</h2>
+      <h2 className="font-medium mb-2">{t("checkout.deliverTo")}</h2>
       {addresses.map((a) => (
           <label key={a.id} className="flex items-start gap-2 mb-2 text-sm">
             <input type="radio" checked={addressId === a.id} onChange={() => setAddressId(a.id)} />
             <span>
-              <strong>{a.label ?? "Address"}</strong> — {a.recipient_name}, {a.phone}
+              <strong>{a.label ?? t("checkout.addressFallback")}</strong> — {a.recipient_name}, {a.phone}
               <br />
               <span className="inline-flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 text-gray-400" />
                 {a.line1}, {a.city}
               </span>
-              {a.latitude && <span className="text-xs text-gray-400"> (GPS confirmed)</span>}
+              {a.latitude && <span className="text-xs text-gray-400"> {t("checkout.gpsConfirmed")}</span>}
             </span>
           </label>
         ))}
 
         {!showNewAddress && (
           <button onClick={() => setShowNewAddress(true)} className="text-navy text-sm font-medium mt-1">
-            + Add new address
+            {t("checkout.addNewAddress")}
           </button>
         )}
 
@@ -363,11 +366,11 @@ export function Checkout() {
               className="w-full border-2 border-navy text-navy rounded-md px-3 py-2 text-sm font-medium hover:bg-navy-50 disabled:opacity-60"
             >
               {locating ? (
-                "Getting your location..."
+                t("checkout.gettingLocation")
               ) : (
                 <span className="inline-flex items-center justify-center gap-1.5 w-full">
                   <MapPin className="w-4 h-4" />
-                  Use my current location
+                  {t("checkout.useCurrentLocation")}
                 </span>
               )}
             </button>
@@ -375,50 +378,50 @@ export function Checkout() {
             {form.latitude && (
               <p className="text-xs text-navy bg-navy-50 rounded-md px-3 py-2 flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                Location confirmed — you can still edit the details below if needed.
+                {t("checkout.locationConfirmedNote")}
               </p>
             )}
 
             <input
-              placeholder="Recipient name"
+              placeholder={t("checkout.recipientName")}
               value={form.recipient_name}
               onChange={(e) => setForm({ ...form, recipient_name: e.target.value })}
               className="w-full border rounded-md px-3 py-2 text-sm"
             />
             <input
-              placeholder="Phone"
+              placeholder={t("auth.phone")}
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
               className="w-full border rounded-md px-3 py-2 text-sm"
             />
             <input
-              placeholder="Street / area"
+              placeholder={t("checkout.streetArea")}
               value={form.line1}
               onChange={(e) => setForm({ ...form, line1: e.target.value })}
               className="w-full border rounded-md px-3 py-2 text-sm"
             />
             <div className="grid grid-cols-2 gap-2">
               <input
-                placeholder="City"
+                placeholder={t("checkout.city")}
                 value={form.city}
                 onChange={(e) => setForm({ ...form, city: e.target.value })}
                 className="w-full border rounded-md px-3 py-2 text-sm"
               />
               <input
-                placeholder="Sub-city (optional)"
+                placeholder={t("checkout.subCityOptional")}
                 value={form.sub_city}
                 onChange={(e) => setForm({ ...form, sub_city: e.target.value })}
                 className="w-full border rounded-md px-3 py-2 text-sm"
               />
             </div>
             <input
-              placeholder="Landmark (optional)"
+              placeholder={t("checkout.landmarkOptional")}
               value={form.landmark}
               onChange={(e) => setForm({ ...form, landmark: e.target.value })}
               className="w-full border rounded-md px-3 py-2 text-sm"
             />
             <button onClick={handleSaveAddress} className="text-sm bg-gray-800 text-white px-3 py-1.5 rounded-md">
-              Save address
+              {t("checkout.saveAddress")}
             </button>
           </div>
         )}
@@ -427,9 +430,9 @@ export function Checkout() {
 
   const paymentSection = (
     <div className="bg-white border rounded-lg p-4 mb-4">
-      <h2 className="font-medium mb-2">Payment method</h2>
+      <h2 className="font-medium mb-2">{t("checkout.paymentMethod")}</h2>
       {paymentMethods.length === 0 ? (
-        <p className="text-sm text-red-600">No payment method is currently available.</p>
+        <p className="text-sm text-red-600">{t("checkout.noPaymentMethod")}</p>
       ) : (
         paymentMethods.map(([key, label]) => (
           <label key={key} className="flex items-center gap-2 mb-1 text-sm">
@@ -449,7 +452,7 @@ export function Checkout() {
 
   const deliverySection = scheduledOrdersEnabled && (
     <div className="bg-white border rounded-lg p-4 mb-4">
-      <h2 className="font-medium mb-2">Delivery time</h2>
+      <h2 className="font-medium mb-2">{t("checkout.deliveryTime")}</h2>
       <div className="flex gap-2 mb-2">
         <button
           type="button"
@@ -458,7 +461,7 @@ export function Checkout() {
                 deliveryTiming === "now" ? "bg-navy text-white border-navy" : "bg-white text-gray-600"
               }`}
             >
-              Deliver now
+              {t("checkout.deliverNow")}
             </button>
             <button
               type="button"
@@ -467,7 +470,7 @@ export function Checkout() {
                 deliveryTiming === "scheduled" ? "bg-navy text-white border-navy" : "bg-white text-gray-600"
               }`}
             >
-              Schedule for later
+              {t("checkout.scheduleForLater")}
             </button>
           </div>
           {deliveryTiming === "scheduled" && (
@@ -481,8 +484,13 @@ export function Checkout() {
                 className="w-full border rounded-md px-3 py-2 text-sm"
               />
               <p className="text-xs text-gray-400 mt-1">
-                Choose a time at least {scheduleBounds.minLeadMinutes >= 60 ? `${scheduleBounds.minLeadMinutes / 60} hour(s)` : `${scheduleBounds.minLeadMinutes} minutes`} from
-                now, and within {scheduleBounds.maxAdvanceDays} days.
+                {t("checkout.deliveryTimeNote", {
+                  lead:
+                    scheduleBounds.minLeadMinutes >= 60
+                      ? `${scheduleBounds.minLeadMinutes / 60} ${t("checkout.hoursUnit")}`
+                      : `${scheduleBounds.minLeadMinutes} ${t("checkout.minutesUnit")}`,
+                  days: scheduleBounds.maxAdvanceDays,
+                })}
               </p>
             </>
           )}
@@ -491,10 +499,10 @@ export function Checkout() {
 
   const promoSection = promoCodesEnabled && (
         <div className="bg-white border rounded-lg p-4 mb-4">
-          <h2 className="font-medium mb-2">Promo code</h2>
+          <h2 className="font-medium mb-2">{t("checkout.promoCode")}</h2>
           <div className="flex gap-2">
             <input
-              placeholder="Enter code"
+              placeholder={t("checkout.enterCode")}
               value={promoCode}
               onChange={(e) => {
                 setPromoCode(e.target.value);
@@ -508,25 +516,23 @@ export function Checkout() {
               disabled={!promoCode.trim() || promoStatus === "checking"}
               className="border-2 border-navy text-navy px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-50 disabled:opacity-60"
             >
-              {promoStatus === "checking" ? "Checking..." : "Apply"}
+              {promoStatus === "checking" ? t("checkout.checking") : t("checkout.apply")}
             </button>
           </div>
           {promoStatus === "valid" && (
             <p className="text-emerald-700 text-sm mt-2">
-              "{promoRuleName}" applied — {(promoDiscountAmount ?? 0).toFixed(2)} ETB off.
+              {t("checkout.promoAppliedNote", { ruleName: promoRuleName ?? "", amount: (promoDiscountAmount ?? 0).toFixed(2) })}
             </p>
           )}
-          {promoStatus === "invalid" && <p className="text-red-600 text-sm mt-2">This code is invalid or has expired.</p>}
-          {promoStatus === "not_applicable" && (
-            <p className="text-orange-600 text-sm mt-2">This code doesn't apply to your current cart.</p>
-          )}
+          {promoStatus === "invalid" && <p className="text-red-600 text-sm mt-2">{t("checkout.promoInvalid")}</p>}
+          {promoStatus === "not_applicable" && <p className="text-orange-600 text-sm mt-2">{t("checkout.promoNotApplicable")}</p>}
         </div>
   );
 
   const summarySection = (
     <>
       <div className="bg-white border rounded-lg p-4 mb-4">
-        <h2 className="font-medium mb-2">Tip your rider (optional)</h2>
+        <h2 className="font-medium mb-2">{t("checkout.riderTip")}</h2>
         <div className="flex gap-2 mb-2">
           {[0, 10, 20, 50].map((amount) => (
             <button
@@ -540,14 +546,14 @@ export function Checkout() {
                 riderTip === amount && customTip === "" ? "bg-navy text-white border-navy" : "bg-white text-gray-600"
               }`}
             >
-              {amount === 0 ? "No tip" : `${amount} ETB`}
+              {amount === 0 ? t("checkout.noTip") : `${amount} ETB`}
             </button>
           ))}
         </div>
         <input
           type="number"
           min={0}
-          placeholder="Custom amount"
+          placeholder={t("checkout.customAmount")}
           value={customTip}
           onChange={(e) => {
             setCustomTip(e.target.value);
@@ -556,41 +562,36 @@ export function Checkout() {
           }}
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
-        <p className="text-xs text-gray-400 mt-1">
-          Your rider's tip is kept separate from the order total and doesn't affect the merchant.
-        </p>
+        <p className="text-xs text-gray-400 mt-1">{t("checkout.riderTipNote")}</p>
       </div>
 
       <div className="bg-white border rounded-lg p-4 mb-4 text-sm space-y-1">
         <div className="flex justify-between">
-          <span>Subtotal</span>
+          <span>{t("checkout.subtotal")}</span>
           <span>{subtotal.toFixed(2)} ETB</span>
         </div>
         {promoStatus === "valid" && (
           <div className="flex justify-between text-emerald-700">
-            <span>Promo discount</span>
+            <span>{t("checkout.promoDiscount")}</span>
             <span>-{(promoDiscountAmount ?? 0).toFixed(2)} ETB</span>
           </div>
         )}
         <div className="flex justify-between font-semibold border-t pt-1 mt-1">
-          <span>Total</span>
+          <span>{t("checkout.total")}</span>
           <span>{total.toFixed(2)} ETB</span>
         </div>
         {riderTip > 0 && (
           <div className="flex justify-between">
-            <span>Rider tip</span>
+            <span>{t("orders.riderTip")}</span>
             <span>{riderTip.toFixed(2)} ETB</span>
           </div>
         )}
         <div className="flex justify-between font-semibold border-t pt-1 mt-1">
-          <span>You'll pay</span>
+          <span>{t("checkout.youllPay")}</span>
           <span>{amountToPay.toFixed(2)} ETB</span>
         </div>
       </div>
-      <p className="text-xs text-gray-400 -mt-3 mb-4">
-        Delivery fee isn't included yet, and a better automatic discount can still apply instead of a promo code — the final amount is
-        always shown on your order confirmation.
-      </p>
+      <p className="text-xs text-gray-400 -mt-3 mb-4">{t("checkout.deliveryFeeNote")}</p>
     </>
   );
 
@@ -603,17 +604,17 @@ export function Checkout() {
         className="mt-0.5"
       />
       <span>
-        I agree to Tolo's{" "}
+        {t("checkout.agreeToTermsPrefix")}{" "}
         <Link to="/legal/terms" target="_blank" rel="noopener noreferrer" className="text-navy underline">
-          Terms of Service
+          {t("footer.terms")}
         </Link>
         ,{" "}
         <Link to="/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-navy underline">
-          Privacy Policy
+          {t("footer.privacy")}
         </Link>
-        , and{" "}
+        , {t("checkout.and")}{" "}
         <Link to="/legal/refund-policy" target="_blank" rel="noopener noreferrer" className="text-navy underline">
-          Refund Policy
+          {t("footer.refundPolicy")}
         </Link>
         .
       </span>
@@ -626,7 +627,7 @@ export function Checkout() {
       disabled={placing || !acceptedTerms}
       className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
     >
-      {placing ? "Placing order..." : "Place order"}
+      {placing ? t("checkout.placingOrder") : t("checkout.placeOrder")}
     </button>
   );
 
@@ -645,7 +646,7 @@ export function Checkout() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-xl font-bold mb-4">Checkout</h1>
+      <h1 className="text-xl font-bold mb-4">{t("checkout.title")}</h1>
       <Stepper steps={steps} currentIndex={clampedStep} className="mb-6" />
 
       {/* Phones: one step's fields at a time, with Back/Next. */}
@@ -654,12 +655,12 @@ export function Checkout() {
         <div className="flex gap-2 mt-2">
           {clampedStep > 0 && (
             <Button type="button" variant="outline" className="flex-1" onClick={goBack}>
-              Back
+              {t("common.back")}
             </Button>
           )}
           {clampedStep < steps.length - 1 ? (
             <Button type="button" className="flex-1" onClick={goNext}>
-              Next
+              {t("common.next")}
             </Button>
           ) : (
             <div className="flex-1">{placeOrderButton}</div>

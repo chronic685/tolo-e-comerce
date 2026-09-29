@@ -1,26 +1,28 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { AlertTriangle, Bell, Home, Package, ShoppingCart, Store, User, X } from "lucide-react";
+import { LanguageSwitcher, useTranslation } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
 import { supabase } from "../lib/supabase";
 import { closeApp, isEmbedMode } from "../lib/appBridge";
 
-const TABS = [
-  { to: "/", label: "Home", icon: Home, end: true },
-  { to: "/stores", label: "Shops", icon: Store },
-  { to: "/cart", label: "Cart", icon: ShoppingCart },
-  { to: "/orders", label: "Orders", icon: Package },
-  { to: "/account", label: "Account", icon: User },
-];
-
 export function Layout() {
   const { user } = useAuth();
   const { itemCount } = useCart();
+  const { t } = useTranslation();
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const location = useLocation();
   const embed = isEmbedMode();
+
+  const TABS = [
+    { to: "/", label: t("nav.home"), icon: Home, end: true },
+    { to: "/stores", label: t("nav.shops"), icon: Store },
+    { to: "/cart", label: t("nav.cart"), icon: ShoppingCart },
+    { to: "/orders", label: t("nav.orders"), icon: Package },
+    { to: "/account", label: t("nav.account"), icon: User },
+  ];
 
   useEffect(() => {
     supabase
@@ -48,7 +50,7 @@ export function Layout() {
       {maintenanceMode && (
         <div className="bg-red-600 text-white text-center text-sm py-2 px-4 flex items-center justify-center gap-2">
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-          Tolo is temporarily under maintenance — placing new orders is paused. Browsing still works.
+          {t("maintenance.banner")}
         </div>
       )}
 
@@ -76,22 +78,23 @@ export function Layout() {
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-5 text-sm">
             <Link to="/" className="hover:text-navy">
-              Marketplace
+              {t("nav.marketplace")}
             </Link>
             <Link to="/stores" className="hover:text-navy">
-              Shops
+              {t("nav.shops")}
             </Link>
             {user && (
               <Link to="/orders" className="hover:text-navy">
-                My Orders
+                {t("nav.myOrders")}
               </Link>
             )}
           </nav>
 
           {/* Icon actions — visible on every width */}
           <div className="flex items-center gap-4">
+            <LanguageSwitcher className="hidden md:inline-flex text-gray-600 hover:text-navy" />
             {user && (
-              <Link to="/notifications" aria-label="Notifications" className="relative text-gray-600 hover:text-navy">
+              <Link to="/notifications" aria-label={t("nav.notifications")} className="relative text-gray-600 hover:text-navy">
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-[10px] leading-none rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
@@ -100,7 +103,7 @@ export function Layout() {
                 )}
               </Link>
             )}
-            <Link to="/cart" aria-label="Cart" className="relative text-gray-600 hover:text-navy">
+            <Link to="/cart" aria-label={t("nav.cart")} className="relative text-gray-600 hover:text-navy">
               <ShoppingCart className="w-5 h-5" />
               {itemCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 bg-navy text-white text-[10px] leading-none rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
@@ -109,12 +112,12 @@ export function Layout() {
               )}
             </Link>
             {user ? (
-              <Link to="/account" aria-label="Account" className="hidden md:block text-gray-600 hover:text-navy">
+              <Link to="/account" aria-label={t("nav.account")} className="hidden md:block text-gray-600 hover:text-navy">
                 <User className="w-5 h-5" />
               </Link>
             ) : (
               <Link to="/login" className="text-sm hover:text-navy">
-                Sign in
+                {t("nav.signIn")}
               </Link>
             )}
           </div>
@@ -128,24 +131,28 @@ export function Layout() {
 
       {!embed && (
       <footer className="hidden md:block border-t bg-white text-center text-xs text-gray-500 py-4">
-        <p>Tolo Marketplace — powered by Tech City PLC</p>
+        <p>{t("footer.poweredBy")}</p>
         <nav className="flex items-center justify-center gap-3 mt-1.5">
           <Link to="/legal/terms" className="hover:text-navy hover:underline">
-            Terms of Service
+            {t("footer.terms")}
           </Link>
           <span aria-hidden="true">·</span>
           <Link to="/legal/privacy" className="hover:text-navy hover:underline">
-            Privacy Policy
+            {t("footer.privacy")}
           </Link>
           <span aria-hidden="true">·</span>
           <Link to="/legal/refund-policy" className="hover:text-navy hover:underline">
-            Refund Policy
+            {t("footer.refundPolicy")}
           </Link>
         </nav>
       </footer>
       )}
 
-      {/* Bottom tab bar — phones only, hidden in embed mode */}
+      {/* Bottom tab bar — phones only, hidden in embed mode. This app has no
+          slide-out mobile menu (a persistent bottom bar is the whole mobile
+          nav), so the language switcher's mobile-menu presence (Group 5,
+          item 2) lives on the Account page instead — the natural "settings"
+          surface on this bottom-tab-bar layout. */}
       {!embed && (
       <nav
         className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t z-10"
