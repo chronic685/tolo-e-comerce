@@ -93,6 +93,7 @@ export interface Settlement {
   total_amount: number;
   status: string;
   created_at: string;
+  paid_at: string | null;
   merchants: { business_name: string } | null;
 }
 

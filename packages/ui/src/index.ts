@@ -2,6 +2,7 @@ export { cn } from "./lib/cn";
 export { formatCurrency, formatDate, formatDateTime, formatOrderNumber, formatRelativeTime } from "./lib/format";
 export { CUSTOMER_PAGE_SIZE, ADMIN_PAGE_SIZE, totalPagesFor, rangeFor } from "./lib/pagination";
 export { fetchAllRows, SUPABASE_MAX_ROWS_PER_REQUEST, type FetchPageResult } from "./lib/fetchAllRows";
+export { exportToCsv } from "./lib/csv";
 export {
   DAY_KEYS,
   DAY_LABELS,

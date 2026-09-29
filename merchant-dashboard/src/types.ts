@@ -85,6 +85,24 @@ export interface Product {
   categories: { name: string } | null;
 }
 
+// Only the fields a merchant can actually set (Group 3, item 10,
+// migration 0062) -- scope_type is always 'merchant' or 'product',
+// funded_by is always 'merchant'; code/usage caps/first_order_only/
+// tolo_share_percent stay admin-only levers this page never touches.
+export interface Promotion {
+  id: string;
+  name: string;
+  description: string | null;
+  scope_type: "merchant" | "product";
+  scope_id: string | null;
+  discount_kind: "percent" | "fixed";
+  amount: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface OrderItem {
   id: string;
   product_name_snapshot: string;
@@ -125,5 +143,15 @@ export interface WalletTransaction {
   amount: number;
   balance_after: number;
   note: string | null;
+  created_at: string;
+}
+
+export interface Statement {
+  id: string;
+  period_start: string;
+  period_end: string;
+  total_amount: number;
+  status: string;
+  paid_at: string | null;
   created_at: string;
 }

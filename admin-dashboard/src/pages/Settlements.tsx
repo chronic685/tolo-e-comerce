@@ -24,14 +24,108 @@ export function Settlements() {
   const [adjAmount, setAdjAmount] = useState("");
   const [adjReason, setAdjReason] = useState("");
 
+  const [downloadingStatementId, setDownloadingStatementId] = useState<string | null>(null);
+
   async function load() {
     const { data, count } = await supabase
       .from("settlements")
-      .select("id, merchant_id, period_start, period_end, total_amount, status, created_at, merchants ( business_name )", { count: "exact" })
+      .select("id, merchant_id, period_start, period_end, total_amount, status, created_at, paid_at, merchants ( business_name )", {
+        count: "exact",
+      })
       .order("created_at", { ascending: false })
       .range(settlementsPage.from, settlementsPage.to);
     setSettlements((data as unknown as Settlement[]) ?? []);
     setSettlementsTotal(count ?? 0);
+  }
+
+  // Group 3, item 11: admin marks a payout as paid once it's actually
+  // been sent -- settlement-run only ever creates settlements as
+  // 'pending' (migration 0009's own default); nothing transitioned them
+  // further until now.
+  async function markPaid(s: Settlement) {
+    if (!confirm(`Mark the ${s.total_amount.toFixed(2)} ETB payout to ${s.merchants?.business_name} as paid?`)) return;
+    const { error } = await supabase.from("settlements").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", s.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setSettlements((prev) => prev.map((x) => (x.id === s.id ? { ...x, status: "paid", paid_at: new Date().toISOString() } : x)));
+  }
+
+  // Itemized period statement for one payout: every order it covers
+  // (subtotal, commission, net) plus any refunds against those orders and
+  // any financial_adjustments this settlement netted in -- everything
+  // settlement-run actually used to compute total_amount, laid out line
+  // by line. Same query shape the merchant-dashboard Wallet page uses for
+  // their own statements (RLS scopes it the same way either side).
+  async function downloadStatement(s: Settlement) {
+    setDownloadingStatementId(s.id);
+    try {
+      const { data: rawItems, error: itemsError } = await supabase
+        .from("settlement_items")
+        .select(
+          "amount, merchant_orders ( id, subtotal, commission_amount, discount_amount, merchant_payable, orders ( order_number ) )",
+        )
+        .eq("settlement_id", s.id);
+      if (itemsError) throw itemsError;
+
+      const items = (rawItems ?? []) as unknown as {
+        merchant_orders: {
+          id: string;
+          subtotal: number;
+          commission_amount: number;
+          discount_amount: number;
+          merchant_payable: number;
+          orders: { order_number: number } | null;
+        } | null;
+      }[];
+
+      const merchantOrderIds = items.map((i) => i.merchant_orders?.id).filter(Boolean) as string[];
+      const refundByMerchantOrder = new Map<string, number>();
+      if (merchantOrderIds.length > 0) {
+        const { data: returnsRows } = await supabase
+          .from("returns")
+          .select("merchant_order_id, refunds ( amount, status )")
+          .in("merchant_order_id", merchantOrderIds);
+        for (const r of (returnsRows as unknown as { merchant_order_id: string; refunds: { amount: number; status: string }[] }[]) ?? []) {
+          const refunded = r.refunds.filter((f) => f.status === "completed").reduce((sum, f) => sum + Number(f.amount), 0);
+          if (refunded > 0) refundByMerchantOrder.set(r.merchant_order_id, (refundByMerchantOrder.get(r.merchant_order_id) ?? 0) + refunded);
+        }
+      }
+
+      const { data: adjustments } = await supabase
+        .from("financial_adjustments")
+        .select("type, amount, reason, created_at")
+        .eq("settlement_id", s.id);
+
+      const orderRows = items.map((i) => ({
+        row_type: "order",
+        reference: i.merchant_orders?.orders?.order_number ? `TL-${i.merchant_orders.orders.order_number}` : "",
+        subtotal_etb: i.merchant_orders?.subtotal ?? "",
+        commission_etb: i.merchant_orders?.commission_amount ?? "",
+        discount_etb: i.merchant_orders?.discount_amount ?? "",
+        refund_etb: i.merchant_orders ? (refundByMerchantOrder.get(i.merchant_orders.id) ?? 0) : "",
+        net_etb: i.merchant_orders?.merchant_payable ?? "",
+      }));
+
+      const adjustmentRows = (adjustments ?? []).map((a) => ({
+        row_type: `adjustment:${a.type}`,
+        reference: a.reason,
+        subtotal_etb: "",
+        commission_etb: "",
+        discount_etb: "",
+        refund_etb: "",
+        net_etb: a.amount,
+      }));
+
+      exportToCsv(`statement-${s.merchants?.business_name ?? s.merchant_id}-${s.period_start}-${s.period_end}.csv`, [
+        ...orderRows,
+        ...adjustmentRows,
+        { row_type: "TOTAL", reference: "", subtotal_etb: "", commission_etb: "", discount_etb: "", refund_etb: "", net_etb: s.total_amount },
+      ]);
+    } finally {
+      setDownloadingStatementId(null);
+    }
   }
 
   async function loadAdjustments() {
@@ -162,16 +256,30 @@ export function Settlements() {
 
       <div className="bg-white border rounded-lg divide-y mb-6">
         {settlements.map((s) => (
-          <div key={s.id} className="flex items-center justify-between p-3">
+          <div key={s.id} className="flex items-center justify-between p-3 gap-3">
             <div>
               <p className="text-sm font-medium">{s.merchants?.business_name}</p>
               <p className="text-xs text-gray-500">
                 {s.period_start} → {s.period_end}
               </p>
             </div>
-            <div className="text-right">
-              <p className="font-semibold text-sm">{s.total_amount.toFixed(2)} ETB</p>
-              <p className="text-xs text-gray-500 capitalize">{s.status}</p>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <div className="text-right">
+                <p className="font-semibold text-sm">{s.total_amount.toFixed(2)} ETB</p>
+                <p className="text-xs text-gray-500 capitalize">{s.status === "paid" && s.paid_at ? `Paid ${new Date(s.paid_at).toLocaleDateString()}` : s.status}</p>
+              </div>
+              <button
+                onClick={() => downloadStatement(s)}
+                disabled={downloadingStatementId === s.id}
+                className="text-xs border px-2 py-1 rounded-md hover:bg-gray-50 disabled:opacity-60"
+              >
+                {downloadingStatementId === s.id ? "..." : "Statement CSV"}
+              </button>
+              {s.status !== "paid" && (
+                <button onClick={() => markPaid(s)} className="text-xs bg-navy text-white px-2 py-1 rounded-md hover:bg-navy-dark">
+                  Mark as paid
+                </button>
+              )}
             </div>
           </div>
         ))}

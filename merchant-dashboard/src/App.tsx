@@ -12,6 +12,7 @@ import { BulkUpload } from "./pages/BulkUpload";
 import { Orders } from "./pages/Orders";
 import { OrderDetail } from "./pages/OrderDetail";
 import { StoreSettings } from "./pages/StoreSettings";
+import { Promotions } from "./pages/Promotions";
 import { Wallet } from "./pages/Wallet";
 import { Staff } from "./pages/Staff";
 
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/products" element={<Products />} />
           <Route path="/products/:id" element={<ProductForm />} />
           <Route path="/products-bulk-upload" element={<BulkUpload />} />
+          <Route path="/promotions" element={<Promotions />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/wallet" element={<Wallet />} />
