@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, exportToCsv, fetchAllRows, Pagination, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
 import type { Category, DiscountRule, Merchant } from "../types";
 
 const emptyForm = {
@@ -71,6 +70,13 @@ export function Discounts() {
     const { error } = await supabase.from("discount_rules").update({ is_active: !r.is_active }).eq("id", r.id);
     if (error) return;
     setRules((prev) => prev.map((rule) => (rule.id === r.id ? { ...rule, is_active: !rule.is_active } : rule)));
+  }
+
+  async function bulkToggle(rows: DiscountRule[], makeActive: boolean) {
+    const targets = rows.filter((r) => r.is_active !== makeActive);
+    if (targets.length === 0) return;
+    await supabase.from("discount_rules").update({ is_active: makeActive }).in("id", targets.map((r) => r.id));
+    setRules((prev) => prev.map((r) => (targets.some((t) => t.id === r.id) ? { ...r, is_active: makeActive } : r)));
   }
 
   function labelFor(r: DiscountRule) {
@@ -144,9 +150,6 @@ export function Discounts() {
       description: form.description.trim() || null,
       scope_type: form.scope_type,
       scope_id: form.scope_type === "platform" ? null : form.scope_id,
-      // Uppercased/trimmed server-side too (normalize_discount_code trigger,
-      // migration 0046) -- doing it here as well just avoids a round-trip
-      // surprise where the list briefly shows what was typed.
       code: form.code.trim() ? form.code.trim().toUpperCase() : null,
       discount_kind: form.discount_kind,
       amount: Number(form.amount),
@@ -161,10 +164,6 @@ export function Discounts() {
       ends_at: form.ends_at || null,
     };
 
-    // .select().single() either way, so the confirmed server row (with its
-    // generated id/created_at for a new rule, or the normalized code from
-    // normalize_discount_code for an edit) can be patched/prepended
-    // directly instead of re-fetching the whole list afterward.
     const { data, error } = editingId
       ? await supabase.from("discount_rules").update(payload).eq("id", editingId).select().single()
       : await supabase.from("discount_rules").insert(payload).select().single();
@@ -209,63 +208,103 @@ export function Discounts() {
     );
   }
 
+  const columns: DataTableColumn<DiscountRule>[] = [
+    {
+      key: "name",
+      header: "Rule",
+      render: (r) => (
+        <div>
+          <p className="text-sm font-medium">
+            {r.name}
+            {r.code && <span className="ml-2 text-xs font-mono bg-navy-50 dark:bg-navy-light/20 text-navy dark:text-navy-light px-1.5 py-0.5 rounded">{r.code}</span>}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {labelFor(r)} · {r.discount_kind === "percent" ? `${r.amount}% off` : `${r.amount} ETB off`}
+            {r.min_order_value > 0 ? ` · min ${r.min_order_value} ETB` : ""} · funded by {r.funded_by}
+            {r.usage_limit ? ` · used ${r.usage_count}/${r.usage_limit}` : ` · used ${r.usage_count}`}
+          </p>
+        </div>
+      ),
+      filterValue: (r) => `${r.name} ${r.code ?? ""}`,
+      sortValue: (r) => r.name,
+      csvValue: (r) => r.name,
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (r) => <Badge variant={r.is_active ? "success" : "default"}>{r.is_active ? "Active" : "Inactive"}</Badge>,
+      csvValue: (r) => (r.is_active ? "active" : "inactive"),
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (r) => (
+        <div className="flex items-center gap-2 justify-end">
+          <Button size="sm" variant="outline" onClick={() => startEdit(r)}>
+            Edit
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => toggleActive(r)}>
+            {r.is_active ? "Deactivate" : "Activate"}
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="max-w-4xl">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Discounts &amp; Promotions</h1>
-        <div className="flex items-center gap-2">
-          <ExportCsvButton onExport={handleExport} disabled={rules.length === 0} />
-        <label className="flex items-center gap-2 text-sm bg-white border rounded-lg px-3 py-2">
-          <span className="font-medium">Discounts platform-wide</span>
+        <h1 className="text-xl font-bold dark:text-gray-100">Discounts &amp; Promotions</h1>
+        <label className="flex items-center gap-2 text-sm bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg px-3 py-2">
+          <span className="font-medium dark:text-gray-200">Discounts platform-wide</span>
           <button
             type="button"
             onClick={toggleMasterSwitch}
-            className={`w-10 h-6 rounded-full transition-colors relative ${discountsEnabled ? "bg-navy" : "bg-gray-300"}`}
+            className={`w-10 h-6 rounded-full transition-colors relative ${discountsEnabled ? "bg-navy dark:bg-navy-light" : "bg-gray-300 dark:bg-white/20"}`}
           >
             <span
               className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${discountsEnabled ? "translate-x-4" : "translate-x-0.5"}`}
             />
           </button>
-          <span className="text-xs text-gray-500">{discountsEnabled ? "ON" : "OFF"}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{discountsEnabled ? "ON" : "OFF"}</span>
         </label>
-        </div>
       </div>
 
       {!discountsEnabled && (
-        <p className="text-xs bg-orange-50 border border-orange-200 text-orange-800 rounded-md px-3 py-2 mb-4">
+        <p className="text-xs bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-300 rounded-md px-3 py-2 mb-4">
           Discounts are turned off platform-wide — no rule below will apply at checkout until this is switched back on.
         </p>
       )}
 
       <button
         onClick={() => (showForm ? cancelForm() : setShowForm(true))}
-        className="bg-navy text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark mb-4"
+        className="bg-navy dark:bg-navy-light text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark dark:hover:bg-navy mb-4"
       >
         {showForm ? "Cancel" : "+ New discount rule"}
       </button>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white border rounded-lg p-4 mb-4 space-y-3">
+        <form onSubmit={handleSubmit} className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 space-y-3">
           <input
             placeholder="Name (e.g. First Order 10% Off)"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full border rounded-md px-3 py-2 text-sm"
+            className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
           <input
             placeholder="Description (optional)"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="w-full border rounded-md px-3 py-2 text-sm"
+            className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
           <div>
             <input
               placeholder="Promo code (optional — leave blank for an automatic discount)"
               value={form.code}
               onChange={(e) => setForm({ ...form, code: e.target.value })}
-              className="w-full border rounded-md px-3 py-2 text-sm uppercase placeholder:normal-case"
+              className="w-full border rounded-md px-3 py-2 text-sm uppercase placeholder:normal-case dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
             />
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
               {form.code.trim()
                 ? "Only applies when a customer types this code at checkout."
                 : "No code — applies automatically to every eligible cart, same as today."}
@@ -274,11 +313,11 @@ export function Discounts() {
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Applies to</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Applies to</label>
               <select
                 value={form.scope_type}
                 onChange={(e) => setForm({ ...form, scope_type: e.target.value as DiscountRule["scope_type"], scope_id: "" })}
-                className="w-full border rounded-md px-2 py-1.5 text-sm"
+                className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               >
                 <option value="platform">Whole platform</option>
                 <option value="merchant">Specific merchant</option>
@@ -287,11 +326,11 @@ export function Discounts() {
             </div>
             {form.scope_type !== "platform" && (
               <div>
-                <label className="text-xs text-gray-500 block mb-1">{form.scope_type === "merchant" ? "Merchant" : "Category"}</label>
+                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{form.scope_type === "merchant" ? "Merchant" : "Category"}</label>
                 <select
                   value={form.scope_id}
                   onChange={(e) => setForm({ ...form, scope_id: e.target.value })}
-                  className="w-full border rounded-md px-2 py-1.5 text-sm"
+                  className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
                 >
                   <option value="">Select...</option>
                   {(form.scope_type === "merchant" ? merchants : categories).map((item) => (
@@ -306,35 +345,35 @@ export function Discounts() {
 
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Type</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Type</label>
               <select
                 value={form.discount_kind}
                 onChange={(e) => setForm({ ...form, discount_kind: e.target.value as DiscountRule["discount_kind"] })}
-                className="w-full border rounded-md px-2 py-1.5 text-sm"
+                className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               >
                 <option value="percent">Percent off</option>
                 <option value="fixed">Fixed ETB amount</option>
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">{form.discount_kind === "percent" ? "Percent" : "Amount (ETB)"}</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{form.discount_kind === "percent" ? "Percent" : "Amount (ETB)"}</label>
               <input
                 type="number"
                 step="0.01"
                 value={form.amount}
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                className="w-full border rounded-md px-2 py-1.5 text-sm"
+                className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
             </div>
             {form.discount_kind === "percent" && (
               <div>
-                <label className="text-xs text-gray-500 block mb-1">Max discount (ETB, optional)</label>
+                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Max discount (ETB, optional)</label>
                 <input
                   type="number"
                   step="0.01"
                   value={form.max_discount_amount}
                   onChange={(e) => setForm({ ...form, max_discount_amount: e.target.value })}
-                  className="w-full border rounded-md px-2 py-1.5 text-sm"
+                  className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
                 />
               </div>
             )}
@@ -342,57 +381,57 @@ export function Discounts() {
 
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Min order value (ETB)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Min order value (ETB)</label>
               <input
                 type="number"
                 step="0.01"
                 value={form.min_order_value}
                 onChange={(e) => setForm({ ...form, min_order_value: e.target.value })}
-                className="w-full border rounded-md px-2 py-1.5 text-sm"
+                className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Total usage limit (optional)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Total usage limit (optional)</label>
               <input
                 type="number"
                 value={form.usage_limit}
                 onChange={(e) => setForm({ ...form, usage_limit: e.target.value })}
-                className="w-full border rounded-md px-2 py-1.5 text-sm"
+                className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Per-customer limit (optional)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Per-customer limit (optional)</label>
               <input
                 type="number"
                 value={form.per_customer_limit}
                 onChange={(e) => setForm({ ...form, per_customer_limit: e.target.value })}
-                className="w-full border rounded-md px-2 py-1.5 text-sm"
+                className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Starts (optional)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Starts (optional)</label>
               <input
                 type="datetime-local"
                 value={form.starts_at}
                 onChange={(e) => setForm({ ...form, starts_at: e.target.value })}
-                className="w-full border rounded-md px-2 py-1.5 text-sm"
+                className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Ends (optional)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Ends (optional)</label>
               <input
                 type="datetime-local"
                 value={form.ends_at}
                 onChange={(e) => setForm({ ...form, ends_at: e.target.value })}
-                className="w-full border rounded-md px-2 py-1.5 text-sm"
+                className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm dark:text-gray-200">
             <input
               type="checkbox"
               checked={form.first_order_only}
@@ -401,13 +440,13 @@ export function Discounts() {
             First order only
           </label>
 
-          <div className="pt-2 border-t">
-            <label className="text-xs text-gray-500 block mb-1">Who funds this discount?</label>
+          <div className="pt-2 border-t dark:border-white/10">
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Who funds this discount?</label>
             <div className="grid grid-cols-3 gap-2">
               <select
                 value={form.funded_by}
                 onChange={(e) => setForm({ ...form, funded_by: e.target.value as DiscountRule["funded_by"] })}
-                className="w-full border rounded-md px-2 py-1.5 text-sm"
+                className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               >
                 <option value="tolo">Tolo absorbs it</option>
                 <option value="merchant">Merchant absorbs it</option>
@@ -419,7 +458,7 @@ export function Discounts() {
                   placeholder="Tolo's share %"
                   value={form.tolo_share_percent}
                   onChange={(e) => setForm({ ...form, tolo_share_percent: e.target.value })}
-                  className="w-full border rounded-md px-2 py-1.5 text-sm"
+                  className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
                 />
               )}
             </div>
@@ -428,51 +467,25 @@ export function Discounts() {
           <button
             type="submit"
             disabled={saving}
-            className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
+            className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60"
           >
             {saving ? "Saving..." : editingId ? "Save changes" : "Create discount"}
           </button>
         </form>
       )}
 
-      <div className="bg-white border rounded-lg divide-y">
-        {rules.length === 0 ? (
-          <p className="text-gray-500 text-sm p-4">No discount rules yet.</p>
-        ) : (
-          rules.map((r) => (
-            <div key={r.id} className="p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">
-                    {r.name}
-                    {r.code && (
-                      <span className="ml-2 text-xs font-mono bg-navy-50 text-navy px-1.5 py-0.5 rounded">{r.code}</span>
-                    )}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {labelFor(r)} · {r.discount_kind === "percent" ? `${r.amount}% off` : `${r.amount} ETB off`}
-                    {r.min_order_value > 0 ? ` · min ${r.min_order_value} ETB` : ""} · funded by {r.funded_by}
-                    {r.usage_limit ? ` · used ${r.usage_count}/${r.usage_limit}` : ` · used ${r.usage_count}`}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button onClick={() => startEdit(r)} className="text-xs border px-2 py-1 rounded-md hover:bg-gray-50">
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => toggleActive(r)}
-                    className={`text-xs px-2 py-1 rounded-full border ${
-                      r.is_active ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-gray-100 text-gray-600"
-                    }`}
-                  >
-                    {r.is_active ? "Active" : "Inactive"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      <DataTable
+        storageKey="admin.discounts"
+        columns={columns}
+        rows={rules}
+        getRowId={(r) => r.id}
+        emptyMessage="No discount rules yet."
+        onExportAll={handleExport}
+        bulkActions={[
+          { label: "Activate", onAction: (rows) => bulkToggle(rows, true) },
+          { label: "Deactivate", onAction: (rows) => bulkToggle(rows, false), variant: "outline" },
+        ]}
+      />
       <div className="mt-4">
         <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
       </div>

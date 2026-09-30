@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { ADMIN_PAGES } from "../lib/adminPages";
@@ -40,11 +40,11 @@ export function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100">
-      <div className="max-w-sm w-full bg-white border rounded-lg p-8">
+      <div className="max-w-sm w-full bg-white dark:bg-navy-dark border rounded-lg p-8">
         <h1 className="text-xl font-bold mb-1">Tolo Admin</h1>
         {mode === null ? (
           <>
-            <p className="text-sm text-gray-500 mb-4">How are you signing in?</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">How are you signing in?</p>
             <div className="space-y-3">
               <button
                 type="button"
@@ -65,7 +65,7 @@ export function Login() {
         ) : (
           <>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-gray-500">{mode === "admin" ? "Admin sign in." : "Staff sign in."}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{mode === "admin" ? "Admin sign in." : "Staff sign in."}</p>
               <button
                 type="button"
                 onClick={() => {
@@ -105,7 +105,7 @@ export function Login() {
                   </Link>
                 </div>
               ) : (
-                <p className="text-xs text-gray-400 text-right">Forgot your password? Ask an admin to reset your account.</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 text-right">Forgot your password? Ask an admin to reset your account.</p>
               )}
               <button
                 type="submit"

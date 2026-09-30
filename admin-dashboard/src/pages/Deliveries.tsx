@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { ADMIN_PAGE_SIZE, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, Pagination, SkeletonRows, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
 import type { Delivery, Driver } from "../types";
 
 const STATUS_FLOW: Record<string, string[]> = {
@@ -74,75 +74,84 @@ export function Deliveries() {
     setDeliveries((prev) => prev.map((d) => (d.id === delivery.id ? { ...d, status } : d)));
   }
 
+  const columns: DataTableColumn<Delivery>[] = [
+    {
+      key: "merchant",
+      header: "Delivery",
+      render: (d) => (
+        <div>
+          <p className="font-medium text-sm">{d.merchant_orders?.merchants?.business_name}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(d.created_at).toLocaleString()}</p>
+          <div className="grid grid-cols-2 gap-3 text-xs mt-2 max-w-md">
+            <div>
+              <p className="font-medium text-gray-500 dark:text-gray-400">Pickup</p>
+              <p className="dark:text-gray-200">{d.pickup_contact_name} · {d.pickup_contact_phone}</p>
+              <p className="text-gray-500 dark:text-gray-400">{d.pickup_address ?? "No pickup address on file"}</p>
+            </div>
+            <div>
+              <p className="font-medium text-gray-500 dark:text-gray-400">Drop-off</p>
+              <p className="dark:text-gray-200">{d.dropoff_contact_name} · {d.dropoff_contact_phone}</p>
+              <p className="text-gray-500 dark:text-gray-400">{d.dropoff_address ?? "No drop-off address on file"}</p>
+            </div>
+          </div>
+        </div>
+      ),
+      filterValue: (d) => d.merchant_orders?.merchants?.business_name ?? "",
+      sortValue: (d) => d.created_at,
+      csvValue: (d) => d.merchant_orders?.merchants?.business_name ?? "",
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (d) => <Badge className="capitalize">{d.status.replace(/_/g, " ")}</Badge>,
+      csvValue: (d) => d.status,
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (d) => (
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {d.status === "pending" && (
+            <select
+              onChange={(e) => e.target.value && assignDriver(d, e.target.value)}
+              disabled={busyId === d.id}
+              defaultValue=""
+              className="text-xs border rounded-md px-2 py-1.5 dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
+            >
+              <option value="" disabled>
+                Assign driver...
+              </option>
+              {drivers.map((driver) => (
+                <option key={driver.id} value={driver.id}>
+                  {driver.full_name}
+                </option>
+              ))}
+            </select>
+          )}
+          {d.driver_id && <span className="text-xs text-gray-500 dark:text-gray-400">Driver: {d.drivers?.full_name}</span>}
+          {(STATUS_FLOW[d.status] ?? []).map((next) => (
+            <Button key={next} size="sm" variant="outline" onClick={() => advanceStatus(d, next)} disabled={busyId === d.id} className="capitalize">
+              Mark {next.replace(/_/g, " ")}
+            </Button>
+          ))}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4">Deliveries</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Deliveries</h1>
       {loading ? (
         <SkeletonRows />
       ) : deliveries.length === 0 ? (
-        <p className="text-gray-500">No deliveries yet.</p>
+        <p className="text-gray-500 dark:text-gray-400">No deliveries yet.</p>
       ) : (
         <>
-        <div className="bg-white border rounded-lg divide-y">
-          {deliveries.map((d) => (
-            <div key={d.id} className="p-4">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <p className="font-medium text-sm">{d.merchant_orders?.merchants?.business_name}</p>
-                  <p className="text-xs text-gray-500">{new Date(d.created_at).toLocaleString()}</p>
-                </div>
-                <span className="text-xs bg-gray-100 rounded-full px-2 py-0.5 capitalize">{d.status.replace(/_/g, " ")}</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-xs mb-3">
-                <div>
-                  <p className="font-medium text-gray-500">Pickup</p>
-                  <p>{d.pickup_contact_name} · {d.pickup_contact_phone}</p>
-                  <p className="text-gray-500">{d.pickup_address ?? "No pickup address on file"}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-500">Drop-off</p>
-                  <p>{d.dropoff_contact_name} · {d.dropoff_contact_phone}</p>
-                  <p className="text-gray-500">{d.dropoff_address ?? "No drop-off address on file"}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                {d.status === "pending" && (
-                  <select
-                    onChange={(e) => e.target.value && assignDriver(d, e.target.value)}
-                    disabled={busyId === d.id}
-                    defaultValue=""
-                    className="text-xs border rounded-md px-2 py-1.5"
-                  >
-                    <option value="" disabled>
-                      Assign driver...
-                    </option>
-                    {drivers.map((driver) => (
-                      <option key={driver.id} value={driver.id}>
-                        {driver.full_name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {d.driver_id && <span className="text-xs text-gray-500">Driver: {d.drivers?.full_name}</span>}
-                {(STATUS_FLOW[d.status] ?? []).map((next) => (
-                  <button
-                    key={next}
-                    onClick={() => advanceStatus(d, next)}
-                    disabled={busyId === d.id}
-                    className="text-xs border px-2 py-1 rounded-md hover:bg-gray-50 capitalize disabled:opacity-60"
-                  >
-                    Mark {next.replace(/_/g, " ")}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4">
-          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
-        </div>
+          <DataTable storageKey="admin.deliveries" columns={columns} rows={deliveries} getRowId={(d) => d.id} />
+          <div className="mt-4">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
         </>
       )}
     </div>

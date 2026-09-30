@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { ADMIN_PAGE_SIZE, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, Pagination, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
 import type { DeliveryZone } from "../types";
 
 const emptyForm = {
@@ -44,6 +44,13 @@ export function DeliveryZones() {
     setZones((prev) => prev.map((zone) => (zone.id === z.id ? { ...zone, is_active: !zone.is_active } : zone)));
   }
 
+  async function bulkToggle(rows: DeliveryZone[], makeActive: boolean) {
+    const targets = rows.filter((z) => z.is_active !== makeActive);
+    if (targets.length === 0) return;
+    await supabase.from("delivery_zones").update({ is_active: makeActive }).in("id", targets.map((z) => z.id));
+    setZones((prev) => prev.map((z) => (targets.some((t) => t.id === z.id) ? { ...z, is_active: makeActive } : z)));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim() || !form.center_latitude || !form.center_longitude) {
@@ -77,31 +84,66 @@ export function DeliveryZones() {
     setShowForm(false);
   }
 
+  const columns: DataTableColumn<DeliveryZone>[] = [
+    {
+      key: "name",
+      header: "Zone",
+      render: (z) => (
+        <div>
+          <p className="text-sm font-medium">{z.name}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {z.radius_km} km radius · {z.delivery_fee.toFixed(2)} ETB
+            {z.free_delivery_threshold ? ` · free above ${z.free_delivery_threshold} ETB` : ""}
+            {z.estimated_delivery_minutes ? ` · ~${z.estimated_delivery_minutes} min` : ""}
+          </p>
+        </div>
+      ),
+      filterValue: (z) => z.name,
+      sortValue: (z) => z.name,
+      csvValue: (z) => z.name,
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (z) => <Badge variant={z.is_active ? "success" : "default"}>{z.is_active ? "Active" : "Inactive"}</Badge>,
+      csvValue: (z) => (z.is_active ? "active" : "inactive"),
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (z) => (
+        <Button size="sm" variant="outline" onClick={() => toggleActive(z)}>
+          {z.is_active ? "Deactivate" : "Activate"}
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <div className="max-w-3xl">
-      <h1 className="text-xl font-bold mb-1">Delivery Zones</h1>
-      <p className="text-sm text-gray-500 mb-4">
+      <h1 className="text-xl font-bold mb-1 dark:text-gray-100">Delivery Zones</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
         Each zone is a coverage circle (center point + radius). A delivery is priced by the nearest zone whose radius contains the
         drop-off point; orders outside every zone use the flat fee from Settings → Delivery.
       </p>
 
-      <button onClick={() => setShowForm((s) => !s)} className="bg-navy text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark mb-4">
+      <button onClick={() => setShowForm((s) => !s)} className="bg-navy dark:bg-navy-light text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark dark:hover:bg-navy mb-4">
         {showForm ? "Cancel" : "+ New zone"}
       </button>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white border rounded-lg p-4 mb-4 space-y-3">
+        <form onSubmit={handleSubmit} className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 space-y-3">
           <input
             placeholder="Zone name (e.g. Bole)"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full border rounded-md px-3 py-2 text-sm"
+            className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
           <input
             placeholder="Description (optional)"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="w-full border rounded-md px-3 py-2 text-sm"
+            className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
           <div className="grid grid-cols-3 gap-2">
             <input
@@ -110,7 +152,7 @@ export function DeliveryZones() {
               placeholder="Center latitude"
               value={form.center_latitude}
               onChange={(e) => setForm({ ...form, center_latitude: e.target.value })}
-              className="border rounded-md px-2 py-1.5 text-sm"
+              className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
             />
             <input
               type="number"
@@ -118,81 +160,66 @@ export function DeliveryZones() {
               placeholder="Center longitude"
               value={form.center_longitude}
               onChange={(e) => setForm({ ...form, center_longitude: e.target.value })}
-              className="border rounded-md px-2 py-1.5 text-sm"
+              className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
             />
             <input
               type="number"
               placeholder="Radius (km)"
               value={form.radius_km}
               onChange={(e) => setForm({ ...form, radius_km: e.target.value })}
-              className="border rounded-md px-2 py-1.5 text-sm"
+              className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
             />
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Delivery fee (ETB)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Delivery fee (ETB)</label>
               <input
                 type="number"
                 value={form.delivery_fee}
                 onChange={(e) => setForm({ ...form, delivery_fee: e.target.value })}
-                className="w-full border rounded-md px-2 py-1.5 text-sm"
+                className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Free above (ETB, optional)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Free above (ETB, optional)</label>
               <input
                 type="number"
                 value={form.free_delivery_threshold}
                 onChange={(e) => setForm({ ...form, free_delivery_threshold: e.target.value })}
-                className="w-full border rounded-md px-2 py-1.5 text-sm"
+                className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Est. delivery (minutes)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Est. delivery (minutes)</label>
               <input
                 type="number"
                 value={form.estimated_delivery_minutes}
                 onChange={(e) => setForm({ ...form, estimated_delivery_minutes: e.target.value })}
-                className="w-full border rounded-md px-2 py-1.5 text-sm"
+                className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
             </div>
           </div>
           <button
             type="submit"
             disabled={saving}
-            className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
+            className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60"
           >
             {saving ? "Creating..." : "Create zone"}
           </button>
         </form>
       )}
 
-      <div className="bg-white border rounded-lg divide-y">
-        {zones.length === 0 ? (
-          <p className="text-gray-500 text-sm p-4">No delivery zones configured — all orders use the flat platform fee.</p>
-        ) : (
-          zones.map((z) => (
-            <div key={z.id} className="p-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">{z.name}</p>
-                <p className="text-xs text-gray-500">
-                  {z.radius_km} km radius · {z.delivery_fee.toFixed(2)} ETB
-                  {z.free_delivery_threshold ? ` · free above ${z.free_delivery_threshold} ETB` : ""}
-                  {z.estimated_delivery_minutes ? ` · ~${z.estimated_delivery_minutes} min` : ""}
-                </p>
-              </div>
-              <button
-                onClick={() => toggleActive(z)}
-                className={`text-xs px-2 py-1 rounded-full border flex-shrink-0 ${
-                  z.is_active ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {z.is_active ? "Active" : "Inactive"}
-              </button>
-            </div>
-          ))
-        )}
-      </div>
+      <DataTable
+        storageKey="admin.deliveryZones"
+        columns={columns}
+        rows={zones}
+        getRowId={(z) => z.id}
+        emptyMessage="No delivery zones configured — all orders use the flat platform fee."
+        bulkActions={[
+          { label: "Activate", onAction: (rows) => bulkToggle(rows, true) },
+          { label: "Deactivate", onAction: (rows) => bulkToggle(rows, false), variant: "outline" },
+        ]}
+      />
       <div className="mt-4">
         <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
       </div>

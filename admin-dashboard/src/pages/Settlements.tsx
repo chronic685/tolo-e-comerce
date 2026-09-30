@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Button, DataTable, ExportCsvButton, fetchAllRows, formatCurrency, Pagination, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
 import type { FinancialAdjustment, Merchant, Settlement } from "../types";
 
 const ADJUSTMENT_TYPES = ["correction", "bonus", "penalty", "goodwill", "other"];
@@ -95,7 +95,7 @@ export function Settlements() {
 
       const { data: adjustments } = await supabase
         .from("financial_adjustments")
-        .select("type, amount, reason, created_at")
+        .select("type, amount, reason")
         .eq("settlement_id", s.id);
 
       const orderRows = items.map((i) => ({
@@ -218,17 +218,98 @@ export function Settlements() {
     );
   }
 
+  const settlementColumns: DataTableColumn<Settlement>[] = [
+    {
+      key: "merchant",
+      header: "Merchant",
+      render: (s) => (
+        <div>
+          <p className="text-sm font-medium">{s.merchants?.business_name}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {s.period_start} → {s.period_end}
+          </p>
+        </div>
+      ),
+      filterValue: (s) => s.merchants?.business_name ?? "",
+      sortValue: (s) => s.period_start,
+      csvValue: (s) => s.merchants?.business_name ?? "",
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      render: (s) => (
+        <div className="text-right">
+          <p className="font-semibold text-sm">{formatCurrency(s.total_amount)}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{s.status === "paid" && s.paid_at ? `Paid ${new Date(s.paid_at).toLocaleDateString()}` : s.status}</p>
+        </div>
+      ),
+      sortValue: (s) => s.total_amount,
+      csvValue: (s) => s.total_amount,
+      align: "right",
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (s) => (
+        <div className="flex items-center gap-2 justify-end">
+          <Button size="sm" variant="outline" onClick={() => downloadStatement(s)} disabled={downloadingStatementId === s.id}>
+            {downloadingStatementId === s.id ? "..." : "Statement CSV"}
+          </Button>
+          {s.status !== "paid" && (
+            <Button size="sm" onClick={() => markPaid(s)}>
+              Mark as paid
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  const adjustmentColumns: DataTableColumn<FinancialAdjustment>[] = [
+    {
+      key: "merchant",
+      header: "Adjustment",
+      render: (a) => (
+        <div>
+          <p className="text-sm font-medium">
+            {a.merchants?.business_name} · <span className="capitalize">{a.type}</span>
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{a.reason}</p>
+        </div>
+      ),
+      filterValue: (a) => `${a.merchants?.business_name ?? ""} ${a.type} ${a.reason}`,
+      sortValue: (a) => a.created_at,
+      csvValue: (a) => a.merchants?.business_name ?? "",
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      render: (a) => (
+        <div className="text-right">
+          <p className={`font-semibold text-sm ${a.amount < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}>
+            {a.amount >= 0 ? "+" : ""}
+            {formatCurrency(a.amount)}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(a.created_at).toLocaleDateString()}</p>
+        </div>
+      ),
+      sortValue: (a) => a.amount,
+      csvValue: (a) => a.amount,
+      align: "right",
+    },
+  ];
+
   return (
     <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Settlements</h1>
+        <h1 className="text-xl font-bold dark:text-gray-100">Settlements</h1>
         <ExportCsvButton onExport={handleExport} disabled={settlements.length === 0} />
       </div>
 
-      <form onSubmit={handleRun} className="bg-white border rounded-lg p-4 mb-4 flex gap-2 items-end flex-wrap">
+      <form onSubmit={handleRun} className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 flex gap-2 items-end flex-wrap">
         <div>
-          <label className="text-xs text-gray-500 block mb-1">Merchant</label>
-          <select value={merchantId} onChange={(e) => setMerchantId(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm">
+          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Merchant</label>
+          <select value={merchantId} onChange={(e) => setMerchantId(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100">
             <option value="">Select...</option>
             {merchants.map((m) => (
               <option key={m.id} value={m.id}>
@@ -238,71 +319,42 @@ export function Settlements() {
           </select>
         </div>
         <div>
-          <label className="text-xs text-gray-500 block mb-1">Period start</label>
-          <input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm" />
+          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Period start</label>
+          <input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100" />
         </div>
         <div>
-          <label className="text-xs text-gray-500 block mb-1">Period end</label>
-          <input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm" />
+          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Period end</label>
+          <input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100" />
         </div>
         <button
           type="submit"
           disabled={running}
-          className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
+          className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60"
         >
           {running ? "Running..." : "Run settlement"}
         </button>
       </form>
 
-      <div className="bg-white border rounded-lg divide-y mb-6">
-        {settlements.map((s) => (
-          <div key={s.id} className="flex items-center justify-between p-3 gap-3">
-            <div>
-              <p className="text-sm font-medium">{s.merchants?.business_name}</p>
-              <p className="text-xs text-gray-500">
-                {s.period_start} → {s.period_end}
-              </p>
-            </div>
-            <div className="flex items-center gap-3 flex-shrink-0">
-              <div className="text-right">
-                <p className="font-semibold text-sm">{s.total_amount.toFixed(2)} ETB</p>
-                <p className="text-xs text-gray-500 capitalize">{s.status === "paid" && s.paid_at ? `Paid ${new Date(s.paid_at).toLocaleDateString()}` : s.status}</p>
-              </div>
-              <button
-                onClick={() => downloadStatement(s)}
-                disabled={downloadingStatementId === s.id}
-                className="text-xs border px-2 py-1 rounded-md hover:bg-gray-50 disabled:opacity-60"
-              >
-                {downloadingStatementId === s.id ? "..." : "Statement CSV"}
-              </button>
-              {s.status !== "paid" && (
-                <button onClick={() => markPaid(s)} className="text-xs bg-navy text-white px-2 py-1 rounded-md hover:bg-navy-dark">
-                  Mark as paid
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mb-6">
+      <DataTable storageKey="admin.settlements" columns={settlementColumns} rows={settlements} getRowId={(s) => s.id} />
+      <div className="mb-6 mt-4">
         <Pagination page={settlementsPage.page} totalPages={totalPagesFor(settlementsTotal, ADMIN_PAGE_SIZE)} onPageChange={settlementsPage.setPage} />
       </div>
 
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Financial Adjustments</h2>
-        <button onClick={() => setShowAdjustmentForm((s) => !s)} className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50">
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Financial Adjustments</h2>
+        <button onClick={() => setShowAdjustmentForm((s) => !s)} className="text-xs border dark:border-white/20 dark:text-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-white/5">
           {showAdjustmentForm ? "Cancel" : "+ New adjustment"}
         </button>
       </div>
-      <p className="text-xs text-gray-400 mb-2">
+      <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
         A record of manual corrections — this does not itself change settlement totals; it's the audit trail for why one might be adjusted.
       </p>
 
       {showAdjustmentForm && (
-        <form onSubmit={handleAddAdjustment} className="bg-white border rounded-lg p-4 mb-4 flex gap-2 items-end flex-wrap">
+        <form onSubmit={handleAddAdjustment} className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 flex gap-2 items-end flex-wrap">
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Merchant</label>
-            <select value={adjMerchantId} onChange={(e) => setAdjMerchantId(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm">
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Merchant</label>
+            <select value={adjMerchantId} onChange={(e) => setAdjMerchantId(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100">
               <option value="">Select...</option>
               {merchants.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -312,8 +364,8 @@ export function Settlements() {
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Type</label>
-            <select value={adjType} onChange={(e) => setAdjType(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm capitalize">
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Type</label>
+            <select value={adjType} onChange={(e) => setAdjType(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm capitalize dark:bg-navy-dark dark:border-white/20 dark:text-gray-100">
               {ADJUSTMENT_TYPES.map((t) => (
                 <option key={t} value={t}>
                   {t}
@@ -322,49 +374,27 @@ export function Settlements() {
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Amount (ETB, can be negative)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Amount (ETB, can be negative)</label>
             <input
               type="number"
               value={adjAmount}
               onChange={(e) => setAdjAmount(e.target.value)}
-              className="w-32 border rounded-md px-2 py-1.5 text-sm"
+              className="w-32 border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
             />
           </div>
           <input
             placeholder="Reason"
             value={adjReason}
             onChange={(e) => setAdjReason(e.target.value)}
-            className="flex-1 min-w-[160px] border rounded-md px-2 py-1.5 text-sm"
+            className="flex-1 min-w-[160px] border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
-          <button type="submit" className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark">
+          <button type="submit" className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy">
             Add
           </button>
         </form>
       )}
 
-      <div className="bg-white border rounded-lg divide-y">
-        {adjustments.length === 0 ? (
-          <p className="text-gray-500 text-sm p-4">No adjustments recorded.</p>
-        ) : (
-          adjustments.map((a) => (
-            <div key={a.id} className="flex items-center justify-between p-3">
-              <div>
-                <p className="text-sm font-medium">
-                  {a.merchants?.business_name} · <span className="capitalize">{a.type}</span>
-                </p>
-                <p className="text-xs text-gray-500">{a.reason}</p>
-              </div>
-              <div className="text-right">
-                <p className={`font-semibold text-sm ${a.amount < 0 ? "text-red-600" : "text-emerald-700"}`}>
-                  {a.amount >= 0 ? "+" : ""}
-                  {a.amount.toFixed(2)} ETB
-                </p>
-                <p className="text-xs text-gray-500">{new Date(a.created_at).toLocaleDateString()}</p>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      <DataTable storageKey="admin.financialAdjustments" columns={adjustmentColumns} rows={adjustments} getRowId={(a) => a.id} emptyMessage="No adjustments recorded." />
       <div className="mt-4">
         <Pagination page={adjustmentsPage.page} totalPages={totalPagesFor(adjustmentsTotal, ADMIN_PAGE_SIZE)} onPageChange={adjustmentsPage.setPage} />
       </div>
