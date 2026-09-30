@@ -8,3 +8,12 @@ body {
   background-color: #f8f9fb;
   color: #111827;
 }
+
+/* ThemeProvider (@tolo/ui) toggles `.dark` on <html> -- the sidebar in
+   Layout.tsx is permanently navy-dark regardless of theme, but the main
+   content area has no Tailwind bg utility of its own (it just inherits
+   this plain body rule), so dark mode needs a plain-CSS override here too. */
+.dark body {
+  background-color: #0b1638;
+  color: #f3f4f6;
+}

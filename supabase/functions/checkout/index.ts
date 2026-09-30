@@ -136,10 +136,21 @@ Deno.serve(async (req) => {
 
     if (!cart) return jsonResponse({ error: "Cart is empty" }, 400);
 
-    const { data: items } = await db
+    const { data: items, error: itemsError } = await db
       .from("cart_items")
       .select("variant_id, quantity, on_unavailable")
       .eq("cart_id", cart.id);
+
+    // A real query/schema error (bad column, connection issue, etc.) is
+    // not the same thing as an empty cart -- conflating the two here
+    // previously meant a broken query silently looked identical to "Cart
+    // is empty" to every caller, with no signal in the response or logs
+    // pointing at the actual cause (see 0069_fix_cart_items_missing_on_
+    // unavailable_column.sql, caught by CI against a fresh migration).
+    if (itemsError) {
+      console.error("Failed to load cart items:", itemsError.message);
+      return jsonResponse({ error: "Could not load your cart. Please try again." }, 500);
+    }
 
     if (!items || items.length === 0) {
       return jsonResponse({ error: "Cart is empty" }, 400);

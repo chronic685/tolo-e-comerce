@@ -25,6 +25,20 @@ export { Sheet, type SheetProps } from "./components/Sheet";
 export { Stepper, type StepperProps, type StepperStep } from "./components/Stepper";
 export { LazyImage, type LazyImageProps } from "./components/LazyImage";
 export { Pagination, type PaginationProps } from "./components/Pagination";
+export { ErrorBoundary, type ErrorBoundaryProps } from "./components/ErrorBoundary";
+export { DataTable, type DataTableColumn, type DataTableBulkAction, type DataTableProps } from "./components/DataTable/DataTable";
+export { TrendChart, type TrendChartPoint, type TrendChartProps } from "./components/TrendChart";
+export { DateRangePicker, type DateRangePickerProps } from "./components/DateRangePicker";
+export { CommandPalette, type CommandPaletteItem, type CommandPaletteProps, type CommandPaletteHandle } from "./components/CommandPalette/CommandPalette";
+export { lastNDays, toDateInputValue, fromDateInputValue, type DateRange } from "./lib/dateRange";
+export { OfflineBanner } from "./components/OfflineBanner";
+export { ThemeToggle, type ThemeToggleProps } from "./components/ThemeToggle";
+
+export { buildResponsiveImageUrl, buildResponsiveSrcSet, RESPONSIVE_IMAGE_WIDTHS } from "./lib/responsiveImage";
+
+export { ThemeProvider, type ThemeContextValue } from "./theme/ThemeProvider";
+export { useTheme } from "./theme/useTheme";
+export { THEME_MODES, THEME_STORAGE_KEY, type ThemeMode } from "./theme/types";
 
 export { usePagination, type UsePaginationOptions, type UsePaginationResult } from "./hooks/usePagination";
 

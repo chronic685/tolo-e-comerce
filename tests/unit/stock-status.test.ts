@@ -26,7 +26,13 @@ async function fetchStatus(variantId: string): Promise<StockRow> {
   return data as unknown as StockRow;
 }
 
-async function createVariant(merchantId: string, storeId: string, stockQuantity: number, reservedQuantity = 0) {
+async function createVariant(
+  merchantId: string,
+  storeId: string,
+  stockQuantity: number,
+  reservedQuantity = 0,
+  productStatus: "draft" | "published" = "draft",
+) {
   const { data: product, error: productError } = await db
     .from("products")
     .insert({
@@ -35,7 +41,7 @@ async function createVariant(merchantId: string, storeId: string, stockQuantity:
       name: "QA TEST — Phase (pagination/availability) stock status product",
       slug: `qa-test-stock-status-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       base_price: 100,
-      status: "draft",
+      status: productStatus,
     })
     .select("id")
     .single();
@@ -118,7 +124,13 @@ describe("variant_stock_status / variant_stock_remaining", () => {
   });
 
   it("is readable by an anonymous (unauthenticated) caller, needed for public product browsing", async () => {
-    const { productId, variantId } = await createVariant(merchantAId, storeId, 3);
+    // Unlike every other fixture in this file, this one must actually be
+    // published -- product_variants_select's RLS (migration 0051) only
+    // grants anon/public read access when the parent product is
+    // published (or the caller is the owning merchant/an admin), so a
+    // 'draft' fixture is invisible to a true anonymous caller by design
+    // and would make this specific assertion untestable.
+    const { productId, variantId } = await createVariant(merchantAId, storeId, 3, 0, "published");
     createdProductIds.push(productId);
 
     const res = await fetch(

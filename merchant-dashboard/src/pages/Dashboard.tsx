@@ -3,6 +3,7 @@ import { Skeleton } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import { RevenueChart } from "../components/RevenueChart";
+import { LiveOrderQueue } from "../components/LiveOrderQueue";
 
 interface Stats {
   productCount: number;
@@ -81,8 +82,8 @@ export function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-1">Welcome back{merchant ? `, ${merchant.business_name}` : ""}</h1>
-      <p className="text-sm text-gray-500 mb-6">Here's how your store is doing.</p>
+      <h1 className="text-xl font-bold mb-1 dark:text-gray-100">Welcome back{merchant ? `, ${merchant.business_name}` : ""}</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Here's how your store is doing.</p>
 
       {!stats ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -101,7 +102,7 @@ export function Dashboard() {
 
       {performance && (
         <div className="mt-6">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Performance</h2>
+          <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Performance</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard label="Acceptance Rate" value={performance.acceptanceRate != null ? `${performance.acceptanceRate}%` : "—"} />
             <StatCard label="Cancellation Rate" value={performance.cancellationRate != null ? `${performance.cancellationRate}%` : "—"} />
@@ -114,6 +115,7 @@ export function Dashboard() {
         </div>
       )}
 
+      {merchant && <LiveOrderQueue merchantId={merchant.id} />}
       {merchant && <RevenueChart merchantId={merchant.id} />}
     </div>
   );
@@ -121,9 +123,11 @@ export function Dashboard() {
 
 function StatCard({ label, value, highlight }: { label: string; value: string | number; highlight?: boolean }) {
   return (
-    <div className={`bg-white border rounded-lg p-4 ${highlight ? "border-emerald-500" : ""}`}>
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="text-2xl font-bold mt-1">{value}</p>
+    <div
+      className={`bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 ${highlight ? "border-emerald-500 dark:border-emerald-500" : ""}`}
+    >
+      <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+      <p className="text-2xl font-bold mt-1 dark:text-gray-100">{value}</p>
     </div>
   );
 }

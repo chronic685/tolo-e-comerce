@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MapPin, Heart, Bell, LifeBuoy, LogOut, PartyPopper, ScrollText } from "lucide-react";
-import { LanguageSwitcher, Skeleton, toast, useTranslation } from "@tolo/ui";
+import { LanguageSwitcher, Skeleton, ThemeToggle, toast, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 
@@ -221,9 +221,14 @@ export function Account() {
           tab bar (Layout.tsx) is the whole mobile nav -- so the language
           switcher's "mobile menu" presence (Group 5, item 2) lives here
           instead, the natural settings surface for a bottom-tab-bar app. */}
-      <div className="bg-white border rounded-lg mt-4 px-4 py-3 flex items-center justify-between">
-        <span className="text-sm text-gray-700">{t("account.language")}</span>
+      <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg mt-4 px-4 py-3 flex items-center justify-between">
+        <span className="text-sm text-gray-700 dark:text-gray-300">{t("account.language")}</span>
         <LanguageSwitcher variant="full" />
+      </div>
+
+      <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg mt-4 px-4 py-3 flex items-center justify-between">
+        <span className="text-sm text-gray-700 dark:text-gray-300">{t("account.theme")}</span>
+        <ThemeToggle variant="full" className="dark:text-gray-300" />
       </div>
 
       <div className="bg-white border rounded-lg mt-4 divide-y">

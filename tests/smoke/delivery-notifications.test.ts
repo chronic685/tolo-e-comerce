@@ -114,7 +114,7 @@ describe("delivery-dispatch: customer notifications for picked_up/delivered", ()
   });
 
   it("an ordinary merchant (not Tolo staff) cannot call delivery-dispatch — unchanged by this phase", async () => {
-    const merchantOrderId = await createDisposableOrder(customerUserId, addressId, variantId);
+    const { merchantOrderId } = await createDisposableOrder(customerUserId, addressId, variantId);
     for (const status of ["accepted", "processing", "ready_for_pickup"]) {
       await callFunction("order-status", { token: merchantAToken, body: { merchant_order_id: merchantOrderId, status } });
     }

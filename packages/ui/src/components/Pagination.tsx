@@ -47,7 +47,7 @@ export function Pagination({ page, totalPages, onPageChange, className }: Pagina
         p === "ellipsis" ? (
           <span
             key={`ellipsis-${i}`}
-            className="hidden sm:inline-flex items-center justify-center h-8 w-8 text-sm text-gray-400"
+            className="hidden sm:inline-flex items-center justify-center h-8 w-8 text-sm text-gray-400 dark:text-gray-600"
             aria-hidden="true"
           >
             …
@@ -68,7 +68,7 @@ export function Pagination({ page, totalPages, onPageChange, className }: Pagina
         ),
       )}
 
-      <span className="sm:hidden text-sm text-gray-500 px-2" aria-live="polite">
+      <span className="sm:hidden text-sm text-gray-500 dark:text-gray-400 px-2" aria-live="polite">
         Page {page} of {totalPages}
       </span>
 

@@ -139,10 +139,14 @@ describe("merchant promotions (discount_rules_manage RLS, migration 0062)", () =
     createdRuleIds.push(rule!.id);
 
     const clientB = authedClient(merchantBToken);
-    const { error, count } = await clientB.from("discount_rules").update({ amount: 50 }).eq("id", rule!.id).select("id", { count: "exact" });
-    // RLS silently matches zero rows rather than erroring -- assert nothing changed.
+    const { error, data } = await clientB.from("discount_rules").update({ amount: 50 }).eq("id", rule!.id).select("id");
+    // RLS silently matches zero rows rather than erroring -- assert nothing
+    // changed. Checking `data` (the actually-returned/updated rows) rather
+    // than a `count: "exact"` response header, which some PostgREST/
+    // supabase-js versions report as null rather than 0 for a zero-row
+    // UPDATE...RETURNING under RLS.
     expect(error).toBeNull();
-    expect(count).toBe(0);
+    expect(data).toHaveLength(0);
 
     const { data: unchanged } = await db.from("discount_rules").select("amount").eq("id", rule!.id).single();
     expect(Number(unchanged!.amount)).toBe(10);

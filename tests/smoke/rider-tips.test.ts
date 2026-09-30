@@ -76,9 +76,18 @@ describe("rider tips (migration 0066)", () => {
   it("checkout stores the tip separately from the order total and charges total+tip", async () => {
     await seedCartWithOneItem();
 
+    // bank_transfer, not cash_on_delivery -- this uses the shared QA
+    // customer (qaCustomerEmail, reused across many test files, unlike
+    // cod-fraud-controls.test.ts's own disposable-per-test customers), so
+    // a COD checkout here could legitimately trip cod_fraud_controls'
+    // max_cod_orders once enough *other* files' real COD checkouts have
+    // already run against this same account earlier in the suite.
+    // Rider-tip behavior itself doesn't depend on which provider is used
+    // (checkout/index.ts adds rider_tip to amountDue the same way
+    // regardless), so there's no need to risk that interaction here.
     const res = await callFunction("checkout", {
       token: customerToken,
-      body: { address_id: addressId, payment_provider: "cash_on_delivery", rider_tip: 25 },
+      body: { address_id: addressId, payment_provider: "bank_transfer", rider_tip: 25 },
     });
     expect(res.status).toBe(200);
     const body = res.json as { order_id: string; payment_id: string; amount: number };

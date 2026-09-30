@@ -8,6 +8,7 @@ import { ProductCard } from "../components/ProductCard";
 import { CategoryTile } from "../components/CategoryTile";
 import { ShopCard } from "../components/ShopCard";
 import { ScrollRow } from "../components/ScrollRow";
+import { RecentlyViewedRow } from "../components/RecentlyViewedRow";
 import type { Category, MerchantRating, Product } from "../types";
 
 interface Banner {
@@ -258,6 +259,8 @@ export function Marketplace() {
               ))}
             </ScrollRow>
           )}
+
+          <RecentlyViewedRow />
 
           {shops && shops.length > 0 && (
             <ScrollRow title="Discover shops" seeAllTo="/stores">
