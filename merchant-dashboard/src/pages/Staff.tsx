@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Users } from "lucide-react";
-import { ADMIN_PAGE_SIZE, EmptyState, Pagination, SkeletonPage, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Button, DataTable, EmptyState, Pagination, SkeletonPage, SkeletonRows, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
@@ -124,30 +124,60 @@ export function Staff() {
     await load();
   }
 
+  async function bulkRemove(rows: MerchantStaffRow[]) {
+    const removable = rows.filter((s) => s.role !== "owner");
+    if (removable.length === 0) return;
+    await supabase.from("merchant_staff").delete().in("id", removable.map((s) => s.id));
+    await load();
+  }
+
+  const columns: DataTableColumn<MerchantStaffRow>[] = [
+    {
+      key: "name",
+      header: "Name",
+      render: (s) => s.profiles?.full_name ?? "Unnamed",
+      filterValue: (s) => s.profiles?.full_name ?? "",
+      sortValue: (s) => s.profiles?.full_name ?? "",
+      csvValue: (s) => s.profiles?.full_name ?? "",
+    },
+    { key: "phone", header: "Phone", render: (s) => s.profiles?.phone ?? "—", csvValue: (s) => s.profiles?.phone ?? "" },
+    { key: "role", header: "Role", render: (s) => <span className="capitalize">{ROLE_LABELS[s.role] ?? s.role}</span>, csvValue: (s) => s.role },
+    {
+      key: "actions",
+      header: "",
+      render: (s) =>
+        isOwner && s.role !== "owner" ? (
+          <Button size="sm" variant="destructive" onClick={() => handleRemove(s.id)}>
+            Remove
+          </Button>
+        ) : null,
+    },
+  ];
+
   if (featureLoading) return <SkeletonPage />;
 
   if (!featureEnabled) {
     return (
       <div className="max-w-lg">
-        <h1 className="text-xl font-bold mb-2">Staff</h1>
-        <p className="text-gray-600 text-sm">Staff accounts aren't available on your account yet. Contact Tolo support if you'd like it enabled.</p>
+        <h1 className="text-xl font-bold mb-2 dark:text-gray-100">Staff</h1>
+        <p className="text-gray-600 dark:text-gray-400 text-sm">Staff accounts aren't available on your account yet. Contact Tolo support if you'd like it enabled.</p>
       </div>
     );
   }
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-xl font-bold mb-1">Staff</h1>
-      <p className="text-sm text-gray-500 mb-4">
+      <h1 className="text-xl font-bold mb-1 dark:text-gray-100">Staff</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
         {isOwner
           ? "Add or remove people who can help run your store."
           : "Only the store owner can add or remove staff — you can see who else has access below."}
       </p>
 
       {isOwner && (
-        <div className="bg-white border rounded-lg p-4 mb-4">
-          <h2 className="font-medium text-sm mb-2">Add staff</h2>
-          <p className="text-xs text-gray-500 mb-2">
+        <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4">
+          <h2 className="font-medium text-sm mb-2 dark:text-gray-100">Add staff</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
             The person must already have a Tolo account (e.g. as a customer) — search by the phone number they registered with.
           </p>
           <div className="flex gap-2 mb-2">
@@ -159,31 +189,31 @@ export function Staff() {
                 setFound(undefined);
               }}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              className="flex-1 border rounded-md px-3 py-2 text-sm"
+              className="flex-1 border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
             />
             <button
               onClick={handleSearch}
               disabled={searching || !phone.trim()}
-              className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
+              className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60"
             >
               {searching ? "Searching..." : "Search"}
             </button>
           </div>
-          {found === null && <p className="text-xs text-gray-500 mb-2">No Tolo account found with that phone number.</p>}
+          {found === null && <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">No Tolo account found with that phone number.</p>}
 
           {found && (
-            <div className="border rounded-md p-3 flex items-center justify-between gap-3">
+            <div className="border dark:border-white/20 rounded-md p-3 flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium">{found.full_name ?? "Unnamed"}</p>
-                <p className="text-xs text-gray-500">{found.phone}</p>
-                {alreadyStaff && <p className="text-xs text-orange-600 mt-0.5">Already staff at your store.</p>}
+                <p className="text-sm font-medium dark:text-gray-100">{found.full_name ?? "Unnamed"}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{found.phone}</p>
+                {alreadyStaff && <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">Already staff at your store.</p>}
               </div>
               {!alreadyStaff && (
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value as (typeof ASSIGNABLE_ROLES)[number])}
-                    className="border rounded-md px-2 py-1.5 text-xs"
+                    className="border rounded-md px-2 py-1.5 text-xs dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
                   >
                     {ASSIGNABLE_ROLES.map((r) => (
                       <option key={r} value={r}>
@@ -194,7 +224,7 @@ export function Staff() {
                   <button
                     onClick={handleAdd}
                     disabled={adding}
-                    className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
+                    className="text-xs bg-navy dark:bg-navy-light text-white px-3 py-1.5 rounded-md hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60"
                   >
                     {adding ? "Adding..." : "Add"}
                   </button>
@@ -208,31 +238,19 @@ export function Staff() {
       {loading ? (
         <SkeletonRows count={3} />
       ) : staff.length === 0 ? (
-        <div className="bg-white border rounded-lg">
-          <EmptyState icon={Users} title="No staff yet" description="People you add will show up here." />
-        </div>
+        <EmptyState icon={Users} title="No staff yet" description="People you add will show up here." />
       ) : (
         <>
-        <div className="bg-white border rounded-lg divide-y">
-          {staff.map((s) => (
-            <div key={s.id} className="p-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">{s.profiles?.full_name ?? "Unnamed"}</p>
-                <p className="text-xs text-gray-500">
-                  {s.profiles?.phone ?? "—"} · <span className="capitalize">{ROLE_LABELS[s.role] ?? s.role}</span>
-                </p>
-              </div>
-              {isOwner && s.role !== "owner" && (
-                <button onClick={() => handleRemove(s.id)} className="text-xs text-red-600 font-medium flex-shrink-0">
-                  Remove
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="mt-4">
-          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
-        </div>
+          <DataTable
+            storageKey="merchant.staff"
+            columns={columns}
+            rows={staff}
+            getRowId={(s) => s.id}
+            bulkActions={isOwner ? [{ label: "Remove", onAction: bulkRemove, variant: "destructive" }] : undefined}
+          />
+          <div className="mt-4">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
         </>
       )}
     </div>

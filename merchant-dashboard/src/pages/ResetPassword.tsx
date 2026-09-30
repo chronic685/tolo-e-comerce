@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
@@ -59,14 +59,14 @@ export function ResetPassword() {
   }
 
   if (recoveryState === "checking") {
-    return <p className="text-center text-gray-500 py-16">Verifying your reset link...</p>;
+    return <p className="text-center text-gray-500 dark:text-gray-400 py-16">Verifying your reset link...</p>;
   }
 
   if (recoveryState === "invalid") {
     return (
       <div className="max-w-sm mx-auto mt-16 text-center">
         <h1 className="text-xl font-bold mb-2">Link invalid or expired</h1>
-        <p className="text-gray-600 text-sm mb-4">This password-reset link is invalid or has expired.</p>
+        <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">This password-reset link is invalid or has expired.</p>
         <button onClick={() => navigate("/forgot-password")} className="text-navy text-sm font-medium">
           Request a new reset link
         </button>
@@ -78,7 +78,7 @@ export function ResetPassword() {
     return (
       <div className="max-w-sm mx-auto mt-16 text-center">
         <h1 className="text-xl font-bold mb-2">Password updated</h1>
-        <p className="text-gray-600 text-sm mb-4">Your password has been changed. Sign in with your new password.</p>
+        <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">Your password has been changed. Sign in with your new password.</p>
         <button
           onClick={() => navigate("/login")}
           className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark"

@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
@@ -58,13 +58,13 @@ export function Login() {
   return (
     <div className="max-w-sm mx-auto mt-16">
       <h1 className="text-xl font-bold mb-1">Tolo Merchant Portal</h1>
-      <p className="text-sm text-gray-500 mb-4">Sign in to manage your store.</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Sign in to manage your store.</p>
 
       <button
         type="button"
         onClick={handleGoogleSignIn}
         disabled={googleLoading || loading}
-        className="w-full border rounded-md py-2.5 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 flex items-center justify-center gap-2"
+        className="w-full border rounded-md py-2.5 font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:bg-white/5 disabled:opacity-60 flex items-center justify-center gap-2"
       >
         <GoogleIcon />
         {googleLoading ? "Redirecting..." : "Continue with Google"}
@@ -72,7 +72,7 @@ export function Login() {
 
       <div className="flex items-center gap-3 my-4">
         <div className="flex-1 h-px bg-gray-200" />
-        <span className="text-xs text-gray-400">or</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">or</span>
         <div className="flex-1 h-px bg-gray-200" />
       </div>
 
@@ -106,7 +106,7 @@ export function Login() {
           {loading ? "Signing in..." : "Sign in"}
         </button>
       </form>
-      <p className="text-sm text-gray-500 mt-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
         New merchant?{" "}
         <Link to="/signup" className="text-navy font-medium underline">
           Apply here

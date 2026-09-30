@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { LifeBuoy } from "lucide-react";
-import { ADMIN_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, useTranslation, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, DataTable, EmptyState, Pagination, SkeletonRows, totalPagesFor, useTranslation, usePagination, type DataTableColumn } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 
@@ -16,10 +16,10 @@ interface Ticket {
   merchant_orders: { order_id: string } | null;
 }
 
-const statusColors: Record<string, string> = {
-  open: "bg-yellow-100 text-yellow-800",
-  resolved: "bg-emerald-100 text-emerald-800",
-  closed: "bg-gray-200 text-gray-700",
+const statusVariant: Record<string, "warning" | "success" | "default"> = {
+  open: "warning",
+  resolved: "success",
+  closed: "default",
 };
 
 // Group 4, item 14: support_tickets_select RLS now also lets a merchant
@@ -60,39 +60,56 @@ export function Support() {
     window.open(data.signedUrl, "_blank");
   }
 
+  const columns: DataTableColumn<Ticket>[] = [
+    {
+      key: "subject",
+      header: "Ticket",
+      render: (ticket) => (
+        <div>
+          <p className="font-medium text-sm">{ticket.subject}</p>
+          {ticket.body && <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">{ticket.body}</p>}
+          <div className="flex items-center gap-3 mt-1">
+            {ticket.photo_url && (
+              <button onClick={() => viewPhoto(ticket)} className="text-xs text-navy dark:text-navy-light hover:underline">
+                {t("orders.viewAttachedPhoto")}
+              </button>
+            )}
+            {ticket.merchant_orders && (
+              <Link to={`/orders/${ticket.merchant_order_id}`} className="text-xs text-navy dark:text-navy-light hover:underline">
+                {t("orders.viewOrder")}
+              </Link>
+            )}
+          </div>
+        </div>
+      ),
+      filterValue: (ticket) => ticket.subject,
+      csvValue: (ticket) => ticket.subject,
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (ticket) => <Badge variant={statusVariant[ticket.status] ?? "default"}>{t(`support.status.${ticket.status}`)}</Badge>,
+      csvValue: (ticket) => ticket.status,
+    },
+    {
+      key: "created_at",
+      header: "Date",
+      render: (ticket) => <span className="text-xs text-gray-400 dark:text-gray-500">{new Date(ticket.created_at).toLocaleString()}</span>,
+      sortValue: (ticket) => ticket.created_at,
+      csvValue: (ticket) => ticket.created_at,
+    },
+  ];
+
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-bold mb-4">{t("support.title")}</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">{t("support.title")}</h1>
       {loading ? (
         <SkeletonRows />
       ) : tickets.length === 0 ? (
         <EmptyState icon={LifeBuoy} title={t("support.empty")} description={t("support.emptyDescription")} />
       ) : (
         <>
-          <div className="bg-white border rounded-lg divide-y">
-            {tickets.map((ticket) => (
-              <div key={ticket.id} className="p-4">
-                <div className="flex justify-between items-start mb-1">
-                  <p className="font-medium text-sm">{ticket.subject}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[ticket.status] ?? "bg-gray-100"}`}>
-                    {t(`support.status.${ticket.status}`)}
-                  </span>
-                </div>
-                {ticket.body && <p className="text-sm text-gray-600 mb-2">{ticket.body}</p>}
-                {ticket.photo_url && (
-                  <button onClick={() => viewPhoto(ticket)} className="text-xs text-navy hover:underline mb-2 block">
-                    {t("orders.viewAttachedPhoto")}
-                  </button>
-                )}
-                {ticket.merchant_orders && (
-                  <Link to={`/orders/${ticket.merchant_order_id}`} className="text-xs text-navy hover:underline mb-2 block">
-                    {t("orders.viewOrder")}
-                  </Link>
-                )}
-                <p className="text-xs text-gray-400">{new Date(ticket.created_at).toLocaleString()}</p>
-              </div>
-            ))}
-          </div>
+          <DataTable storageKey="merchant.support" columns={columns} rows={tickets} getRowId={(t) => t.id} />
           <div className="mt-4">
             <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
           </div>

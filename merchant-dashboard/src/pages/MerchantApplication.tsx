@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
@@ -106,9 +106,9 @@ export function MerchantApplication() {
 
   if (merchantId) {
     return (
-      <div className="max-w-md mx-auto mt-12 bg-white border rounded-lg p-6">
+      <div className="max-w-md mx-auto mt-12 bg-white dark:bg-navy-dark border rounded-lg p-6">
         <h1 className="text-lg font-bold mb-1">Upload verification documents</h1>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
           Documents are stored privately — only you and Tolo staff can access them. You can also add these later.
         </p>
         <div className="space-y-3">
@@ -121,7 +121,7 @@ export function MerchantApplication() {
                   <CheckCircle2 className="w-4 h-4" />
                 </span>
               ) : (
-                <label className="text-xs text-gray-700 border rounded-md px-2 py-1 cursor-pointer hover:bg-gray-50">
+                <label className="text-xs text-gray-700 dark:text-gray-300 border rounded-md px-2 py-1 cursor-pointer hover:bg-gray-50 dark:bg-white/5">
                   {uploadingType === doc.type ? "Uploading..." : "Choose file"}
                   <input
                     type="file"
@@ -149,9 +149,9 @@ export function MerchantApplication() {
   }
 
   return (
-    <div className="max-w-md mx-auto mt-12 bg-white border rounded-lg p-6">
+    <div className="max-w-md mx-auto mt-12 bg-white dark:bg-navy-dark border rounded-lg p-6">
       <h1 className="text-lg font-bold mb-1">Become a Tolo Merchant</h1>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
         Submit your business details. Tolo will review your documents and approve your account before your store goes live.
       </p>
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -210,7 +210,7 @@ export function MerchantApplication() {
         />
 
         <div className="pt-2 border-t">
-          <p className="text-xs font-medium text-gray-500 mb-2">Owner information</p>
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Owner information</p>
           <div className="space-y-2">
             <input
               placeholder="Owner full name"
@@ -233,7 +233,7 @@ export function MerchantApplication() {
           </div>
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-gray-600">
+        <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
           <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
           I agree to the Tolo merchant terms and commission structure.
         </label>
