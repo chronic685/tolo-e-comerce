@@ -1,13 +1,17 @@
 -- Fix for a bug in migration 0067 (finance reconciliation report):
--- finance_reconciliation_rows() declares `order_id uuid` as the first
--- column of its RETURNS TABLE, which PL/pgSQL also exposes as an
--- implicit variable named `order_id` in scope for the whole function
--- body. The lateral subquery's `where order_id = o.id` was therefore
--- ambiguous -- it could mean either that variable or payments.order_id
--- -- and Postgres rejects the call outright (42702) rather than guessing.
--- Caught by CI against a fresh migration (the live local sandbox this
--- repo's tests otherwise run against, see tests/README.md, was running an
--- older/patched definition that didn't hit this).
+-- finance_reconciliation_rows() declares `order_id uuid` and
+-- `created_at timestamptz` as columns of its RETURNS TABLE, which
+-- PL/pgSQL also exposes as implicit variables of those same names in
+-- scope for the whole function body. The lateral subquery's
+-- `where order_id = o.id order by created_at desc` was therefore
+-- ambiguous on BOTH columns -- each could mean the implicit variable or
+-- the matching payments column -- and Postgres rejects the call outright
+-- (42702) rather than guessing. The `order_id` half was qualified in an
+-- earlier version of this same migration; CI's next fresh-migration run
+-- then hit the identical ambiguity on `created_at`, so both are fixed
+-- here together. Caught by CI against a fresh migration (the live local
+-- sandbox this repo's tests otherwise run against, see tests/README.md,
+-- was running an older/patched definition that didn't hit this).
 create or replace function finance_reconciliation_rows(p_from timestamptz, p_to timestamptz)
 returns table (
   order_id uuid,
@@ -40,7 +44,7 @@ begin
   from orders o
   join profiles p on p.id = o.customer_id
   left join lateral (
-    select provider, status, amount from payments where payments.order_id = o.id order by created_at desc limit 1
+    select provider, status, amount from payments where payments.order_id = o.id order by payments.created_at desc limit 1
   ) pay on true
   left join lateral (
     select sum(f.amount) as refunded
