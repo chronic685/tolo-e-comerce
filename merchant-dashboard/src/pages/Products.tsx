@@ -1,10 +1,26 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Package } from "lucide-react";
-import { ADMIN_PAGE_SIZE, Button, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Badge,
+  Button,
+  DataTable,
+  EmptyState,
+  LazyImage,
+  Pagination,
+  SkeletonRows,
+  exportToCsv,
+  fetchAllRows,
+  formatCurrency,
+  totalPagesFor,
+  usePagination,
+  type DataTableColumn,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import type { Product } from "../types";
+import type { FetchPageResult } from "@tolo/ui";
 
 const PRODUCT_SELECT = `
   id, merchant_id, store_id, category_id, name, slug, description, base_price, discount_price, status,
@@ -13,14 +29,18 @@ const PRODUCT_SELECT = `
   categories ( name )
 `;
 
-const statusColors: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  submitted: "bg-yellow-100 text-yellow-800",
-  approved: "bg-blue-100 text-blue-800",
-  published: "bg-emerald-100 text-emerald-800",
-  paused: "bg-orange-100 text-orange-800",
-  archived: "bg-red-100 text-red-800",
+const statusVariant: Record<string, "default" | "warning" | "info" | "success" | "danger"> = {
+  draft: "default",
+  submitted: "warning",
+  approved: "info",
+  published: "success",
+  paused: "warning",
+  archived: "danger",
 };
+
+function totalStockOf(p: Product): number {
+  return p.product_variants.reduce((sum, v) => sum + (v.inventory?.stock_quantity ?? 0), 0);
+}
 
 export function Products() {
   const { merchant, store } = useMerchant();
@@ -72,21 +92,92 @@ export function Products() {
     setProducts((prev) => prev.map((prod) => (prod.id === p.id ? { ...prod, status: next } : prod)));
   }
 
+  // Item 4 bulk action: pause every selected published product in one go
+  // instead of one Pause click per row.
+  async function bulkPause(selected: Product[]) {
+    const published = selected.filter((p) => p.status === "published");
+    if (published.length === 0) return;
+    await supabase.from("products").update({ status: "paused" }).in("id", published.map((p) => p.id));
+    setProducts((prev) => prev.map((p) => (published.some((sel) => sel.id === p.id) ? { ...p, status: "paused" } : p)));
+  }
+
+  async function handleExportAll() {
+    if (!merchant) return;
+    const rows = await fetchAllRows<Product>(
+      (rangeFrom, rangeTo) =>
+        supabase.from("products").select(PRODUCT_SELECT).eq("merchant_id", merchant.id).order("created_at", { ascending: false }).range(rangeFrom, rangeTo) as unknown as PromiseLike<
+          FetchPageResult<Product>
+        >,
+    );
+    exportToCsv(
+      `products-${new Date().toISOString().slice(0, 10)}.csv`,
+      rows.map((p) => ({
+        id: p.id,
+        name: p.name,
+        category: p.categories?.name ?? "",
+        status: p.status,
+        price: p.base_price,
+        stock: totalStockOf(p),
+      })),
+    );
+  }
+
+  const columns: DataTableColumn<Product>[] = [
+    {
+      key: "name",
+      header: "Product",
+      render: (p) => (
+        <div className="flex items-center gap-3 min-w-0">
+          <LazyImage src={p.product_images[0]?.url} alt={p.name} className="w-10 h-10 flex-shrink-0 rounded" />
+          <Link to={`/products/${p.id}`} className="font-medium hover:text-navy dark:hover:text-navy-light truncate">
+            {p.name}
+          </Link>
+        </div>
+      ),
+      filterValue: (p) => p.name,
+      sortValue: (p) => p.name,
+      csvValue: (p) => p.name,
+    },
+    { key: "category", header: "Category", render: (p) => p.categories?.name ?? "Uncategorized", filterValue: (p) => p.categories?.name ?? "", csvValue: (p) => p.categories?.name ?? "" },
+    { key: "stock", header: "Stock", render: (p) => totalStockOf(p), sortValue: totalStockOf, csvValue: totalStockOf, align: "right" },
+    {
+      key: "status",
+      header: "Status",
+      render: (p) => (
+        <Badge variant={statusVariant[p.status] ?? "default"} className="capitalize">
+          {p.status}
+        </Badge>
+      ),
+      csvValue: (p) => p.status,
+    },
+    { key: "price", header: "Price", render: (p) => formatCurrency(p.base_price), sortValue: (p) => p.base_price, csvValue: (p) => p.base_price, align: "right" },
+    {
+      key: "actions",
+      header: "",
+      render: (p) =>
+        p.status === "published" || p.status === "paused" ? (
+          <Button size="sm" variant="outline" onClick={() => togglePause(p)}>
+            {p.status === "published" ? "Pause" : "Publish"}
+          </Button>
+        ) : null,
+    },
+  ];
+
   if (!store) {
-    return <p className="text-gray-600">Set up your store profile before adding products. Go to Store Settings.</p>;
+    return <p className="text-gray-600 dark:text-gray-400">Set up your store profile before adding products. Go to Store Settings.</p>;
   }
 
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-bold">Products</h1>
+        <h1 className="text-xl font-bold dark:text-gray-100">Products</h1>
         <div className="flex items-center gap-2">
           {bulkUploadEnabled && (
-            <Link to="/products-bulk-upload" className="text-sm border px-4 py-2 rounded-md hover:bg-gray-50">
+            <Link to="/products-bulk-upload" className="text-sm border dark:border-white/20 dark:text-gray-200 px-4 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-white/5">
               Bulk upload
             </Link>
           )}
-          <Link to="/products/new" className="bg-navy text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark">
+          <Link to="/products/new" className="bg-navy dark:bg-navy-light text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark dark:hover:bg-navy">
             + New product
           </Link>
         </div>
@@ -107,43 +198,17 @@ export function Products() {
         />
       ) : (
         <>
-        <div className="bg-white border rounded-lg divide-y">
-          {products.map((p) => {
-            const totalStock = p.product_variants.reduce((sum, v) => sum + (v.inventory?.stock_quantity ?? 0), 0);
-            return (
-              <div key={p.id} className="flex items-center gap-4 p-4">
-                <div className="w-14 h-14 bg-gray-100 rounded overflow-hidden flex-shrink-0">
-                  {p.product_images[0] && (
-                    <img src={p.product_images[0].url} alt={p.name} className="w-full h-full object-cover" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <Link to={`/products/${p.id}`} className="font-medium hover:text-navy truncate block">
-                    {p.name}
-                  </Link>
-                  <p className="text-xs text-gray-500">
-                    {p.categories?.name ?? "Uncategorized"} · Stock: {totalStock}
-                  </p>
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${statusColors[p.status]}`}>
-                  {p.status}
-                </span>
-                <p className="font-semibold text-sm w-24 text-right">{p.base_price.toFixed(2)} ETB</p>
-                {(p.status === "published" || p.status === "paused") && (
-                  <button
-                    onClick={() => togglePause(p)}
-                    className="text-xs text-gray-600 hover:text-gray-900 border rounded-md px-2 py-1"
-                  >
-                    {p.status === "published" ? "Pause" : "Publish"}
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-4">
-          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
-        </div>
+          <DataTable
+            storageKey="merchant.products"
+            columns={columns}
+            rows={products}
+            getRowId={(p) => p.id}
+            bulkActions={[{ label: "Pause", onAction: bulkPause }]}
+            onExportAll={handleExportAll}
+          />
+          <div className="mt-4">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
         </>
       )}
     </div>
