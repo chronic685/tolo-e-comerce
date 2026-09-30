@@ -1,0 +1,22 @@
+-- Fix for a bug in migration 0065 (out-of-stock substitution choice):
+-- that migration added `on_unavailable` to `order_items` only, but both
+-- the frontend (CartContext.tsx selects/updates
+-- `cart_items.on_unavailable`, Cart.tsx renders a picker bound to it) and
+-- checkout/index.ts (`.select("variant_id, quantity, on_unavailable")`
+-- from `cart_items`) were written assuming `cart_items` already had this
+-- column too -- it's the per-line preference the customer picks in their
+-- cart, which checkout() then copies onto each order_item it creates
+-- (create_order()'s `v_item->>'on_unavailable'`, migration 0066).
+--
+-- Because the column never existed on `cart_items`, every single
+-- checkout() call was failing: PostgREST returns an error for a
+-- nonexistent column, `.select()` in checkout/index.ts only destructured
+-- `data` (not `error`), so `items` came back null/empty and every
+-- checkout was rejected as "Cart is empty" (400) regardless of what was
+-- actually in the cart. This was invisible against the long-lived local
+-- Supabase sandbox this repo's tests otherwise run against (see
+-- tests/README.md) -- that instance had apparently drifted from the
+-- migration history -- and only surfaced running CI's actual
+-- from-scratch migration.
+alter table cart_items
+  add column on_unavailable unavailable_item_preference not null default 'remove';
