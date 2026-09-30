@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Badge,
+  Button,
+  DataTable,
+  Pagination,
+  SkeletonRows,
+  exportToCsv,
+  fetchAllRows,
+  totalPagesFor,
+  usePagination,
+  type DataTableColumn,
+} from "@tolo/ui";
 import type { CustomerProfile } from "../types";
 
 export function Customers() {
@@ -70,18 +81,36 @@ export function Customers() {
     setCustomers((prev) => prev.map((cust) => (cust.id === c.id ? { ...cust, account_status: "suspended", suspension_reason } : cust)));
   }
 
+  // Item 4 bulk action: suspend every selected active customer under one
+  // shared reason, instead of one-at-a-time through the per-row prompt.
+  async function bulkSuspend(selected: CustomerProfile[]) {
+    const active = selected.filter((c) => c.account_status === "active");
+    if (active.length === 0) return;
+    const bulkReason = window.prompt(`Reason for suspending ${active.length} customer(s)`);
+    if (bulkReason === null) return;
+    await supabase
+      .from("profiles")
+      .update({ account_status: "suspended", suspension_reason: bulkReason || null })
+      .in("id", active.map((c) => c.id));
+    setCustomers((prev) =>
+      prev.map((c) => (active.some((a) => a.id === c.id) ? { ...c, account_status: "suspended", suspension_reason: bulkReason || null } : c)),
+    );
+  }
+
   // Exports every customer matching the current search, not just the page
   // on screen -- fetched fresh here rather than from the paginated
-  // `customers` state, which only ever holds one page's worth of rows.
-  async function handleExport() {
-    const rows = await fetchAllRows<CustomerProfile>((from, to) => {
+  // `customers` state, which only ever holds one page's worth of rows. Wired
+  // into DataTable's onExportAll so the button lives in the table's own
+  // toolbar instead of a separate one above it.
+  async function handleExportAll() {
+    const rows = await fetchAllRows<CustomerProfile>((rangeFrom, rangeTo) => {
       let query = supabase
         .from("profiles")
         .select("id, full_name, phone, account_status, suspension_reason, created_at")
         .eq("role", "customer")
         .order("created_at", { ascending: false });
       if (committedSearch.trim()) query = query.or(`full_name.ilike.%${committedSearch.trim()}%,phone.ilike.%${committedSearch.trim()}%`);
-      return query.range(from, to);
+      return query.range(rangeFrom, rangeTo);
     });
     const { data: orders } = await supabase
       .from("orders")
@@ -103,24 +132,89 @@ export function Customers() {
     );
   }
 
+  const columns: DataTableColumn<CustomerProfile>[] = [
+    {
+      key: "name",
+      header: "Name",
+      render: (c) => c.full_name ?? "Unnamed",
+      filterValue: (c) => c.full_name ?? "",
+      sortValue: (c) => c.full_name ?? "",
+      csvValue: (c) => c.full_name ?? "",
+    },
+    { key: "phone", header: "Phone", render: (c) => c.phone ?? "—", filterValue: (c) => c.phone ?? "", csvValue: (c) => c.phone ?? "" },
+    {
+      key: "orders",
+      header: "Orders",
+      render: (c) => orderCounts[c.id] ?? 0,
+      sortValue: (c) => orderCounts[c.id] ?? 0,
+      csvValue: (c) => orderCounts[c.id] ?? 0,
+      align: "right",
+    },
+    {
+      key: "joined",
+      header: "Joined",
+      render: (c) => new Date(c.created_at).toLocaleDateString(),
+      sortValue: (c) => c.created_at,
+      csvValue: (c) => c.created_at,
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (c) => (
+        <div>
+          <Badge variant={c.account_status === "active" ? "success" : "danger"} className="capitalize">
+            {c.account_status}
+          </Badge>
+          {c.account_status === "suspended" && c.suspension_reason && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">{c.suspension_reason}</p>
+          )}
+        </div>
+      ),
+      csvValue: (c) => c.account_status,
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (c) => (
+        <div>
+          <Button size="sm" variant={c.account_status === "active" ? "outline" : "destructive"} onClick={() => toggleStatus(c)}>
+            {c.account_status === "active" ? "Suspend" : "Reactivate"}
+          </Button>
+          {reasonPromptId === c.id && (
+            <div className="flex gap-2 mt-2">
+              <input
+                placeholder="Reason for suspension"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="flex-1 border rounded-md px-3 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
+              />
+              <Button size="sm" variant="destructive" onClick={() => confirmSuspend(c)}>
+                Confirm
+              </Button>
+            </div>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="max-w-2xl">
+    <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Customers</h1>
-        <ExportCsvButton onExport={handleExport} disabled={customers.length === 0} />
+        <h1 className="text-xl font-bold dark:text-gray-100">Customers</h1>
       </div>
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 max-w-2xl">
         <input
           placeholder="Search by name or phone"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && setCommittedSearch(search)}
-          className="flex-1 border rounded-md px-3 py-2 text-sm"
+          className="flex-1 border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
         />
         <button
           onClick={() => setCommittedSearch(search)}
-          className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark"
+          className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy"
         >
           Search
         </button>
@@ -128,63 +222,20 @@ export function Customers() {
 
       {loading ? (
         <SkeletonRows />
-      ) : customers.length === 0 ? (
-        <p className="text-gray-500">No customers found.</p>
       ) : (
         <>
-        <div className="bg-white border rounded-lg divide-y">
-          {customers.map((c) => (
-            <div key={c.id}>
-              <div className="p-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">{c.full_name ?? "Unnamed"}</p>
-                  <p className="text-xs text-gray-500">
-                    {c.phone ?? "—"} · {orderCounts[c.id] ?? 0} order(s) · joined {new Date(c.created_at).toLocaleDateString()}
-                  </p>
-                  {c.account_status === "suspended" && c.suspension_reason && (
-                    <p className="text-xs text-red-600 mt-0.5">Suspended: {c.suspension_reason}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full capitalize ${
-                      c.account_status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {c.account_status}
-                  </span>
-                  <button
-                    onClick={() => toggleStatus(c)}
-                    className={`text-xs px-2 py-1.5 rounded-md border ${
-                      c.account_status === "active" ? "hover:bg-gray-50" : "bg-red-50 text-red-700 border-red-200"
-                    }`}
-                  >
-                    {c.account_status === "active" ? "Suspend" : "Reactivate"}
-                  </button>
-                </div>
-              </div>
-              {reasonPromptId === c.id && (
-                <div className="px-3 pb-3 flex gap-2">
-                  <input
-                    placeholder="Reason for suspension"
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    className="flex-1 border rounded-md px-3 py-1.5 text-sm"
-                  />
-                  <button
-                    onClick={() => confirmSuspend(c)}
-                    className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700"
-                  >
-                    Confirm suspend
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="mt-4">
-          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
-        </div>
+          <DataTable
+            storageKey="admin.customers"
+            columns={columns}
+            rows={customers}
+            getRowId={(c) => c.id}
+            bulkActions={[{ label: "Suspend", onAction: bulkSuspend, variant: "destructive" }]}
+            onExportAll={handleExportAll}
+            emptyMessage="No customers found."
+          />
+          <div className="mt-4">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
         </>
       )}
     </div>

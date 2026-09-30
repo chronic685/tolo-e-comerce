@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { SkeletonPage } from "@tolo/ui";
+import { SalesTrend } from "../components/SalesTrend";
+import { LiveOrdersFeed } from "../components/LiveOrdersFeed";
 
 interface Stats {
   // Customers
@@ -151,8 +153,8 @@ export function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-1">Platform Overview</h1>
-      <p className="text-sm text-gray-500 mb-6">Tolo marketplace at a glance.</p>
+      <h1 className="text-xl font-bold mb-1 dark:text-gray-100">Platform Overview</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Tolo marketplace at a glance.</p>
 
       {stats.unacknowledgedOrders > 0 && (
         <Link
@@ -181,6 +183,9 @@ export function Dashboard() {
           {stats.openTickets} open support ticket(s) →
         </Link>
       )}
+
+      <LiveOrdersFeed />
+      <SalesTrend />
 
       <DashboardSection title="Customers">
         <StatCard label="Registered" value={stats.registeredCustomers} />
@@ -231,7 +236,7 @@ export function Dashboard() {
 function DashboardSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-6">
-      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">{title}</h2>
+      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{title}</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">{children}</div>
     </div>
   );
@@ -239,10 +244,10 @@ function DashboardSection({ title, children }: { title: string; children: React.
 
 function StatCard({ label, value, highlight, hint }: { label: string; value: string | number; highlight?: boolean; hint?: string }) {
   return (
-    <div className={`bg-white border rounded-lg p-4 ${highlight ? "border-navy" : ""}`} title={hint}>
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="text-2xl font-bold mt-1">{value}</p>
-      {hint && <p className="text-[11px] text-gray-400 mt-1">{hint}</p>}
+    <div className={`bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 ${highlight ? "border-navy dark:border-navy-light" : ""}`} title={hint}>
+      <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+      <p className="text-2xl font-bold mt-1 dark:text-gray-100">{value}</p>
+      {hint && <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{hint}</p>}
     </div>
   );
 }
