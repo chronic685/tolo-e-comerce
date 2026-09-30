@@ -50,6 +50,12 @@ export default defineConfig({
       // @tolo/ui's own tests (e.g. Pagination.test.tsx) are never picked up
       // by root `vitest run` / `npm test` at all.
       "packages/ui",
+      // merchant-dashboard and admin-dashboard gained their own jsdom
+      // vitest configs (feat/advanced-ui) -- same reason as "frontend"
+      // above: without registering them here, root `vitest run` / `npm
+      // test` (CI's only test step) silently never runs their tests at all.
+      "merchant-dashboard",
+      "admin-dashboard",
     ],
   },
 });
