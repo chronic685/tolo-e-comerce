@@ -8,3 +8,12 @@ body {
   background-color: #f8f9fb;
   color: #111827;
 }
+
+/* ThemeProvider (@tolo/ui) toggles `.dark` on <html>. Layout.tsx's own root
+   div already carries dark:bg-navy-dark for the normal in-viewport case;
+   this plain-CSS fallback covers the sliver visible during mobile overscroll
+   bounce, before Layout has painted, etc. */
+.dark body {
+  background-color: #0b1638;
+  color: #f3f4f6;
+}

@@ -7,6 +7,7 @@ import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
 import { useFavorites } from "../lib/FavoritesContext";
 import { RatingBadge } from "../components/RatingBadge";
+import { recordProductView } from "../lib/recentlyViewed";
 import type { Product } from "../types";
 
 // merchants(...) is only fetched here, not on grid pages (Marketplace.tsx/
@@ -57,6 +58,7 @@ export function ProductDetail() {
         const p = data as unknown as Product | null;
         setProduct(p);
         setVariantId(p?.product_variants.find((v) => v.is_default)?.id ?? p?.product_variants[0]?.id ?? null);
+        if (p) recordProductView(p.id);
       });
   }, [slug]);
 

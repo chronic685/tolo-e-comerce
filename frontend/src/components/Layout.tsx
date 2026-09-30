@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { AlertTriangle, Bell, Home, Package, ShoppingCart, Store, User, X } from "lucide-react";
-import { LanguageSwitcher, useTranslation } from "@tolo/ui";
+import { LanguageSwitcher, ThemeToggle, useTranslation } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
 import { supabase } from "../lib/supabase";
@@ -46,7 +46,7 @@ export function Layout() {
   }, [user, location.pathname]);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-navy-dark dark:text-gray-100">
       {maintenanceMode && (
         <div className="bg-red-600 text-white text-center text-sm py-2 px-4 flex items-center justify-center gap-2">
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
@@ -55,12 +55,12 @@ export function Layout() {
       )}
 
       {embed && (
-        <div className="sticky top-0 z-10 bg-white border-b flex items-center justify-end px-4 py-2">
+        <div className="sticky top-0 z-10 bg-white dark:bg-navy-dark border-b dark:border-white/10 flex items-center justify-end px-4 py-2">
           <button
             type="button"
             onClick={closeApp}
-            aria-label="Close"
-            className="text-gray-500 hover:text-navy p-1"
+            aria-label={t("common.close")}
+            className="text-gray-500 hover:text-navy dark:text-gray-400 dark:hover:text-white p-1"
           >
             <X className="w-5 h-5" />
           </button>
@@ -68,23 +68,23 @@ export function Layout() {
       )}
 
       {!embed && (
-      <header className="border-b bg-white sticky top-0 z-10">
+      <header className="border-b dark:border-white/10 bg-white dark:bg-navy-dark sticky top-0 z-10">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
-          <Link to="/" className="flex items-center gap-2 text-xl font-bold text-navy">
+          <Link to="/" className="flex items-center gap-2 text-xl font-bold text-navy dark:text-navy-light">
             <img src="/logo.png" alt="" className="h-8 w-8" />
             Tolo
           </Link>
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-5 text-sm">
-            <Link to="/" className="hover:text-navy">
+            <Link to="/" className="hover:text-navy dark:hover:text-navy-light">
               {t("nav.marketplace")}
             </Link>
-            <Link to="/stores" className="hover:text-navy">
+            <Link to="/stores" className="hover:text-navy dark:hover:text-navy-light">
               {t("nav.shops")}
             </Link>
             {user && (
-              <Link to="/orders" className="hover:text-navy">
+              <Link to="/orders" className="hover:text-navy dark:hover:text-navy-light">
                 {t("nav.myOrders")}
               </Link>
             )}
@@ -92,9 +92,10 @@ export function Layout() {
 
           {/* Icon actions — visible on every width */}
           <div className="flex items-center gap-4">
-            <LanguageSwitcher className="hidden md:inline-flex text-gray-600 hover:text-navy" />
+            <ThemeToggle className="hidden md:inline-flex text-gray-600 hover:text-navy dark:text-gray-300 dark:hover:text-navy-light" />
+            <LanguageSwitcher className="hidden md:inline-flex text-gray-600 hover:text-navy dark:text-gray-300 dark:hover:text-navy-light" />
             {user && (
-              <Link to="/notifications" aria-label={t("nav.notifications")} className="relative text-gray-600 hover:text-navy">
+              <Link to="/notifications" aria-label={t("nav.notifications")} className="relative text-gray-600 hover:text-navy dark:text-gray-300 dark:hover:text-navy-light">
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-[10px] leading-none rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
@@ -103,7 +104,7 @@ export function Layout() {
                 )}
               </Link>
             )}
-            <Link to="/cart" aria-label={t("nav.cart")} className="relative text-gray-600 hover:text-navy">
+            <Link to="/cart" aria-label={t("nav.cart")} className="relative text-gray-600 hover:text-navy dark:text-gray-300 dark:hover:text-navy-light">
               <ShoppingCart className="w-5 h-5" />
               {itemCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 bg-navy text-white text-[10px] leading-none rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
@@ -112,11 +113,11 @@ export function Layout() {
               )}
             </Link>
             {user ? (
-              <Link to="/account" aria-label={t("nav.account")} className="hidden md:block text-gray-600 hover:text-navy">
+              <Link to="/account" aria-label={t("nav.account")} className="hidden md:block text-gray-600 hover:text-navy dark:text-gray-300 dark:hover:text-navy-light">
                 <User className="w-5 h-5" />
               </Link>
             ) : (
-              <Link to="/login" className="text-sm hover:text-navy">
+              <Link to="/login" className="text-sm hover:text-navy dark:hover:text-navy-light">
                 {t("nav.signIn")}
               </Link>
             )}
@@ -130,18 +131,18 @@ export function Layout() {
       </main>
 
       {!embed && (
-      <footer className="hidden md:block border-t bg-white text-center text-xs text-gray-500 py-4">
+      <footer className="hidden md:block border-t dark:border-white/10 bg-white dark:bg-navy-dark text-center text-xs text-gray-500 dark:text-gray-400 py-4">
         <p>{t("footer.poweredBy")}</p>
         <nav className="flex items-center justify-center gap-3 mt-1.5">
-          <Link to="/legal/terms" className="hover:text-navy hover:underline">
+          <Link to="/legal/terms" className="hover:text-navy dark:hover:text-navy-light hover:underline">
             {t("footer.terms")}
           </Link>
           <span aria-hidden="true">·</span>
-          <Link to="/legal/privacy" className="hover:text-navy hover:underline">
+          <Link to="/legal/privacy" className="hover:text-navy dark:hover:text-navy-light hover:underline">
             {t("footer.privacy")}
           </Link>
           <span aria-hidden="true">·</span>
-          <Link to="/legal/refund-policy" className="hover:text-navy hover:underline">
+          <Link to="/legal/refund-policy" className="hover:text-navy dark:hover:text-navy-light hover:underline">
             {t("footer.refundPolicy")}
           </Link>
         </nav>
@@ -155,7 +156,7 @@ export function Layout() {
           surface on this bottom-tab-bar layout. */}
       {!embed && (
       <nav
-        className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t z-10"
+        className="md:hidden fixed bottom-0 inset-x-0 bg-white dark:bg-navy-dark border-t dark:border-white/10 z-10"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         <div className="grid grid-cols-5">
@@ -166,7 +167,7 @@ export function Layout() {
               end={tab.end}
               className={({ isActive }) =>
                 `flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] relative ${
-                  isActive ? "text-navy" : "text-gray-500"
+                  isActive ? "text-navy dark:text-navy-light" : "text-gray-500 dark:text-gray-400"
                 }`
               }
             >
