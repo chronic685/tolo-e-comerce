@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, inject, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { serviceClient } from "../env.ts";
 
 // Group 2, item 8 (migration 0060). inventory.low_stock_threshold
@@ -9,26 +9,56 @@ const db = serviceClient();
 
 describe("low-stock alerts (inventory.low_stock_threshold, migration 0060)", () => {
   let variantId: string;
+  let productId: string;
   let merchantOwnerId: string;
-  let originalStock: number;
-  let originalThreshold: number;
 
+  // A dedicated product/variant, not the shared qaFixtures.variantId --
+  // that one is used across many other test files, and inventory's
+  // `reserved_not_over_stock` check (stock_quantity >= reserved_quantity,
+  // migration 0005) means any of those files' real orders reserving stock
+  // against it could silently fail this file's own small stock_quantity
+  // writes (2/3/4) once accumulated reservations exceed them. The updates
+  // below don't check for an error either -- same trap that made
+  // checkout's missing cart_items column invisible (see
+  // 0069_fix_cart_items_missing_on_unavailable_column.sql) -- so a
+  // constraint violation here would silently look identical to "the
+  // trigger didn't fire" instead of failing loudly.
   beforeAll(async () => {
     const fixtures = inject("qaFixtures");
-    variantId = fixtures.variantId;
+    const { data: store } = await db.from("stores").select("id").eq("merchant_id", fixtures.merchantAId).single();
 
-    const { data: variant } = await db.from("product_variants").select("products ( merchant_id )").eq("id", variantId).single();
-    const merchantId = (variant as unknown as { products: { merchant_id: string } }).products.merchant_id;
-    const { data: merchant } = await db.from("merchants").select("owner_id").eq("id", merchantId).single();
-    merchantOwnerId = merchant!.owner_id;
+    const { data: product, error: productError } = await db
+      .from("products")
+      .insert({
+        merchant_id: fixtures.merchantAId,
+        store_id: store!.id,
+        name: "QA TEST — low-stock-alerts product",
+        slug: `qa-test-low-stock-alerts-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        base_price: 100,
+        status: "draft",
+      })
+      .select("id")
+      .single();
+    if (productError) throw productError;
+    productId = product!.id;
 
-    const { data: inv } = await db.from("inventory").select("stock_quantity, low_stock_threshold").eq("variant_id", variantId).single();
-    originalStock = inv!.stock_quantity;
-    originalThreshold = inv!.low_stock_threshold;
+    const { data: variant, error: variantError } = await db
+      .from("product_variants")
+      .insert({ product_id: productId, price: 100, is_default: true })
+      .select("id")
+      .single();
+    if (variantError) throw variantError;
+    variantId = variant!.id;
+
+    await db.from("inventory").insert({ variant_id: variantId, stock_quantity: 100, low_stock_threshold: 5 });
+
+    merchantOwnerId = fixtures.merchantAUserId;
   });
 
-  afterEach(async () => {
-    await db.from("inventory").update({ stock_quantity: originalStock, low_stock_threshold: originalThreshold }).eq("variant_id", variantId);
+  afterAll(async () => {
+    // inventory cascades on product_variants delete (migration 0005),
+    // and product_variants cascades on products delete (migration 0004).
+    if (productId) await db.from("products").delete().eq("id", productId);
   });
 
   async function latestLowStockNotification() {
