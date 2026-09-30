@@ -167,6 +167,7 @@ export const am: AmharicStrings = {
   "account.notifications": mt("ማሳወቂያዎች"),
   "account.support": mt("ድጋፍ"),
   "account.language": mt("ቋንቋ"),
+  "account.theme": mt("ገጽታ"),
 
   // cart --------------------------------------------------------------
   "cart.title": mt("ጋሪ"),
@@ -516,4 +517,59 @@ export const am: AmharicStrings = {
   "errors.paymentMethodUnavailable": mt("ይህ የክፍያ ዘዴ በአሁኑ ጊዜ አይገኝም። እባክዎ ሌላ ይምረጡ።"),
   "errors.tooManyRequests": mt("በጣም ብዙ ጥያቄዎች ቀርበዋል። እባክዎ በቅርቡ እንደገና ይሞክሩ።"),
   "errors.genericCheckoutFailure": mt("ትዕዛዝዎን ማስገባት አልተቻለም። እባክዎ ጋሪዎን ያረጋግጡ እና እንደገና ይሞክሩ።"),
+
+  // theme toggle -------------------------------------------------------
+  "theme.switchToDark": mt("ወደ ጨለማ ገጽታ ቀይር"),
+  "theme.switchToLight": mt("ወደ ብሩህ ገጽታ ቀይር"),
+  "theme.dark": mt("ጨለማ"),
+  "theme.light": mt("ብሩህ"),
+
+  // error boundary -------------------------------------------------------
+  "errorBoundary.title": mt("የሆነ ስህተት ተከስቷል"),
+  "errorBoundary.description": mt("ያልተጠበቀ ስህተት ተከስቷል። ገጹን እንደገና መጫን አብዛኛውን ጊዜ ችግሩን ይፈታል።"),
+
+  // offline banner ---------------------------------------------------------
+  "offline.message": mt("ከመስመር ውጭ ነዎት። ግንኙነትዎ እስኪመለስ ድረስ አንዳንድ ተግባራት አይሰሩም።"),
+
+  // command palette ----------------------------------------------------------
+  "commandPalette.placeholder": mt("ገጾችን፣ ትዕዛዞችን፣ ምርቶችን ይፈልጉ…"),
+  "commandPalette.noResults": mt("ምንም ውጤት የለም"),
+  "commandPalette.pages": mt("ገጾች"),
+  "commandPalette.orders": mt("ትዕዛዞች"),
+  "commandPalette.products": mt("ምርቶች"),
+  "commandPalette.hint": mt("ለመፈለግ {{key}} ይጫኑ"),
+
+  // advanced data table --------------------------------------------------------
+  "dataTable.searchPlaceholder": mt("ማጣሪያ…"),
+  "dataTable.selectAll": mt("ሁሉንም ረድፎች ምረጥ"),
+  "dataTable.columns": mt("አምዶች"),
+  "dataTable.selectedCount": mt("{{count}} ተመርጠዋል"),
+  "dataTable.clearSelection": mt("አጽዳ"),
+  "dataTable.savedFilters": mt("የተቀመጡ ማጣሪያዎች"),
+  "dataTable.saveCurrentFilter": mt("የአሁኑን ማጣሪያ አስቀምጥ…"),
+  "dataTable.filterNamePrompt": mt("ይህን ማጣሪያ ይሰይሙ"),
+  "dataTable.noRows": mt("ተመሳሳይ ረድፍ የለም"),
+  "dataTable.deleteFilter": mt("ማጣሪያ ሰርዝ"),
+
+  // merchant dashboard: KPIs / charts / live queue ----------------------------
+  "merchantDashboard.dateRange": mt("የቀን ክልል"),
+  "merchantDashboard.customRange": mt("ብጁ"),
+  "merchantDashboard.topProducts": mt("ምርጥ ምርቶች"),
+  "merchantDashboard.liveQueue": mt("የቀጥታ ትዕዛዝ ወረፋ"),
+  "merchantDashboard.noLiveOrders": mt("በአሁኑ ጊዜ ንቁ ትዕዛዞች የሉም።"),
+  "merchantDashboard.soundOn": mt("ድምጽ በርቷል"),
+  "merchantDashboard.soundOff": mt("ድምጽ ጠፍቷል"),
+  "merchantDashboard.newOrdersBadge": mt("{{count}} አዲስ"),
+
+  // admin dashboard: trend section --------------------------------------------
+  "adminDashboard.salesTrend": mt("የሽያጭ እና ትዕዛዝ አዝማሚያ"),
+  "adminDashboard.gmv": mt("አጠቃላይ የሽያጭ መጠን"),
+  "adminDashboard.orderCount": mt("ትዕዛዞች"),
+
+  // recently viewed ------------------------------------------------------------
+  "recentlyViewed.title": mt("በቅርቡ የታዩ"),
+
+  // quick view -------------------------------------------------------------------
+  "quickView.open": mt("ፈጣን እይታ"),
+  "quickView.viewFullDetails": mt("ሙሉ ዝርዝሮችን ይመልከቱ"),
 };

@@ -11,6 +11,36 @@
   --color-navy-dark: #0b1638;
   --color-navy-light: #24418f;
   --color-navy-50: #eef1fa;
+
+  /* Advanced-UI pass: a small elevation scale, on top of Tailwind's default
+     border-only cards, for surfaces that need to read as "raised" (dropdowns,
+     the command palette, popovers) without inventing a one-off shadow value
+     at each call site. */
+  --shadow-elevated: 0 4px 16px -4px rgb(0 0 0 / 0.12), 0 2px 6px -2px rgb(0 0 0 / 0.08);
+  --shadow-popover: 0 12px 32px -8px rgb(0 0 0 / 0.25), 0 4px 12px -4px rgb(0 0 0 / 0.15);
+}
+
+/* Manual, persisted dark mode (ThemeProvider) rather than Tailwind v4's
+   default prefers-color-scheme-only `dark:` — this makes `dark:` respond to
+   a `.dark` class ThemeProvider toggles on <html>, matching how the i18n
+   `lang` attribute above is app-controlled rather than OS-controlled. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Item 9: every animation/transition in this codebase must additionally
+   respect prefers-reduced-motion, not just look subtle. Rather than
+   requiring every call site to duplicate a `motion-reduce:transition-none`
+   utility, disable CSS transitions/animations globally for anyone who has
+   asked their OS for reduced motion — a single, unmissable enforcement
+   point instead of per-component discipline. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* I18nProvider sets <html lang="am"> on the Amharic locale (i18n/

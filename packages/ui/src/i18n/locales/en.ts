@@ -164,6 +164,7 @@ export const en: EnglishStrings = {
   "account.notifications": "Notifications",
   "account.support": "Support",
   "account.language": "Language",
+  "account.theme": "Theme",
 
   // cart ------------------------------------------------------------
   "cart.title": "Cart",
@@ -466,4 +467,59 @@ export const en: EnglishStrings = {
   "errors.paymentMethodUnavailable": "This payment method is not currently available. Please choose another.",
   "errors.tooManyRequests": "Too many requests. Please try again shortly.",
   "errors.genericCheckoutFailure": "Could not place your order. Please check your cart and try again.",
+
+  // theme toggle (Advanced UI pass, item 2) -------------------------------
+  "theme.switchToDark": "Switch to dark mode",
+  "theme.switchToLight": "Switch to light mode",
+  "theme.dark": "Dark",
+  "theme.light": "Light",
+
+  // error boundary (Advanced UI pass, item 1) -----------------------------
+  "errorBoundary.title": "Something went wrong",
+  "errorBoundary.description": "An unexpected error occurred. Reloading the page usually fixes it.",
+
+  // offline banner (Advanced UI pass, item 1) ------------------------------
+  "offline.message": "You're offline. Some actions won't work until your connection is back.",
+
+  // command palette (Advanced UI pass, item 5) -----------------------------
+  "commandPalette.placeholder": "Search pages, orders, products…",
+  "commandPalette.noResults": "No results",
+  "commandPalette.pages": "Pages",
+  "commandPalette.orders": "Orders",
+  "commandPalette.products": "Products",
+  "commandPalette.hint": "Press {{key}} to search",
+
+  // advanced data table (Advanced UI pass, item 4) --------------------------
+  "dataTable.searchPlaceholder": "Filter…",
+  "dataTable.selectAll": "Select all rows",
+  "dataTable.columns": "Columns",
+  "dataTable.selectedCount": "{{count}} selected",
+  "dataTable.clearSelection": "Clear",
+  "dataTable.savedFilters": "Saved filters",
+  "dataTable.saveCurrentFilter": "Save current filter…",
+  "dataTable.filterNamePrompt": "Name this filter",
+  "dataTable.noRows": "No matching rows",
+  "dataTable.deleteFilter": "Delete filter",
+
+  // merchant dashboard: KPIs / charts / live queue (Advanced UI pass, item 3)
+  "merchantDashboard.dateRange": "Date range",
+  "merchantDashboard.customRange": "Custom",
+  "merchantDashboard.topProducts": "Top products",
+  "merchantDashboard.liveQueue": "Live order queue",
+  "merchantDashboard.noLiveOrders": "No active orders right now.",
+  "merchantDashboard.soundOn": "Sound on",
+  "merchantDashboard.soundOff": "Sound off",
+  "merchantDashboard.newOrdersBadge": "{{count}} new",
+
+  // admin dashboard: trend section (Advanced UI pass, item 3) --------------
+  "adminDashboard.salesTrend": "Sales & orders trend",
+  "adminDashboard.gmv": "GMV",
+  "adminDashboard.orderCount": "Orders",
+
+  // recently viewed (Advanced UI pass, item 7) ------------------------------
+  "recentlyViewed.title": "Recently viewed",
+
+  // quick view (Advanced UI pass, item 7) -----------------------------------
+  "quickView.open": "Quick view",
+  "quickView.viewFullDetails": "View full details",
 };
