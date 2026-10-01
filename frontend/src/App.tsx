@@ -20,6 +20,7 @@ import { Notifications } from "./pages/Notifications";
 import { Support } from "./pages/Support";
 import { SavedLocations } from "./pages/SavedLocations";
 import { LegalPage } from "./pages/LegalPage";
+import { AuthHandoff } from "./pages/AuthHandoff";
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/legal/:slug" element={<LegalPage />} />
+        <Route path="/auth/handoff" element={<AuthHandoff />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/orders" element={<Orders />} />
