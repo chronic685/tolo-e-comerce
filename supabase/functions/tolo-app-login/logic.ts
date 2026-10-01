@@ -9,7 +9,7 @@ export type VerifyResult =
   | { valid: true; phone: string; name: string }
   | { valid: false; reason: "invalid_code" | "expired_code" | "already_used" | "unknown" };
 
-export interface MatchedProfile {
+export interface LinkedAccount {
   id: string;
   isStaffOrAdmin: boolean;
 }
@@ -23,9 +23,13 @@ export interface MintedSession {
 
 export interface AppLoginDeps {
   verifyCode(code: string): Promise<VerifyResult>;
-  findProfilesByPhone(phone: string): Promise<MatchedProfile[]>;
+  // The account linked to this Tolo-verified phone (tolo_phone_links,
+  // migration 0072), or null. Must never consult profiles.phone, which
+  // every account can rewrite on its own row.
+  findLinkedAccount(phone: string): Promise<LinkedAccount | null>;
+  // Creates a new customer AND links it to `phone`.
   createCustomer(phone: string, name: string): Promise<{ id: string }>;
-  markPhoneVerified(id: string): Promise<void>;
+  recordLogin(id: string): Promise<void>;
   mintSession(userId: string): Promise<MintedSession>;
 }
 
@@ -56,15 +60,14 @@ export async function handleAppLogin(code: unknown, deps: AppLoginDeps): Promise
     return { ok: false, status: 401, error: SIGN_IN_FAILED };
   }
 
-  const matches = await deps.findProfilesByPhone(phone);
-  if (matches.some((m) => m.isStaffOrAdmin)) {
+  const linked = await deps.findLinkedAccount(phone);
+  if (linked?.isStaffOrAdmin) {
     return { ok: false, status: 401, error: SIGN_IN_FAILED };
   }
 
-  const existing = matches.find((m) => !m.isStaffOrAdmin);
-  const userId = existing ? existing.id : (await deps.createCustomer(phone, verified.name)).id;
+  const userId = linked ? linked.id : (await deps.createCustomer(phone, verified.name)).id;
 
-  await deps.markPhoneVerified(userId);
+  await deps.recordLogin(userId);
   const session = await deps.mintSession(userId);
   return { ok: true, userId, session };
 }

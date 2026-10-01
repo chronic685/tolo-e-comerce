@@ -16,9 +16,10 @@ re-entering a password.
 3. That function calls the Tolo backend's verify endpoint (contract below)
    server-to-server to redeem the code for the customer's verified phone and
    name.
-4. It matches an existing marketplace customer by normalized phone
-   (+251 format), or creates one if none exists, and mints a real Supabase
-   session for them.
+4. It looks up the marketplace account **linked** to that normalized phone
+   (+251 format) in `tolo_phone_links`. If there isn't one, it creates a new
+   customer and links it. Then it mints a real Supabase session for that
+   account. See "Phone matching" below.
 5. The frontend stores that session, strips `code` from the URL immediately
    (`history.replaceState`) so it can never be replayed, and redirects to
    `next`.
@@ -85,8 +86,9 @@ npx supabase secrets set TOLO_BACKEND_URL=... TOLO_BACKEND_SHARED_KEY=...
 
 ## Security notes
 
-- Staff and admin accounts (`profiles.admin_tier` set) are never reachable
-  through this flow — if the verified phone matches a staff/admin profile,
+- Staff and admin accounts (any `tolo_*` role, or `profiles.admin_tier`
+  set) are never reachable through this flow — if the verified phone is
+  linked to a staff/admin account,
   the request is rejected with the same generic failure as an invalid code.
 - Every failure case (invalid code, expired code, reused code, an
   unnormalizable phone, a staff/admin phone match) returns the same generic
@@ -96,3 +98,28 @@ npx supabase secrets set TOLO_BACKEND_URL=... TOLO_BACKEND_SHARED_KEY=...
   yet at this endpoint.
 - No request body or URL field is ever trusted for identity — only the
   phone/name the Tolo backend itself returns.
+
+## Phone matching
+
+A Tolo-verified phone signs in to the account recorded for it in
+`tolo_phone_links` (migration 0072), and nothing else:
+
+- **Nobody can write that table except the login flow.** Users have no
+  insert, update or delete policy or grant on it. Rows are created only by
+  `link_tolo_phone()` (service role only), which `tolo-app-login` calls
+  right after the Tolo backend has verified the phone, when it creates the
+  account for that phone's first login. Each phone links to one account and
+  each account to one phone (both unique).
+- **`profiles.phone` is never used for matching.** Every account can edit
+  its own profile row, phone included. Matching on it let anyone set their
+  profile phone to someone else's number and capture that person's
+  Tolo-app login. `profiles.phone` is still filled in on new accounts, for
+  display only.
+- **Consequence:** an existing marketplace account that was created by
+  email signup is *not* merged with a Tolo phone just because its profile
+  phone matches. That person's first Tolo-app login creates a separate
+  account. Merging would need its own ownership proof, such as a signed-in
+  user confirming a Tolo code, which isn't built.
+- New accounts' synthetic emails are random (`tolo-<uuid>@app.tolo.internal`),
+  not derived from the phone, so nobody can block a phone's first login by
+  pre-registering its email.
