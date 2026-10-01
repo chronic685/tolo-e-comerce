@@ -93,9 +93,10 @@ describe.skipIf(!INBOUND_KEY)("Tolo-app Edge Functions under the Deno runtime", 
   }
 
   beforeAll(async () => {
-    // Both logins rate-limit by source IP (default 5 per 10 min), and every
-    // call here comes from the same runner. Raise the limit for this file
-    // only -- this is CI's throwaway database -- and restore it after.
+    // Both logins rate-limit by source IP (default 25 per 10 min, migration
+    // 0077), and every call here comes from the same runner. Raise the
+    // limit for this file only -- this is CI's throwaway database -- and
+    // restore it after.
     const { data: settings } = await db.from("system_settings").select("value").eq("key", "rate_limits").maybeSingle();
     previousRateLimits = settings?.value ?? null;
     const raised = { ...((settings?.value as object) ?? {}), app_login: { max_count: 500, window_seconds: 600 }, merchant_app_login: { max_count: 500, window_seconds: 600 } };
