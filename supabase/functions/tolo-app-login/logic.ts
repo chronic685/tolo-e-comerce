@@ -3,16 +3,14 @@
 // edge runtime (index.ts) and a plain Node/Vitest process (logic.test.ts)
 // with no special config. Every I/O side effect is injected via `deps` --
 // this function only decides what should happen, never how.
-import { normalizeEthiopianPhone } from "./phone.ts";
+import { normalizeEthiopianPhone } from "../_shared/phone.ts";
+import { resolvePhoneAccount, type PhoneAccountDeps } from "../_shared/phone_account.ts";
+
+export type { LinkedAccount } from "../_shared/phone_account.ts";
 
 export type VerifyResult =
   | { valid: true; phone: string; name: string }
   | { valid: false; reason: "invalid_code" | "expired_code" | "already_used" | "unknown" };
-
-export interface LinkedAccount {
-  id: string;
-  isStaffOrAdmin: boolean;
-}
 
 export interface MintedSession {
   access_token: string;
@@ -21,15 +19,8 @@ export interface MintedSession {
   token_type: string;
 }
 
-export interface AppLoginDeps {
+export interface AppLoginDeps extends PhoneAccountDeps {
   verifyCode(code: string): Promise<VerifyResult>;
-  // The account linked to this Tolo-verified phone (tolo_phone_links,
-  // migration 0072), or null. Must never consult profiles.phone, which
-  // every account can rewrite on its own row.
-  findLinkedAccount(phone: string): Promise<LinkedAccount | null>;
-  // Creates a new customer AND links it to `phone`.
-  createCustomer(phone: string, name: string): Promise<{ id: string }>;
-  recordLogin(id: string): Promise<void>;
   mintSession(userId: string): Promise<MintedSession>;
 }
 
@@ -60,14 +51,12 @@ export async function handleAppLogin(code: unknown, deps: AppLoginDeps): Promise
     return { ok: false, status: 401, error: SIGN_IN_FAILED };
   }
 
-  const linked = await deps.findLinkedAccount(phone);
-  if (linked?.isStaffOrAdmin) {
+  const account = await resolvePhoneAccount(phone, verified.name, deps);
+  if (!account.ok) {
     return { ok: false, status: 401, error: SIGN_IN_FAILED };
   }
 
-  const userId = linked ? linked.id : (await deps.createCustomer(phone, verified.name)).id;
-
-  await deps.recordLogin(userId);
-  const session = await deps.mintSession(userId);
-  return { ok: true, userId, session };
+  await deps.recordLogin(account.userId);
+  const session = await deps.mintSession(account.userId);
+  return { ok: true, userId: account.userId, session };
 }
