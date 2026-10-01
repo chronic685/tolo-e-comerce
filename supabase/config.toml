@@ -27,3 +27,9 @@ enabled = true
 
 [edge_runtime]
 enabled = true
+
+# Called server-to-server by the Tolo backend, which holds no Supabase JWT;
+# its own shared key (TOLO_BACKEND_INBOUND_KEY) is the only gate. See
+# docs/integration/tolo-app.md.
+[functions.merchant-application-status]
+verify_jwt = false
