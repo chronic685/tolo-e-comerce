@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Calendar, CheckCircle2, RotateCcw, Star } from "lucide-react";
-import { Badge, SkeletonPage, Stepper, formatDateTime, formatOrderNumber, toast, useTranslation } from "@tolo/ui";
+import { Badge, Button, SkeletonPage, Stepper, formatDateTime, formatOrderNumber, toast, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
@@ -44,7 +44,7 @@ interface OrderRow {
   scheduled_for: string | null;
   addresses: { recipient_name: string; line1: string; city: string; phone: string } | null;
   merchant_orders: MerchantOrderRow[];
-  payments: { provider: string }[];
+  payments: { id: string; provider: string; status: string }[];
 }
 
 export function OrderDetail() {
@@ -58,6 +58,8 @@ export function OrderDetail() {
     cash_on_delivery: t("paymentPending.cashOnDelivery"),
     bank_transfer: t("paymentPending.bankTransfer"),
     mobile_money: t("paymentPending.mobileMoney"),
+    chapa: t("paymentPending.chapa"),
+    telebirr: t("paymentPending.telebirr"),
   };
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,6 +70,7 @@ export function OrderDetail() {
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     load();
@@ -89,6 +92,22 @@ export function OrderDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // An online gateway payment (Chapa/Telebirr) that was never completed: the
+  // first attempt couldn't open, or the customer closed the payment page. The
+  // order and its reserved stock already exist, so this asks the backend for
+  // a fresh payment page for the same order rather than making them re-order.
+  async function payNow(paymentId: string) {
+    setPaying(true);
+    const { data, error } = await supabase.functions.invoke("payment-initiate", { body: { payment_id: paymentId } });
+    if (error || typeof data?.checkout_url !== "string" || !/^https?:\/\//.test(data.checkout_url)) {
+      toast.error(t("orders.payNowError"));
+      setPaying(false);
+      return;
+    }
+    // Leaves `paying` on: the browser is leaving for the payment page.
+    window.location.assign(data.checkout_url);
+  }
+
   async function load() {
     setLoading(true);
     const { data } = await supabase
@@ -96,7 +115,7 @@ export function OrderDetail() {
       .select(
         `id, order_number, subtotal, total, delivery_fee, discount_amount, rider_tip, payment_status, created_at, scheduled_for,
          addresses ( recipient_name, line1, city, phone ),
-         payments ( provider ),
+         payments ( id, provider, status ),
          merchant_orders (
            id, status, subtotal,
            merchants ( business_name, stores ( slug ) ),
@@ -445,6 +464,15 @@ export function OrderDetail() {
         {order.payment_status === "pending" && order.payments[0] && PAYMENT_PENDING_COPY[order.payments[0].provider] && (
           <p className="text-xs text-gray-500 dark:text-gray-400 pt-1">{PAYMENT_PENDING_COPY[order.payments[0].provider]}</p>
         )}
+        {order.payment_status !== "paid" &&
+          order.payments[0] &&
+          (order.payments[0].provider === "chapa" || order.payments[0].provider === "telebirr") &&
+          (order.payments[0].status === "pending" || order.payments[0].status === "failed") &&
+          !order.merchant_orders.every((mo) => mo.status === "cancelled" || mo.status === "rejected") && (
+            <Button type="button" className="w-full mt-2" disabled={paying} onClick={() => payNow(order.payments[0].id)}>
+              {paying ? t("orders.payNowOpening") : t("orders.payNow")}
+            </Button>
+          )}
       </div>
     </div>
   );

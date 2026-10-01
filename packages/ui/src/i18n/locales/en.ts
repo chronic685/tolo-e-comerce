@@ -229,6 +229,9 @@ export const en: EnglishStrings = {
   "checkout.cashOnDelivery": "Cash on delivery",
   "checkout.bankTransfer": "Bank transfer",
   "checkout.mobileMoney": "Mobile money",
+  "checkout.chapa": "Chapa (online payment)",
+  "checkout.telebirr": "Telebirr",
+  "checkout.paymentStartFailed": "Your order was placed, but we couldn't open the payment page. You can pay from your order page.",
 
   // order confirmation --------------------------------------------------
   "orderConfirmation.title": "Order placed!",
@@ -282,6 +285,11 @@ export const en: EnglishStrings = {
   "paymentPending.cashOnDelivery": "Pay the delivery agent in cash when your order arrives.",
   "paymentPending.bankTransfer": "We'll confirm your bank transfer shortly.",
   "paymentPending.mobileMoney": "We'll confirm your mobile money payment shortly.",
+  "paymentPending.chapa": "Complete your payment with Chapa to confirm your order.",
+  "paymentPending.telebirr": "Complete your payment with Telebirr to confirm your order.",
+  "orders.payNow": "Pay now",
+  "orders.payNowOpening": "Opening payment...",
+  "orders.payNowError": "We couldn't open the payment page. Please try again.",
 
   // review widget -----------------------------------------------------
   "review.alreadyReviewed": "You reviewed this product",
