@@ -8,6 +8,7 @@
 // display, then link_tolo_phone() as the service role.
 import { randomUUID } from "node:crypto";
 import type { AppLoginDeps, MintedSession, VerifyResult } from "../../functions/tolo-app-login/logic.ts";
+import type { MerchantLoginDeps } from "../../functions/tolo-merchant-login/logic.ts";
 import type { Harness } from "./harness.ts";
 
 export interface MockToloBackend {
@@ -73,4 +74,20 @@ export function pgliteLinkDeps(h: Harness) {
 
 export function pgliteAppLoginDeps(h: Harness, backend: MockToloBackend): AppLoginDeps {
   return { verifyCode: backend.verifyCode, ...pgliteLinkDeps(h), mintSession: mockMintSession };
+}
+
+/** tolo-merchant-login's deps over PGlite: real tolo_merchant_account_for_phone()
+ * (migration 0076), mocked Tolo backend and session minting. */
+export function pgliteMerchantLoginDeps(h: Harness, backend: MockToloBackend): MerchantLoginDeps {
+  return {
+    verifyCode: backend.verifyCode,
+    async findMerchantAccount(phone) {
+      const { rows } = await h.asService((tx) =>
+        tx.query<{ user_id: string; merchant_id: string }>("select * from tolo_merchant_account_for_phone($1)", [phone]),
+      );
+      return rows[0] ? { userId: rows[0].user_id, merchantId: rows[0].merchant_id } : null;
+    },
+    recordLogin: pgliteLinkDeps(h).recordLogin,
+    mintSession: mockMintSession,
+  };
 }

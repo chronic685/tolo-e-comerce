@@ -236,9 +236,62 @@ npx supabase secrets set TOLO_BACKEND_INBOUND_KEY=...
 (`supabase/config.toml`), because the Tolo backend holds no Supabase JWT.
 The key is the only gate, and an unset key refuses every request.
 
-## Not yet defined
+## Merchant sign-in (what the Merchant button opens)
 
-- **What the Merchant button opens.** The merchant dashboard has no
-  app-login handoff route yet, and approved merchants have no password.
-  Until one exists (the same `tolo-app-login` code exchange, added to the
-  merchant dashboard), the button has nowhere to sign them in.
+Approved merchants have no password. The Merchant button signs them in to
+the merchant dashboard the same way the customer handoff works, with a
+fresh one-time code from the same Tolo backend endpoint.
+
+### Flow
+
+1. The Tolo app gets a one-time code for its signed-in user (the same kind
+   of code, from the same place, as for the customer handoff) and opens
+   this in its WebView:
+
+   ```
+   https://<merchant-dashboard>/auth/handoff?code=<code>&embed=app
+   ```
+
+   `next` (optional) is a merchant-dashboard path to land on afterward,
+   e.g. `&next=/orders`. It defaults to `/`. Only in-app paths are honored;
+   anything else falls back to `/`.
+2. The merchant dashboard POSTs `{ code }` to the `tolo-merchant-login`
+   Edge Function.
+3. That function redeems the code with the Tolo backend using the **same
+   verify-code contract** described above. No new Tolo-side endpoint is
+   needed.
+4. It signs in **only** the account that is all of the following:
+   - linked to the verified phone in `tolo_phone_links`, using the same
+     unwritable link as the customer login and never `profiles.phone`;
+   - the owner of the merchant created when that phone's **latest**
+     merchant application was **approved**. Pending or rejected
+     applications don't count, and neither does a reapplication that is
+     still under review;
+   - not a staff/admin account.
+5. It mints a real Supabase session for that account. The dashboard stores
+   it, strips `code` from the URL immediately, and redirects to `next`.
+
+**`tolo-merchant-login` never creates an account.** A phone with no link,
+or no approved application, gets the same generic failure as an invalid
+code:
+
+```
+POST {SUPABASE_URL}/functions/v1/tolo-merchant-login
+{ "code": "<the one-time code>" }
+
+200 → { "session": { "access_token": "…", "refresh_token": "…", "expires_in": 3600, "token_type": "bearer" } }
+401 → { "error": "Sign-in failed." }   (every rejection reason looks the same)
+400 → { "error": "code is required." }
+429 → rate limited by source IP (action merchant_app_login)
+```
+
+### For the Tolo app
+
+- Show the Merchant button when `merchant-application-status` returns
+  `is_merchant: true` (see the bridge signal above). On tap, get a fresh
+  code and open the URL in step 1.
+- A suspended or closed merchant can still sign in, and the merchant
+  dashboard then shows that status instead of the store. `is_merchant` is
+  already `false` for them, so the button normally won't be shown anyway.
+- No new secrets: `tolo-merchant-login` uses the same `TOLO_BACKEND_URL` /
+  `TOLO_BACKEND_SHARED_KEY` as `tolo-app-login`.

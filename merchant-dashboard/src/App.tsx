@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { MerchantGate } from "./components/MerchantGate";
 import { Login } from "./pages/Login";
+import { AuthHandoff } from "./pages/AuthHandoff";
 import { Signup } from "./pages/Signup";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
@@ -24,6 +25,8 @@ export default function App() {
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      {/* Tolo app "Merchant" button sign-in (docs/integration/tolo-app.md). */}
+      <Route path="/auth/handoff" element={<AuthHandoff />} />
       <Route element={<MerchantGate />}>
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />

@@ -6,18 +6,10 @@
 import { normalizeEthiopianPhone } from "../_shared/phone.ts";
 import { resolvePhoneAccount, type PhoneAccountDeps } from "../_shared/phone_account.ts";
 
+import type { MintedSession, VerifyResult } from "../_shared/tolo_login_types.ts";
+
 export type { LinkedAccount } from "../_shared/phone_account.ts";
-
-export type VerifyResult =
-  | { valid: true; phone: string; name: string }
-  | { valid: false; reason: "invalid_code" | "expired_code" | "already_used" | "unknown" };
-
-export interface MintedSession {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  token_type: string;
-}
+export type { MintedSession, VerifyResult } from "../_shared/tolo_login_types.ts";
 
 export interface AppLoginDeps extends PhoneAccountDeps {
   verifyCode(code: string): Promise<VerifyResult>;
