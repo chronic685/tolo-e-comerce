@@ -1,4 +1,4 @@
-import { LazyImage } from "@tolo/ui";
+﻿import { LazyImage } from "@tolo/ui";
 
 export interface CategoryTileProps {
   name: string;
@@ -16,7 +16,7 @@ export function CategoryTile({ name, imageUrl, active, onClick }: CategoryTilePr
         aspect="aspect-square"
         className={`w-16 h-16 rounded-full ${active ? "ring-2 ring-navy" : ""}`}
       />
-      <span className={`text-xs leading-tight ${active ? "text-navy font-semibold" : "text-gray-600"}`}>{name}</span>
+      <span className={`text-xs leading-tight ${active ? "text-navy font-semibold" : "text-gray-600 dark:text-gray-300"}`}>{name}</span>
     </button>
   );
 }

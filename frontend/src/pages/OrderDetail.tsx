@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Calendar, CheckCircle2, RotateCcw, Star } from "lucide-react";
 import { Badge, SkeletonPage, Stepper, formatDateTime, formatOrderNumber, toast, useTranslation } from "@tolo/ui";
@@ -256,7 +256,7 @@ export function OrderDetail() {
   }
 
   if (loading) return <SkeletonPage />;
-  if (!order) return <p className="text-gray-500">Order not found.</p>;
+  if (!order) return <p className="text-gray-500 dark:text-gray-400">Order not found.</p>;
 
   return (
     <div className="max-w-2xl">
@@ -271,18 +271,18 @@ export function OrderDetail() {
           {reordering ? t("orders.reordering") : t("orders.reorder")}
         </button>
       </div>
-      <p className="text-sm text-gray-500 mb-1">{new Date(order.created_at).toLocaleString()}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{new Date(order.created_at).toLocaleString()}</p>
       {order.scheduled_for ? (
         <p className="text-sm font-medium text-navy bg-navy-50 inline-flex items-center gap-1.5 rounded-md px-2 py-1 mb-5">
           <Calendar className="w-3.5 h-3.5" />
           {t("orders.scheduledForPrefix", { datetime: new Date(order.scheduled_for).toLocaleString() })}
         </p>
       ) : (
-        <p className="text-sm text-gray-400 mb-5">{t("orders.deliveredAsSoonAsPossible")}</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mb-5">{t("orders.deliveredAsSoonAsPossible")}</p>
       )}
 
       {order.addresses && (
-        <div className="bg-white border rounded-lg p-4 mb-4 text-sm">
+        <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4 text-sm">
           <p className="font-medium mb-1">{t("orders.deliveringTo")}</p>
           <p>
             {order.addresses.recipient_name} — {order.addresses.phone}
@@ -297,7 +297,7 @@ export function OrderDetail() {
         const trackIndex = getTrackIndex(mo.status);
         const isTerminal = trackIndex === null;
         return (
-        <div key={mo.id} className="bg-white border rounded-lg p-4 mb-4">
+        <div key={mo.id} className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
           <div className="flex justify-between items-center mb-2">
             {mo.merchants?.stores ? (
               <Link to={`/stores/${mo.merchants.stores.slug}`} className="font-medium hover:text-navy hover:underline">
@@ -311,7 +311,7 @@ export function OrderDetail() {
             )}
           </div>
           {isTerminal ? (
-            statusCopy[mo.status] && <p className="text-xs text-gray-500 mb-3">{statusCopy[mo.status].detail}</p>
+            statusCopy[mo.status] && <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{statusCopy[mo.status].detail}</p>
           ) : (
             <div className="mb-3 -mx-1 overflow-x-auto">
               <Stepper
@@ -320,7 +320,7 @@ export function OrderDetail() {
                 className="min-w-[300px] px-1"
               />
               {statusCopy[mo.status] && (
-                <p className="text-xs text-gray-500 text-center mt-1">{statusCopy[mo.status].detail}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">{statusCopy[mo.status].detail}</p>
               )}
             </div>
           )}
@@ -328,7 +328,7 @@ export function OrderDetail() {
             <div className="mb-3">
               {confirmingCancelId === mo.id ? (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-gray-700">{t("orders.cancelThisOrder")}</span>
+                  <span className="text-xs text-gray-700 dark:text-gray-300">{t("orders.cancelThisOrder")}</span>
                   <button
                     onClick={() => cancelOrder(mo.id)}
                     disabled={cancelling === mo.id}
@@ -339,7 +339,7 @@ export function OrderDetail() {
                   <button
                     onClick={() => setConfirmingCancelId(null)}
                     disabled={cancelling === mo.id}
-                    className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-60"
+                    className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 dark:bg-white/5 disabled:opacity-60"
                   >
                     {t("orders.noKeepIt")}
                   </button>
@@ -358,7 +358,7 @@ export function OrderDetail() {
             {mo.order_items.map((item) => (
               <div key={item.id}>
                 <div className="flex justify-between text-sm">
-                  <span className={item.item_status === "removed" ? "line-through text-gray-400" : ""}>
+                  <span className={item.item_status === "removed" ? "line-through text-gray-400 dark:text-gray-500" : ""}>
                     {item.product_name_snapshot}
                     {Object.values(item.variant_attributes_snapshot ?? {}).length > 0 &&
                       ` (${Object.values(item.variant_attributes_snapshot).join(" / ")})`}{" "}
@@ -382,8 +382,8 @@ export function OrderDetail() {
             ))}
           </div>
           <div className="border-t pt-2">
-            <p className="text-xs font-medium text-gray-500 mb-1">{t("orders.statusHistory")}</p>
-            <ol className="text-xs text-gray-600 space-y-0.5">
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("orders.statusHistory")}</p>
+            <ol className="text-xs text-gray-600 dark:text-gray-300 space-y-0.5">
               {mo.order_status_history
                 .slice()
                 .sort((a, b) => new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime())
@@ -415,7 +415,7 @@ export function OrderDetail() {
         );
       })}
 
-      <div className="bg-white border rounded-lg p-4 space-y-1">
+      <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 space-y-1">
         <div className="flex justify-between text-sm">
           <span>{t("orders.subtotal")}</span>
           <span>{order.subtotal.toFixed(2)} ETB</span>
@@ -443,7 +443,7 @@ export function OrderDetail() {
           </div>
         )}
         {order.payment_status === "pending" && order.payments[0] && PAYMENT_PENDING_COPY[order.payments[0].provider] && (
-          <p className="text-xs text-gray-500 pt-1">{PAYMENT_PENDING_COPY[order.payments[0].provider]}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 pt-1">{PAYMENT_PENDING_COPY[order.payments[0].provider]}</p>
         )}
       </div>
     </div>
@@ -523,7 +523,7 @@ function ReviewWidget({
         >
           {submitting ? t("review.submitting") : t("review.submit")}
         </button>
-        <button onClick={() => setOpen(false)} className="text-xs text-gray-500">
+        <button onClick={() => setOpen(false)} className="text-xs text-gray-500 dark:text-gray-400">
           {t("review.cancel")}
         </button>
       </div>
@@ -552,7 +552,7 @@ function DisputeWidget({
   const [done, setDone] = useState(alreadyReported);
 
   if (done) {
-    return <p className="text-xs text-gray-500">{t("dispute.alreadyReported")}</p>;
+    return <p className="text-xs text-gray-500 dark:text-gray-400">{t("dispute.alreadyReported")}</p>;
   }
 
   if (!open) {
@@ -588,7 +588,7 @@ function DisputeWidget({
         rows={2}
         className="w-full border rounded-md px-2 py-1 text-xs mb-1"
       />
-      <label className="block text-xs text-gray-600 mb-1">
+      <label className="block text-xs text-gray-600 dark:text-gray-300 mb-1">
         {t("dispute.photoOptional")}
         <input
           type="file"
@@ -605,7 +605,7 @@ function DisputeWidget({
         >
           {submitting ? t("review.submitting") : t("dispute.submitReport")}
         </button>
-        <button onClick={() => setOpen(false)} className="text-xs text-gray-500">
+        <button onClick={() => setOpen(false)} className="text-xs text-gray-500 dark:text-gray-400">
           {t("review.cancel")}
         </button>
       </div>

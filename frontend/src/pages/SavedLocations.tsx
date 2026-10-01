@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
 import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
@@ -126,20 +126,20 @@ export function SavedLocations() {
       ) : (
         <div className="space-y-2 mb-4">
           {addresses.map((a) => (
-            <div key={a.id} className="bg-white border rounded-lg p-3 text-sm">
+            <div key={a.id} className="bg-white dark:bg-navy-dark border rounded-lg p-3 text-sm">
               <div className="flex justify-between items-start gap-2">
                 <div>
                   <p className="font-medium">
                     {a.label ?? "Address"}
                     {a.is_default && <span className="ml-2 text-xs bg-navy-50 text-navy rounded-full px-2 py-0.5">Default</span>}
                   </p>
-                  <p className="text-gray-600 mt-0.5">
+                  <p className="text-gray-600 dark:text-gray-300 mt-0.5">
                     {a.recipient_name}, {a.phone}
                   </p>
-                  <p className="text-gray-500 flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                  <p className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                     {a.line1}, {a.city}
-                    {a.latitude && <span className="text-xs text-gray-400"> (GPS confirmed)</span>}
+                    {a.latitude && <span className="text-xs text-gray-400 dark:text-gray-500"> (GPS confirmed)</span>}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
@@ -157,7 +157,7 @@ export function SavedLocations() {
               </div>
               {confirmingDeleteId === a.id && (
                 <div className="flex items-center gap-2 flex-wrap mt-2 pt-2 border-t">
-                  <span className="text-xs text-gray-700">Delete this address?</span>
+                  <span className="text-xs text-gray-700 dark:text-gray-300">Delete this address?</span>
                   <button
                     onClick={() => handleDelete(a.id)}
                     className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700"
@@ -166,7 +166,7 @@ export function SavedLocations() {
                   </button>
                   <button
                     onClick={() => setConfirmingDeleteId(null)}
-                    className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50"
+                    className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 dark:bg-white/5"
                   >
                     No, keep it
                   </button>
@@ -188,7 +188,7 @@ export function SavedLocations() {
           + Add new location
         </button>
       ) : (
-        <form onSubmit={handleSave} className="bg-white border rounded-lg p-4 space-y-2">
+        <form onSubmit={handleSave} className="bg-white dark:bg-navy-dark border rounded-lg p-4 space-y-2">
           <button
             type="button"
             onClick={handleUseCurrentLocation}
@@ -271,7 +271,7 @@ export function SavedLocations() {
                 setShowForm(false);
                 setForm(EMPTY_FORM);
               }}
-              className="text-sm text-gray-500"
+              className="text-sm text-gray-500 dark:text-gray-400"
             >
               Cancel
             </button>

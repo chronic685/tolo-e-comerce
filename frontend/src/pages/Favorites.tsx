@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart } from "lucide-react";
 import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
@@ -40,7 +40,7 @@ export function Favorites() {
       });
   }, [user, from, to]);
 
-  if (!user) return <p className="text-gray-500">Sign in to see your favorites.</p>;
+  if (!user) return <p className="text-gray-500 dark:text-gray-400">Sign in to see your favorites.</p>;
   if (loading) return <SkeletonRows count={4} />;
 
   return (

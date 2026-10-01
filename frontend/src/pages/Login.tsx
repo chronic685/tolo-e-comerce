@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast, useTranslation } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
@@ -59,7 +59,7 @@ export function Login() {
           {loading ? t("auth.signingIn") : t("nav.signIn")}
         </button>
       </form>
-      <p className="text-sm text-gray-500 mt-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
         {t("auth.noAccount")}{" "}
         <Link to="/signup" className="text-navy font-medium">
           {t("auth.signup")}

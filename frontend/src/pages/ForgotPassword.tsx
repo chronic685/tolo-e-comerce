@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast, useTranslation } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
@@ -48,7 +48,7 @@ export function ForgotPassword() {
     return (
       <div className="max-w-sm mx-auto mt-8 text-center">
         <h1 className="text-xl font-bold mb-2">{t("auth.checkYourEmail")}</h1>
-        <p className="text-gray-600 text-sm mb-4">{t("auth.ifAccountExistsNote", { email })}</p>
+        <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">{t("auth.ifAccountExistsNote", { email })}</p>
         <button
           onClick={handleSubmit}
           disabled={cooldown > 0 || loading}
@@ -56,7 +56,7 @@ export function ForgotPassword() {
         >
           {cooldown > 0 ? t("auth.resendAvailableIn", { seconds: cooldown }) : loading ? t("auth.sendingResetLink") : t("auth.resendLink")}
         </button>
-        <p className="text-sm text-gray-500 mt-4">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
           <Link to="/login" className="text-navy font-medium">
             {t("auth.backToLogin")}
           </Link>
@@ -68,7 +68,7 @@ export function ForgotPassword() {
   return (
     <div className="max-w-sm mx-auto mt-8">
       <h1 className="text-xl font-bold mb-1">{t("auth.forgotPasswordTitle")}</h1>
-      <p className="text-sm text-gray-500 mb-4">{t("auth.forgotPasswordDescription")}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t("auth.forgotPasswordDescription")}</p>
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
           type="email"
@@ -86,7 +86,7 @@ export function ForgotPassword() {
           {loading ? t("auth.sendingResetLink") : t("auth.sendResetLink")}
         </button>
       </form>
-      <p className="text-sm text-gray-500 mt-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
         <Link to="/login" className="text-navy font-medium">
           {t("auth.backToLogin")}
         </Link>
