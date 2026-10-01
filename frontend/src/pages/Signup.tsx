@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
@@ -49,7 +49,7 @@ export function Signup() {
     return (
       <div className="max-w-sm mx-auto mt-8 text-center">
         <h1 className="text-xl font-bold mb-2">{t("auth.checkYourEmail")}</h1>
-        <p className="text-gray-600 text-sm">
+        <p className="text-gray-600 dark:text-gray-300 text-sm">
           {t("auth.confirmationSentTo", { email })}{" "}
           <button onClick={() => navigate("/login")} className="text-navy font-medium">
             {t("nav.signIn").toLowerCase()}
@@ -104,7 +104,7 @@ export function Signup() {
           {loading ? t("auth.creatingAccount") : t("auth.signup")}
         </button>
       </form>
-      <p className="text-sm text-gray-500 mt-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
         {t("auth.haveAccount")}{" "}
         <Link to="/login" className="text-navy font-medium">
           {t("nav.signIn")}

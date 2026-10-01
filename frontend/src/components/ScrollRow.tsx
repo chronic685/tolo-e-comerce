@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+﻿import { Link } from "react-router-dom";
 import type { ReactNode } from "react";
 
 export interface ScrollRowProps {

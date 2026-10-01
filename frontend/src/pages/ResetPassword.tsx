@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
@@ -68,14 +68,14 @@ export function ResetPassword() {
   }
 
   if (recoveryState === "checking") {
-    return <p className="text-center text-gray-500 py-16">{t("auth.verifyingResetLink")}</p>;
+    return <p className="text-center text-gray-500 dark:text-gray-400 py-16">{t("auth.verifyingResetLink")}</p>;
   }
 
   if (recoveryState === "invalid") {
     return (
       <div className="max-w-sm mx-auto mt-8 text-center">
         <h1 className="text-xl font-bold mb-2">{t("auth.linkInvalidTitle")}</h1>
-        <p className="text-gray-600 text-sm mb-4">{t("auth.linkInvalidDescription")}</p>
+        <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">{t("auth.linkInvalidDescription")}</p>
         <button onClick={() => navigate("/forgot-password")} className="text-navy text-sm font-medium">
           {t("auth.requestNewResetLink")}
         </button>
@@ -87,7 +87,7 @@ export function ResetPassword() {
     return (
       <div className="max-w-sm mx-auto mt-8 text-center">
         <h1 className="text-xl font-bold mb-2">{t("auth.passwordUpdatedTitle")}</h1>
-        <p className="text-gray-600 text-sm mb-4">{t("auth.passwordUpdatedDescription")}</p>
+        <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">{t("auth.passwordUpdatedDescription")}</p>
         <button
           onClick={() => navigate("/login")}
           className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { PackageSearch, Search, SlidersHorizontal, Store as StoreIcon } from "lucide-react";
 import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Input, Pagination, Sheet, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
@@ -207,7 +207,7 @@ export function Marketplace() {
 
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
           <Input
             type="search"
             placeholder="Search products and shops..."
@@ -226,7 +226,7 @@ export function Marketplace() {
         <button
           onClick={() => updateParam("category", "")}
           className={`px-3 py-1.5 rounded-full text-sm border flex-shrink-0 ${
-            activeCategory === null ? "bg-navy text-white border-navy" : "bg-white"
+            activeCategory === null ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark"
           }`}
         >
           All
@@ -236,7 +236,7 @@ export function Marketplace() {
             key={c.id}
             onClick={() => updateParam("category", c.id)}
             className={`px-3 py-1.5 rounded-full text-sm border flex-shrink-0 ${
-              activeCategory === c.id ? "bg-navy text-white border-navy" : "bg-white"
+              activeCategory === c.id ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark"
             }`}
           >
             {c.name}
@@ -311,7 +311,7 @@ export function Marketplace() {
       >
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Sort by</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Sort by</label>
             <select
               value={sort}
               onChange={(e) => updateParam("sort", e.target.value)}
@@ -326,11 +326,11 @@ export function Marketplace() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Min price</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Min price</label>
               <Input type="number" min={0} placeholder="0" value={minPrice} onChange={(e) => updateParam("min_price", e.target.value)} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Max price</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Max price</label>
               <Input type="number" min={0} placeholder="Any" value={maxPrice} onChange={(e) => updateParam("max_price", e.target.value)} />
             </div>
           </div>

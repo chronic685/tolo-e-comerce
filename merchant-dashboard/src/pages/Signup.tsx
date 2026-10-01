@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
@@ -29,7 +29,7 @@ export function Signup() {
     return (
       <div className="max-w-sm mx-auto mt-16 text-center">
         <h1 className="text-xl font-bold mb-2">Check your email</h1>
-        <p className="text-gray-600 text-sm">
+        <p className="text-gray-600 dark:text-gray-300 text-sm">
           Confirm your email, then{" "}
           <button onClick={() => navigate("/login")} className="text-navy font-medium underline">
             sign in
@@ -76,7 +76,7 @@ export function Signup() {
           {loading ? "Creating account..." : "Continue"}
         </button>
       </form>
-      <p className="text-sm text-gray-500 mt-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
         Already have an account?{" "}
         <Link to="/login" className="text-navy font-medium underline">
           Sign in

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { FileBarChart } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
@@ -126,13 +126,13 @@ export function FinanceReconciliation() {
         <ExportCsvButton onExport={handleExport} disabled={!summary || summary.orders_count === 0} />
       </div>
 
-      <div className="bg-white border rounded-lg p-4 mb-4 flex items-end gap-3">
+      <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4 flex items-end gap-3">
         <label className="text-sm">
-          <span className="block text-gray-500 mb-1">From</span>
+          <span className="block text-gray-500 dark:text-gray-400 mb-1">From</span>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm" />
         </label>
         <label className="text-sm">
-          <span className="block text-gray-500 mb-1">To</span>
+          <span className="block text-gray-500 dark:text-gray-400 mb-1">To</span>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm" />
         </label>
         <button onClick={load} className="bg-navy text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-navy-dark">
@@ -147,14 +147,14 @@ export function FinanceReconciliation() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {summaryCards.map((c) => (
-            <div key={c.label} className="bg-white border rounded-lg p-3">
-              <p className="text-xs text-gray-500">{c.label}</p>
+            <div key={c.label} className="bg-white dark:bg-navy-dark border rounded-lg p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">{c.label}</p>
               <p className="text-lg font-semibold">{c.value}</p>
             </div>
           ))}
         </div>
       )}
-      <p className="text-xs text-gray-400 mt-3">
+      <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
         "Payments collected" only counts confirmed (verified) payments in this period. Export CSV for the full per-order breakdown, including
         each order's payment and any refund against it.
       </p>

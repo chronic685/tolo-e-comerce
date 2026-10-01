@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 import { formatOrderNumber, SkeletonPage, useTranslation } from "@tolo/ui";
@@ -55,7 +55,7 @@ export function OrderConfirmation() {
   }
 
   if (loading) return <SkeletonPage />;
-  if (!order) return <p className="text-gray-500">{t("orderConfirmation.orderNotFound")}</p>;
+  if (!order) return <p className="text-gray-500 dark:text-gray-400">{t("orderConfirmation.orderNotFound")}</p>;
 
   return (
     <div className="max-w-lg text-center">
@@ -63,29 +63,29 @@ export function OrderConfirmation() {
         <CheckCircle2 className="w-8 h-8" />
       </div>
       <h1 className="text-xl font-bold mb-1">{t("orderConfirmation.title")}</h1>
-      <p className="text-gray-500 text-sm mb-6">{t("orderConfirmation.orderLabel", { orderNumber: formatOrderNumber(order.order_number) })}</p>
+      <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">{t("orderConfirmation.orderLabel", { orderNumber: formatOrderNumber(order.order_number) })}</p>
 
-      <div className="bg-white border rounded-lg p-4 mb-4 text-left text-sm space-y-2">
+      <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4 text-left text-sm space-y-2">
         <div className="flex justify-between">
-          <span className="text-gray-500">{t("orderConfirmation.total")}</span>
+          <span className="text-gray-500 dark:text-gray-400">{t("orderConfirmation.total")}</span>
           <span className="font-semibold">{order.total.toFixed(2)} ETB</span>
         </div>
         {order.rider_tip > 0 && (
           <div className="flex justify-between">
-            <span className="text-gray-500">{t("orderConfirmation.riderTip")}</span>
+            <span className="text-gray-500 dark:text-gray-400">{t("orderConfirmation.riderTip")}</span>
             <span>{order.rider_tip.toFixed(2)} ETB</span>
           </div>
         )}
         {order.addresses && (
           <div className="flex justify-between">
-            <span className="text-gray-500">{t("orderConfirmation.deliveringTo")}</span>
+            <span className="text-gray-500 dark:text-gray-400">{t("orderConfirmation.deliveringTo")}</span>
             <span>
               {order.addresses.line1}, {order.addresses.city}
             </span>
           </div>
         )}
         <div className="flex justify-between">
-          <span className="text-gray-500">{order.scheduled_for ? t("orderConfirmation.scheduledFor") : t("orderConfirmation.estimatedDelivery")}</span>
+          <span className="text-gray-500 dark:text-gray-400">{order.scheduled_for ? t("orderConfirmation.scheduledFor") : t("orderConfirmation.estimatedDelivery")}</span>
           <span>
             {order.scheduled_for
               ? new Date(order.scheduled_for).toLocaleString()
@@ -105,7 +105,7 @@ export function OrderConfirmation() {
         </Link>
         <Link
           to="/"
-          className="flex-1 border py-2.5 rounded-md font-medium hover:bg-gray-50 text-sm"
+          className="flex-1 border py-2.5 rounded-md font-medium hover:bg-gray-50 dark:bg-white/5 text-sm"
         >
           {t("orderConfirmation.continueShopping")}
         </Link>

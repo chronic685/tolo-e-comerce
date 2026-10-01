@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Tag } from "lucide-react";
-import { ADMIN_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, EmptyState, Pagination, SkeletonRows, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
@@ -168,34 +168,90 @@ export function Promotions() {
     load();
   }
 
+  async function bulkPause(rows: Promotion[]) {
+    const active = rows.filter((p) => p.is_active);
+    if (active.length === 0) return;
+    await supabase.from("discount_rules").update({ is_active: false }).in("id", active.map((p) => p.id));
+    setPromotions((prev) => prev.map((p) => (active.some((a) => a.id === p.id) ? { ...p, is_active: false } : p)));
+  }
+
+  function describe(p: Promotion): string {
+    return (
+      (p.discount_kind === "percent" ? `${p.amount}% off` : `${p.amount} ETB off`) +
+      " · " +
+      (p.scope_type === "merchant" ? "Whole shop" : "One product") +
+      (p.starts_at ? ` · from ${new Date(p.starts_at).toLocaleDateString()}` : "") +
+      (p.ends_at ? ` · until ${new Date(p.ends_at).toLocaleDateString()}` : "")
+    );
+  }
+
+  const columns: DataTableColumn<Promotion>[] = [
+    {
+      key: "name",
+      header: "Promotion",
+      render: (p) => (
+        <div>
+          <p className="text-sm font-medium">{p.name}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{describe(p)}</p>
+        </div>
+      ),
+      filterValue: (p) => p.name,
+      sortValue: (p) => p.name,
+      csvValue: (p) => p.name,
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (p) => <Badge variant={p.is_active ? "success" : "default"}>{p.is_active ? "Active" : "Paused"}</Badge>,
+      csvValue: (p) => (p.is_active ? "active" : "paused"),
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (p) => (
+        <div className="flex items-center gap-2 justify-end">
+          <Button size="sm" variant="outline" onClick={() => toggleActive(p)}>
+            {p.is_active ? "Pause" : "Activate"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => startEdit(p)}>
+            Edit
+          </Button>
+          <Button size="sm" variant="destructive" onClick={() => handleDelete(p)}>
+            Delete
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Promotions</h1>
-        <button onClick={startNew} className="text-sm bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark">
+        <h1 className="text-xl font-bold dark:text-gray-100">Promotions</h1>
+        <button onClick={startNew} className="text-sm bg-navy dark:bg-navy-light text-white px-3 py-1.5 rounded-md hover:bg-navy-dark dark:hover:bg-navy">
           + New promotion
         </button>
       </div>
 
       {showForm && (
-        <div className="bg-white border rounded-lg p-4 mb-4 space-y-3">
-          <h2 className="font-medium text-sm">{editingId ? "Edit promotion" : "New promotion"}</h2>
+        <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 space-y-3">
+          <h2 className="font-medium text-sm dark:text-gray-100">{editingId ? "Edit promotion" : "New promotion"}</h2>
           <input
             placeholder="Name (e.g. Weekend 10% off)"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full border rounded-md px-3 py-2 text-sm"
+            className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
           <textarea
             placeholder="Description (optional)"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             rows={2}
-            className="w-full border rounded-md px-3 py-2 text-sm"
+            className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
           <div>
-            <label className="text-xs font-medium text-gray-500 block mb-1">Applies to</label>
-            <div className="flex gap-3 text-sm mb-2">
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Applies to</label>
+            <div className="flex gap-3 text-sm mb-2 dark:text-gray-200">
               <label className="flex items-center gap-1.5">
                 <input type="radio" checked={form.scope === "shop"} onChange={() => setForm({ ...form, scope: "shop" })} />
                 My whole shop
@@ -209,7 +265,7 @@ export function Promotions() {
               <select
                 value={form.product_id}
                 onChange={(e) => setForm({ ...form, product_id: e.target.value })}
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               >
                 <option value="">Select a product</option>
                 {products.map((p) => (
@@ -222,43 +278,43 @@ export function Promotions() {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">Discount type</label>
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Discount type</label>
               <select
                 value={form.discount_kind}
                 onChange={(e) => setForm({ ...form, discount_kind: e.target.value as Promotion["discount_kind"] })}
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               >
                 <option value="percent">Percentage off</option>
                 <option value="fixed">Fixed amount off (ETB)</option>
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">Amount</label>
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Amount</label>
               <input
                 type="number"
                 value={form.amount}
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">Starts (optional)</label>
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Starts (optional)</label>
               <input
                 type="datetime-local"
                 value={form.starts_at}
                 onChange={(e) => setForm({ ...form, starts_at: e.target.value })}
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">Ends (optional)</label>
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Ends (optional)</label>
               <input
                 type="datetime-local"
                 value={form.ends_at}
                 onChange={(e) => setForm({ ...form, ends_at: e.target.value })}
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
             </div>
           </div>
@@ -266,11 +322,11 @@ export function Promotions() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
+              className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60"
             >
               {saving ? "Saving..." : "Save"}
             </button>
-            <button onClick={() => setShowForm(false)} className="border px-4 py-2 rounded-md text-sm hover:bg-gray-50">
+            <button onClick={() => setShowForm(false)} className="border dark:border-white/20 dark:text-gray-200 px-4 py-2 rounded-md text-sm hover:bg-gray-50 dark:hover:bg-white/5">
               Cancel
             </button>
           </div>
@@ -283,37 +339,13 @@ export function Promotions() {
         <EmptyState icon={Tag} title="No promotions yet" description="Create a promotion to offer a discount on your shop or a product." />
       ) : (
         <>
-          <div className="bg-white border rounded-lg divide-y">
-            {promotions.map((p) => (
-              <div key={p.id} className="p-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">
-                    {p.name}{" "}
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${p.is_active ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"}`}>
-                      {p.is_active ? "Active" : "Paused"}
-                    </span>
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {p.discount_kind === "percent" ? `${p.amount}% off` : `${p.amount} ETB off`} ·{" "}
-                    {p.scope_type === "merchant" ? "Whole shop" : "One product"}
-                    {p.starts_at && ` · from ${new Date(p.starts_at).toLocaleDateString()}`}
-                    {p.ends_at && ` · until ${new Date(p.ends_at).toLocaleDateString()}`}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button onClick={() => toggleActive(p)} className="text-xs border px-2 py-1 rounded-md hover:bg-gray-50">
-                    {p.is_active ? "Pause" : "Activate"}
-                  </button>
-                  <button onClick={() => startEdit(p)} className="text-xs border px-2 py-1 rounded-md hover:bg-gray-50">
-                    Edit
-                  </button>
-                  <button onClick={() => handleDelete(p)} className="text-xs text-red-600 border border-red-200 px-2 py-1 rounded-md hover:bg-red-50">
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <DataTable
+            storageKey="merchant.promotions"
+            columns={columns}
+            rows={promotions}
+            getRowId={(p) => p.id}
+            bulkActions={[{ label: "Pause", onAction: bulkPause }]}
+          />
           <div className="mt-4">
             <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
           </div>

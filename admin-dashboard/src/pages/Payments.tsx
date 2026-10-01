@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, formatOrderNumber, Pagination, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, fetchAllRows, formatCurrency, formatOrderNumber, SkeletonRows, Pagination, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
 import type { Payment } from "../types";
 
-const STATUS_STYLE: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-800",
-  verified: "bg-emerald-100 text-emerald-800",
-  failed: "bg-red-100 text-red-800",
-  refunded: "bg-gray-100 text-gray-700",
+const STATUS_VARIANT: Record<string, "warning" | "success" | "danger" | "default"> = {
+  pending: "warning",
+  verified: "success",
+  failed: "danger",
+  refunded: "default",
 };
 
 // No automated gateway is connected for any of these (see
@@ -87,21 +87,62 @@ export function Payments() {
     );
   }
 
+  const columns: DataTableColumn<Payment>[] = [
+    {
+      key: "customer",
+      header: "Payment",
+      render: (p) => (
+        <div>
+          <p className="text-sm font-medium">
+            {p.orders?.profiles?.full_name ?? "Customer"} · {p.provider.replace(/_/g, " ")}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Order {p.orders?.order_number ? formatOrderNumber(p.orders.order_number) : `#${p.order_id.slice(0, 8)}`} · {new Date(p.created_at).toLocaleString()}
+          </p>
+        </div>
+      ),
+      filterValue: (p) => `${p.orders?.profiles?.full_name ?? ""} ${p.provider}`,
+      sortValue: (p) => p.created_at,
+      csvValue: (p) => p.orders?.profiles?.full_name ?? "",
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      render: (p) => <span className="font-semibold text-sm">{formatCurrency(p.amount, p.currency)}</span>,
+      sortValue: (p) => p.amount,
+      csvValue: (p) => p.amount,
+      align: "right",
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (p) => <Badge variant={STATUS_VARIANT[p.status] ?? "default"}>{p.status}</Badge>,
+      csvValue: (p) => p.status,
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (p) =>
+        p.status === "pending" && FINANCE_CONFIRMABLE.has(p.provider) ? (
+          <Button size="sm" onClick={() => handleConfirm(p)} disabled={confirmingId === p.id}>
+            {confirmingId === p.id ? "Confirming..." : "Confirm received"}
+          </Button>
+        ) : null,
+    },
+  ];
+
   if (loading) return <SkeletonRows />;
 
   return (
     <div className="max-w-4xl">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Payments</h1>
-        <ExportCsvButton onExport={handleExport} disabled={payments.length === 0} />
-      </div>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Payments</h1>
 
       <div className="flex gap-2 mb-4 flex-wrap">
         {["pending", "verified", "failed", "refunded", "all"].map((s) => (
           <button
             key={s}
             onClick={() => setFilter(s)}
-            className={`px-3 py-1.5 rounded-full text-sm border capitalize ${filter === s ? "bg-navy text-white border-navy" : "bg-white"}`}
+            className={`px-3 py-1.5 rounded-full text-sm border capitalize ${filter === s ? "bg-navy text-white border-navy dark:bg-navy-light dark:border-navy-light" : "bg-white dark:bg-navy-dark dark:border-white/20 dark:text-gray-300"}`}
           >
             {s}
           </button>
@@ -109,38 +150,13 @@ export function Payments() {
       </div>
 
       {payments.length === 0 ? (
-        <p className="text-gray-500 text-sm">No {filter !== "all" ? filter : ""} payments.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">No {filter !== "all" ? filter : ""} payments.</p>
       ) : (
         <>
-        <div className="bg-white border rounded-lg divide-y">
-          {payments.map((p) => (
-            <div key={p.id} className="p-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">
-                  {p.orders?.profiles?.full_name ?? "Customer"} · {p.provider.replace(/_/g, " ")}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Order {p.orders?.order_number ? formatOrderNumber(p.orders.order_number) : `#${p.order_id.slice(0, 8)}`} · {p.amount.toFixed(2)} {p.currency} · {new Date(p.created_at).toLocaleString()}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_STYLE[p.status] ?? "bg-gray-100 text-gray-700"}`}>{p.status}</span>
-                {p.status === "pending" && FINANCE_CONFIRMABLE.has(p.provider) && (
-                  <button
-                    onClick={() => handleConfirm(p)}
-                    disabled={confirmingId === p.id}
-                    className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
-                  >
-                    {confirmingId === p.id ? "Confirming..." : "Confirm received"}
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4">
-          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
-        </div>
+          <DataTable storageKey="admin.payments" columns={columns} rows={payments} getRowId={(p) => p.id} onExportAll={handleExport} />
+          <div className="mt-4">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
         </>
       )}
     </div>

@@ -1,21 +1,21 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Calendar, Inbox } from "lucide-react";
-import { ADMIN_PAGE_SIZE, EmptyState, formatOrderNumber, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, DataTable, EmptyState, formatCurrency, formatOrderNumber, Pagination, SkeletonRows, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import type { MerchantOrder } from "../types";
 
-const statusColors: Record<string, string> = {
-  new: "bg-yellow-100 text-yellow-800",
-  accepted: "bg-blue-100 text-blue-800",
-  rejected: "bg-red-100 text-red-800",
-  processing: "bg-blue-100 text-blue-800",
-  ready_for_pickup: "bg-purple-100 text-purple-800",
-  picked_up: "bg-purple-100 text-purple-800",
-  delivered: "bg-emerald-100 text-emerald-800",
-  completed: "bg-emerald-100 text-emerald-800",
-  cancelled: "bg-red-100 text-red-800",
+const statusVariant: Record<string, "warning" | "info" | "success" | "danger" | "default"> = {
+  new: "warning",
+  accepted: "info",
+  rejected: "danger",
+  processing: "info",
+  ready_for_pickup: "default",
+  picked_up: "default",
+  delivered: "success",
+  completed: "success",
+  cancelled: "danger",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -62,16 +62,63 @@ export function Orders() {
     });
   }, [merchant, filter, from, to]);
 
+  const columns: DataTableColumn<MerchantOrder>[] = [
+    {
+      key: "order",
+      header: "Order",
+      render: (o) => (
+        <Link to={`/orders/${o.id}`} className="font-medium text-sm hover:text-navy dark:hover:text-navy-light">
+          {o.orders?.order_number ? formatOrderNumber(o.orders.order_number) : `#${o.id.slice(0, 8)}`}
+        </Link>
+      ),
+      filterValue: (o) => (o.orders?.order_number ? formatOrderNumber(o.orders.order_number) : o.id),
+      csvValue: (o) => (o.orders?.order_number ? formatOrderNumber(o.orders.order_number) : o.id),
+    },
+    {
+      key: "items",
+      header: "Items / Date",
+      render: (o) => (
+        <div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {o.order_items.length} item(s) · {new Date(o.created_at).toLocaleDateString()}
+          </p>
+          {o.scheduled_for && (
+            <p className="text-xs text-navy dark:text-navy-light font-medium mt-0.5 inline-flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5" />
+              Scheduled for {new Date(o.scheduled_for).toLocaleString()}
+            </p>
+          )}
+        </div>
+      ),
+      sortValue: (o) => o.created_at,
+      csvValue: (o) => o.created_at,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      render: (o) => <span className="font-semibold text-sm">{formatCurrency(o.merchant_payable)}</span>,
+      sortValue: (o) => o.merchant_payable,
+      csvValue: (o) => o.merchant_payable,
+      align: "right",
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (o) => <Badge variant={statusVariant[o.status] ?? "default"}>{STATUS_LABELS[o.status] ?? o.status.replace(/_/g, " ")}</Badge>,
+      csvValue: (o) => o.status,
+    },
+  ];
+
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4">Orders</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Orders</h1>
       <div className="flex gap-2 mb-4 flex-wrap">
         {FILTERS.map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             className={`px-3 py-1.5 rounded-full text-xs border capitalize ${
-              filter === f ? "bg-navy text-white border-navy" : "bg-white"
+              filter === f ? "bg-navy text-white border-navy dark:bg-navy-light dark:border-navy-light" : "bg-white dark:bg-navy-dark dark:border-white/20 dark:text-gray-300"
             }`}
           >
             {f === "all" ? "All" : STATUS_LABELS[f] ?? f.replace(/_/g, " ")}
@@ -85,31 +132,10 @@ export function Orders() {
         <EmptyState icon={Inbox} title="No orders in this view" description="Orders matching this filter will show up here." />
       ) : (
         <>
-        <div className="bg-white border rounded-lg divide-y">
-          {orders.map((o) => (
-            <Link key={o.id} to={`/orders/${o.id}`} className="flex items-center justify-between p-4 hover:bg-gray-50">
-              <div>
-                <p className="font-medium text-sm">Order {o.orders?.order_number ? formatOrderNumber(o.orders.order_number) : `#${o.id.slice(0, 8)}`}</p>
-                <p className="text-xs text-gray-500">{o.order_items.length} item(s) · {new Date(o.created_at).toLocaleDateString()}</p>
-                {o.scheduled_for && (
-                  <p className="text-xs text-navy font-medium mt-0.5 inline-flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" />
-                    Scheduled for {new Date(o.scheduled_for).toLocaleString()}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="font-semibold text-sm">{o.merchant_payable.toFixed(2)} ETB</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[o.status]}`}>
-                  {STATUS_LABELS[o.status] ?? o.status.replace(/_/g, " ")}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
-        <div className="mt-4">
-          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
-        </div>
+          <DataTable storageKey="merchant.orders" columns={columns} rows={orders} getRowId={(o) => o.id} csvFilename={`orders-${filter}.csv`} />
+          <div className="mt-4">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
         </>
       )}
     </div>

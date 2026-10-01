@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+﻿import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MapPin } from "lucide-react";
 import { Button, Stepper, toast, useTranslation } from "@tolo/ui";
@@ -310,7 +310,7 @@ export function Checkout() {
   }
 
   if (items.length === 0) {
-    return <p className="text-gray-500">{t("errors.cartEmpty")}</p>;
+    return <p className="text-gray-500 dark:text-gray-400">{t("errors.cartEmpty")}</p>;
   }
 
   // Step list for the mobile flow — "Delivery time" is only a step when
@@ -334,7 +334,7 @@ export function Checkout() {
   }
 
   const addressSection = (
-    <div className="bg-white border rounded-lg p-4 mb-4">
+    <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
       <h2 className="font-medium mb-2">{t("checkout.deliverTo")}</h2>
       {addresses.map((a) => (
           <label key={a.id} className="flex items-start gap-2 mb-2 text-sm">
@@ -343,10 +343,10 @@ export function Checkout() {
               <strong>{a.label ?? t("checkout.addressFallback")}</strong> — {a.recipient_name}, {a.phone}
               <br />
               <span className="inline-flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                <MapPin className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                 {a.line1}, {a.city}
               </span>
-              {a.latitude && <span className="text-xs text-gray-400"> {t("checkout.gpsConfirmed")}</span>}
+              {a.latitude && <span className="text-xs text-gray-400 dark:text-gray-500"> {t("checkout.gpsConfirmed")}</span>}
             </span>
           </label>
         ))}
@@ -429,7 +429,7 @@ export function Checkout() {
   );
 
   const paymentSection = (
-    <div className="bg-white border rounded-lg p-4 mb-4">
+    <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
       <h2 className="font-medium mb-2">{t("checkout.paymentMethod")}</h2>
       {paymentMethods.length === 0 ? (
         <p className="text-sm text-red-600">{t("checkout.noPaymentMethod")}</p>
@@ -451,14 +451,14 @@ export function Checkout() {
   );
 
   const deliverySection = scheduledOrdersEnabled && (
-    <div className="bg-white border rounded-lg p-4 mb-4">
+    <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
       <h2 className="font-medium mb-2">{t("checkout.deliveryTime")}</h2>
       <div className="flex gap-2 mb-2">
         <button
           type="button"
               onClick={() => setDeliveryTiming("now")}
               className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border ${
-                deliveryTiming === "now" ? "bg-navy text-white border-navy" : "bg-white text-gray-600"
+                deliveryTiming === "now" ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark text-gray-600 dark:text-gray-300"
               }`}
             >
               {t("checkout.deliverNow")}
@@ -467,7 +467,7 @@ export function Checkout() {
               type="button"
               onClick={() => setDeliveryTiming("scheduled")}
               className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border ${
-                deliveryTiming === "scheduled" ? "bg-navy text-white border-navy" : "bg-white text-gray-600"
+                deliveryTiming === "scheduled" ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark text-gray-600 dark:text-gray-300"
               }`}
             >
               {t("checkout.scheduleForLater")}
@@ -483,7 +483,7 @@ export function Checkout() {
                 onChange={(e) => setScheduledFor(e.target.value)}
                 className="w-full border rounded-md px-3 py-2 text-sm"
               />
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                 {t("checkout.deliveryTimeNote", {
                   lead:
                     scheduleBounds.minLeadMinutes >= 60
@@ -498,7 +498,7 @@ export function Checkout() {
   );
 
   const promoSection = promoCodesEnabled && (
-        <div className="bg-white border rounded-lg p-4 mb-4">
+        <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
           <h2 className="font-medium mb-2">{t("checkout.promoCode")}</h2>
           <div className="flex gap-2">
             <input
@@ -531,7 +531,7 @@ export function Checkout() {
 
   const summarySection = (
     <>
-      <div className="bg-white border rounded-lg p-4 mb-4">
+      <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
         <h2 className="font-medium mb-2">{t("checkout.riderTip")}</h2>
         <div className="flex gap-2 mb-2">
           {[0, 10, 20, 50].map((amount) => (
@@ -543,7 +543,7 @@ export function Checkout() {
                 setCustomTip("");
               }}
               className={`flex-1 px-2 py-2 rounded-md text-sm font-medium border ${
-                riderTip === amount && customTip === "" ? "bg-navy text-white border-navy" : "bg-white text-gray-600"
+                riderTip === amount && customTip === "" ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark text-gray-600 dark:text-gray-300"
               }`}
             >
               {amount === 0 ? t("checkout.noTip") : `${amount} ETB`}
@@ -562,10 +562,10 @@ export function Checkout() {
           }}
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
-        <p className="text-xs text-gray-400 mt-1">{t("checkout.riderTipNote")}</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t("checkout.riderTipNote")}</p>
       </div>
 
-      <div className="bg-white border rounded-lg p-4 mb-4 text-sm space-y-1">
+      <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4 text-sm space-y-1">
         <div className="flex justify-between">
           <span>{t("checkout.subtotal")}</span>
           <span>{subtotal.toFixed(2)} ETB</span>
@@ -591,12 +591,12 @@ export function Checkout() {
           <span>{amountToPay.toFixed(2)} ETB</span>
         </div>
       </div>
-      <p className="text-xs text-gray-400 -mt-3 mb-4">{t("checkout.deliveryFeeNote")}</p>
+      <p className="text-xs text-gray-400 dark:text-gray-500 -mt-3 mb-4">{t("checkout.deliveryFeeNote")}</p>
     </>
   );
 
   const termsCheckbox = (
-    <label className="flex items-start gap-2 text-xs text-gray-600 mb-3">
+    <label className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300 mb-3">
       <input
         type="checkbox"
         checked={acceptedTerms}

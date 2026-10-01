@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
@@ -43,7 +43,7 @@ export function ForgotPassword() {
     return (
       <div className="max-w-sm mx-auto mt-16 text-center">
         <h1 className="text-xl font-bold mb-2">Check your email</h1>
-        <p className="text-gray-600 text-sm mb-4">
+        <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
           If an account exists for <strong>{email}</strong>, we've sent a password-reset link. It may take a few minutes to arrive.
         </p>
         <button
@@ -53,7 +53,7 @@ export function ForgotPassword() {
         >
           {cooldown > 0 ? `Resend available in ${cooldown}s` : loading ? "Sending..." : "Resend link"}
         </button>
-        <p className="text-sm text-gray-500 mt-4">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
           <Link to="/login" className="text-navy font-medium">
             Back to login
           </Link>
@@ -65,7 +65,7 @@ export function ForgotPassword() {
   return (
     <div className="max-w-sm mx-auto mt-16">
       <h1 className="text-xl font-bold mb-1">Forgot your password?</h1>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
         Enter the email address associated with your merchant account and we'll send you a password-reset link.
       </p>
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -85,7 +85,7 @@ export function ForgotPassword() {
           {loading ? "Sending..." : "Send reset link"}
         </button>
       </form>
-      <p className="text-sm text-gray-500 mt-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
         <Link to="/login" className="text-navy font-medium">
           Back to login
         </Link>

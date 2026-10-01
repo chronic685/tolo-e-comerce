@@ -1,29 +1,29 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { useAuth } from "../lib/AuthContext";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import { useAuth } from "../lib/AuthContext";
 import type { Merchant, MerchantDocument } from "../types";
 
 const STATUS_FILTERS = ["all", "registered", "under_review", "active", "suspended", "rejected", "closed"];
 
-const statusColors: Record<string, string> = {
-  registered: "bg-yellow-100 text-yellow-800",
-  pending_verification: "bg-yellow-100 text-yellow-800",
-  under_review: "bg-blue-100 text-blue-800",
-  approved: "bg-blue-100 text-blue-800",
-  active: "bg-emerald-100 text-emerald-800",
-  suspended: "bg-orange-100 text-orange-800",
-  rejected: "bg-red-100 text-red-800",
-  closed: "bg-gray-200 text-gray-700",
+const statusVariant: Record<string, "warning" | "info" | "success" | "danger" | "default"> = {
+  registered: "warning",
+  pending_verification: "warning",
+  under_review: "info",
+  approved: "info",
+  active: "success",
+  suspended: "warning",
+  rejected: "danger",
+  closed: "default",
 };
 
-const docStatusColors: Record<string, string> = {
-  uploaded: "bg-gray-100 text-gray-700",
-  under_review: "bg-blue-100 text-blue-800",
-  verified: "bg-emerald-100 text-emerald-800",
-  rejected: "bg-red-100 text-red-800",
+const docStatusVariant: Record<string, "default" | "info" | "success" | "danger"> = {
+  uploaded: "default",
+  under_review: "info",
+  verified: "success",
+  rejected: "danger",
 };
 
 export function Merchants() {
@@ -159,10 +159,161 @@ export function Merchants() {
     );
   }
 
+  const columns: DataTableColumn<Merchant>[] = [
+    {
+      key: "business",
+      header: "Merchant",
+      render: (m) => (
+        <div>
+          <button className="text-left" onClick={() => toggleExpand(m)}>
+            <p className="font-medium text-sm hover:text-navy dark:hover:text-navy-light">{m.business_name}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {[m.business_category, m.business_subcategory].filter(Boolean).join(" · ") || "—"} ·{" "}
+              {[m.city, m.sub_city].filter(Boolean).join(", ") || m.location || "—"}
+            </p>
+            {m.status === "rejected" && m.rejection_reason && <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">Rejected: {m.rejection_reason}</p>}
+            {m.status === "suspended" && m.suspension_reason && <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">Suspended: {m.suspension_reason}</p>}
+          </button>
+
+          {reasonPromptId === m.id && reasonPromptKind && (
+            <div className="pt-2 flex gap-2">
+              <input
+                placeholder={`Reason for ${reasonPromptKind === "rejected" ? "rejection" : "suspension"}`}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="flex-1 border rounded-md px-3 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
+              />
+              <Button size="sm" variant="destructive" onClick={() => updateStatus(m, reasonPromptKind, reason || undefined)}>
+                Confirm {reasonPromptKind === "rejected" ? "reject" : "suspend"}
+              </Button>
+            </div>
+          )}
+
+          {expandedId === m.id && (
+            <div className="bg-gray-50 dark:bg-white/5 -mx-3 px-3 mt-3 py-3 text-sm border-t dark:border-white/10">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Owner</p>
+              <p className="mb-3">
+                {m.owner_full_name ?? "—"} · {m.owner_phone ?? "—"} · {m.owner_email ?? m.email ?? "—"}
+              </p>
+
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Performance</p>
+              {performance ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                  <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-md px-3 py-2">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">Acceptance Rate</p>
+                    <p className="text-sm font-semibold">{performance.acceptance_rate != null ? `${performance.acceptance_rate}%` : "—"}</p>
+                  </div>
+                  <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-md px-3 py-2">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">Cancellation Rate</p>
+                    <p className="text-sm font-semibold">{performance.cancellation_rate != null ? `${performance.cancellation_rate}%` : "—"}</p>
+                  </div>
+                  <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-md px-3 py-2">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">Avg. Prep Time</p>
+                    <p className="text-sm font-semibold">{performance.avg_prep_minutes != null ? `${performance.avg_prep_minutes} min` : "—"}</p>
+                  </div>
+                  <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-md px-3 py-2">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">Rating</p>
+                    <p className="text-sm font-semibold">
+                      {performance.avg_rating != null ? `${performance.avg_rating} ★ (${performance.review_count})` : "No reviews"}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500 dark:text-gray-400 text-xs mb-3">Loading...</p>
+              )}
+
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Documents</p>
+              {documents.length === 0 ? (
+                <p className="text-gray-500 dark:text-gray-400 text-xs">No documents uploaded yet.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {documents.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between bg-white dark:bg-navy-dark border dark:border-white/10 rounded-md px-3 py-1.5">
+                      <button onClick={() => openDocument(doc)} className="text-left hover:text-navy dark:hover:text-navy-light">
+                        <span className="capitalize">{doc.doc_type.replace(/_/g, " ")}</span>
+                        {doc.file_name && <span className="text-gray-400 dark:text-gray-500"> — {doc.file_name}</span>}
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={docStatusVariant[doc.status] ?? "default"} className="capitalize">
+                          {doc.status.replace(/_/g, " ")}
+                        </Badge>
+                        {doc.status !== "verified" && (
+                          <button onClick={() => setDocStatus(doc, "verified")} className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline">
+                            Verify
+                          </button>
+                        )}
+                        {doc.status !== "rejected" && (
+                          <button onClick={() => setDocStatus(doc, "rejected")} className="text-xs text-red-600 dark:text-red-400 hover:underline">
+                            Reject
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ),
+      filterValue: (m) => `${m.business_name} ${m.owner_full_name ?? ""}`,
+      sortValue: (m) => m.business_name,
+      csvValue: (m) => m.business_name,
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (m) => <Badge variant={statusVariant[m.status] ?? "default"} className="capitalize">{m.status.replace(/_/g, " ")}</Badge>,
+      csvValue: (m) => m.status,
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (m) => (
+        <div className="flex items-center gap-2 justify-end flex-wrap">
+          {(m.status === "registered" || m.status === "pending_verification" || m.status === "under_review") && (
+            <>
+              <Button size="sm" onClick={() => updateStatus(m, "active")}>
+                Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setReasonPromptId(reasonPromptId === m.id ? null : m.id);
+                  setReasonPromptKind("rejected");
+                }}
+              >
+                Reject
+              </Button>
+            </>
+          )}
+          {m.status === "active" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setReasonPromptId(reasonPromptId === m.id ? null : m.id);
+                setReasonPromptKind("suspended");
+              }}
+            >
+              Suspend
+            </Button>
+          )}
+          {m.status === "suspended" && (
+            <Button size="sm" onClick={() => updateStatus(m, "active")}>
+              Reactivate
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Merchants</h1>
+        <h1 className="text-xl font-bold dark:text-gray-100">Merchants</h1>
         <ExportCsvButton onExport={handleExport} disabled={merchants.length === 0} />
       </div>
 
@@ -172,7 +323,7 @@ export function Merchants() {
             key={s}
             onClick={() => setSearchParams(s === "all" ? {} : { status: s })}
             className={`px-3 py-1.5 rounded-full text-xs border capitalize ${
-              statusFilter === s ? "bg-navy text-white border-navy" : "bg-white"
+              statusFilter === s ? "bg-navy text-white border-navy dark:bg-navy-light dark:border-navy-light" : "bg-white dark:bg-navy-dark dark:border-white/20 dark:text-gray-300"
             }`}
           >
             {s.replace(/_/g, " ")}
@@ -183,159 +334,13 @@ export function Merchants() {
       {loading ? (
         <SkeletonRows />
       ) : merchants.length === 0 ? (
-        <p className="text-gray-500">No merchants in this view.</p>
+        <p className="text-gray-500 dark:text-gray-400">No merchants in this view.</p>
       ) : (
         <>
-        <div className="bg-white border rounded-lg divide-y">
-          {merchants.map((m) => (
-            <div key={m.id}>
-              <div className="flex items-center justify-between p-4">
-                <button className="text-left" onClick={() => toggleExpand(m)}>
-                  <p className="font-medium text-sm hover:text-navy">{m.business_name}</p>
-                  <p className="text-xs text-gray-500">
-                    {[m.business_category, m.business_subcategory].filter(Boolean).join(" · ") || "—"} ·{" "}
-                    {[m.city, m.sub_city].filter(Boolean).join(", ") || m.location || "—"}
-                  </p>
-                  {m.status === "rejected" && m.rejection_reason && (
-                    <p className="text-xs text-red-600 mt-0.5">Rejected: {m.rejection_reason}</p>
-                  )}
-                  {m.status === "suspended" && m.suspension_reason && (
-                    <p className="text-xs text-orange-600 mt-0.5">Suspended: {m.suspension_reason}</p>
-                  )}
-                </button>
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${statusColors[m.status]}`}>
-                    {m.status.replace(/_/g, " ")}
-                  </span>
-                  {(m.status === "registered" || m.status === "pending_verification" || m.status === "under_review") && (
-                    <>
-                      <button
-                        onClick={() => updateStatus(m, "active")}
-                        className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => {
-                          setReasonPromptId(reasonPromptId === m.id ? null : m.id);
-                          setReasonPromptKind("rejected");
-                        }}
-                        className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50"
-                      >
-                        Reject
-                      </button>
-                    </>
-                  )}
-                  {m.status === "active" && (
-                    <button
-                      onClick={() => {
-                        setReasonPromptId(reasonPromptId === m.id ? null : m.id);
-                        setReasonPromptKind("suspended");
-                      }}
-                      className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50"
-                    >
-                      Suspend
-                    </button>
-                  )}
-                  {m.status === "suspended" && (
-                    <button
-                      onClick={() => updateStatus(m, "active")}
-                      className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark"
-                    >
-                      Reactivate
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {reasonPromptId === m.id && reasonPromptKind && (
-                <div className="px-4 pb-3 flex gap-2">
-                  <input
-                    placeholder={`Reason for ${reasonPromptKind === "rejected" ? "rejection" : "suspension"}`}
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    className="flex-1 border rounded-md px-3 py-1.5 text-sm"
-                  />
-                  <button
-                    onClick={() => updateStatus(m, reasonPromptKind, reason || undefined)}
-                    className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700"
-                  >
-                    Confirm {reasonPromptKind === "rejected" ? "reject" : "suspend"}
-                  </button>
-                </div>
-              )}
-
-              {expandedId === m.id && (
-                <div className="bg-gray-50 px-4 py-3 text-sm">
-                  <p className="text-xs font-medium text-gray-500 mb-1">Owner</p>
-                  <p className="mb-3">
-                    {m.owner_full_name ?? "—"} · {m.owner_phone ?? "—"} · {m.owner_email ?? m.email ?? "—"}
-                  </p>
-
-                  <p className="text-xs font-medium text-gray-500 mb-1">Performance</p>
-                  {performance ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                      <div className="bg-white border rounded-md px-3 py-2">
-                        <p className="text-[11px] text-gray-500">Acceptance Rate</p>
-                        <p className="text-sm font-semibold">{performance.acceptance_rate != null ? `${performance.acceptance_rate}%` : "—"}</p>
-                      </div>
-                      <div className="bg-white border rounded-md px-3 py-2">
-                        <p className="text-[11px] text-gray-500">Cancellation Rate</p>
-                        <p className="text-sm font-semibold">{performance.cancellation_rate != null ? `${performance.cancellation_rate}%` : "—"}</p>
-                      </div>
-                      <div className="bg-white border rounded-md px-3 py-2">
-                        <p className="text-[11px] text-gray-500">Avg. Prep Time</p>
-                        <p className="text-sm font-semibold">{performance.avg_prep_minutes != null ? `${performance.avg_prep_minutes} min` : "—"}</p>
-                      </div>
-                      <div className="bg-white border rounded-md px-3 py-2">
-                        <p className="text-[11px] text-gray-500">Rating</p>
-                        <p className="text-sm font-semibold">
-                          {performance.avg_rating != null ? `${performance.avg_rating} ★ (${performance.review_count})` : "No reviews"}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-xs mb-3">Loading...</p>
-                  )}
-
-                  <p className="text-xs font-medium text-gray-500 mb-1">Documents</p>
-                  {documents.length === 0 ? (
-                    <p className="text-gray-500 text-xs">No documents uploaded yet.</p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {documents.map((doc) => (
-                        <div key={doc.id} className="flex items-center justify-between bg-white border rounded-md px-3 py-1.5">
-                          <button onClick={() => openDocument(doc)} className="text-left hover:text-navy">
-                            <span className="capitalize">{doc.doc_type.replace(/_/g, " ")}</span>
-                            {doc.file_name && <span className="text-gray-400"> — {doc.file_name}</span>}
-                          </button>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${docStatusColors[doc.status]}`}>
-                              {doc.status.replace(/_/g, " ")}
-                            </span>
-                            {doc.status !== "verified" && (
-                              <button onClick={() => setDocStatus(doc, "verified")} className="text-xs text-emerald-700 hover:underline">
-                                Verify
-                              </button>
-                            )}
-                            {doc.status !== "rejected" && (
-                              <button onClick={() => setDocStatus(doc, "rejected")} className="text-xs text-red-600 hover:underline">
-                                Reject
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="mt-4">
-          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
-        </div>
+          <DataTable storageKey="admin.merchants" columns={columns} rows={merchants} getRowId={(m) => m.id} />
+          <div className="mt-4">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
         </>
       )}
     </div>

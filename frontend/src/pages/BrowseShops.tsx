@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Store } from "lucide-react";
 import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
@@ -116,7 +116,7 @@ export function BrowseShops() {
   return (
     <div>
       <h1 className="text-xl font-bold mb-1">Shops</h1>
-      <p className="text-sm text-gray-500 mb-6">Browse every shop on Tolo.</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Browse every shop on Tolo.</p>
 
       {shops === null ? (
         <SkeletonRows count={4} />
