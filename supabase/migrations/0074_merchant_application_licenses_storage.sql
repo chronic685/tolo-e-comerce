@@ -25,7 +25,7 @@ create policy merchant_application_licenses_insert on storage.objects
   for insert with check (
     bucket_id = 'merchant-application-licenses'
     and (storage.foldername(name))[1] = auth.uid()::text
-    and session_verified_phone() is not null
+    and exists (select 1 from tolo_phone_links l where l.user_id = auth.uid())
   );
 
 -- Admin tier only -- not even the applicant reads it back (the form shows

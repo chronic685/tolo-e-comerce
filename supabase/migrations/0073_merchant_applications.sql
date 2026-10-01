@@ -15,15 +15,20 @@
 -- matches sign-ins on, and one no user can write. Never profiles.phone /
 -- profiles.phone_verified, which every account can edit on its own row.
 -- Null if the account isn't linked to a Tolo phone.
+--
+-- Only submit_merchant_application() calls this (as its definer), so no
+-- client role may execute it. RLS policies that need the same value read
+-- tolo_phone_links inline instead (its own-row select policy already
+-- exposes exactly this): a policy calling a function anon can't execute
+-- would turn an anonymous read into a permission error, not an empty
+-- result.
 create or replace function session_verified_phone()
 returns text
 language sql stable security definer set search_path = public
 as $$
   select phone from tolo_phone_links where user_id = auth.uid();
 $$;
--- Referenced from RLS predicates, which run as the querying role.
-revoke execute on function session_verified_phone() from public;
-grant execute on function session_verified_phone() to authenticated;
+revoke execute on function session_verified_phone() from public, anon, authenticated;
 
 -- 2. Table ----------------------------------------------------------------
 create type merchant_application_status as enum ('pending', 'approved', 'rejected');
@@ -117,6 +122,12 @@ create trigger merchant_applications_guard_review
   before update on merchant_applications
   for each row execute function guard_merchant_application_review();
 
+-- Postgres doesn't check EXECUTE when firing a trigger, only when someone
+-- calls the function directly -- so the default grants can go without
+-- affecting the guard (supabase/tests/merchant_applications.test.ts runs
+-- every review path as authenticated with this revoked).
+revoke execute on function guard_merchant_application_review() from public, anon, authenticated;
+
 -- 4. RLS -------------------------------------------------------------------
 -- Admin tier only (is_tolo_admin(): admin or super_admin, migration 0050)
 -- -- deliberately NOT has_admin_page(array['merchants']): approving an
@@ -125,7 +136,10 @@ create trigger merchant_applications_guard_review
 alter table merchant_applications enable row level security;
 
 create policy merchant_applications_select on merchant_applications
-  for select using (applicant_phone = session_verified_phone() or is_tolo_admin());
+  for select using (
+    applicant_phone = (select l.phone from tolo_phone_links l where l.user_id = auth.uid())
+    or is_tolo_admin()
+  );
 
 -- Reject / add a note. Approval also passes this check but is then refused
 -- by the guard trigger above unless it comes from approve_merchant_application().

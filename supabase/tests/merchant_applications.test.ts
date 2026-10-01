@@ -122,6 +122,42 @@ describe("submit_merchant_application", () => {
   });
 });
 
+describe("function privileges", () => {
+  it("neither the phone helper nor the review guard can be called directly by anon or signed-in users", async () => {
+    const user = await h.createUser();
+    for (const sql of ["select session_verified_phone()", "select guard_merchant_application_review()"]) {
+      await expect(h.asAnon((tx) => tx.query(sql))).rejects.toThrow(/permission denied/);
+      await expect(h.asUser(user.id, (tx) => tx.query(sql))).rejects.toThrow(/permission denied/);
+    }
+  });
+
+  it("submit is callable by signed-in users but not anon", async () => {
+    await expect(h.asAnon((tx) => tx.query("select submit_merchant_application('x', $1, 'y', 'z')", [category]))).rejects.toThrow(
+      /permission denied/,
+    );
+    const user = await h.createUser();
+    // Reaches the function body (and its own validation), not a permission error.
+    await expect(h.asUser(user.id, (tx) => tx.query("select submit_merchant_application('x', $1, 'y', 'z')", [category]))).rejects.toThrow(
+      "invalid_license_photo",
+    );
+  });
+
+  it("with its EXECUTE revoked, the guard trigger still fires on a signed-in admin's update", async () => {
+    const applicant = await h.createUser();
+    const app = await submitAs(applicant);
+    const admin = await h.createUser({ adminTier: "admin" });
+    // Refused by the guard (not by a permission error), so it ran.
+    await expect(
+      h.asUser(admin.id, (tx) => tx.query("update merchant_applications set business_name = 'Edited' where id = $1", [app.id])),
+    ).rejects.toThrow(/can't be changed/);
+    // And a legitimate review passes through it, stamped by it.
+    const { rows } = await h.asUser(admin.id, (tx) =>
+      tx.query<AppRow>("update merchant_applications set status = 'rejected' where id = $1 returning *", [app.id]),
+    );
+    expect(rows[0].reviewed_by).toBe(admin.id);
+  });
+});
+
 describe("reading applications (RLS)", () => {
   it("an applicant sees only their own application, never another applicant's", async () => {
     const alice = await h.createUser();

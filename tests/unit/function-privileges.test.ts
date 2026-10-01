@@ -130,6 +130,15 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   // separate, narrower read-only preview.
   "validate_discount_code",
 
+  // Merchant application from the Tolo app (migration 0073): the form's
+  // submit, called by the signed-in applicant (authenticated only -- anon
+  // is revoked). Security definer so it can read the caller's own
+  // tolo_phone_links row and the uploaded license object, but
+  // self-authorizing: it takes the phone from auth.uid()'s link (never
+  // from an argument), only accepts a license path in the caller's own
+  // storage folder, and raises for an unlinked or suspended account.
+  "submit_merchant_application",
+
   // Trigger functions: PostgREST excludes functions returning "trigger"
   // from its exposed /rpc/ API, and calling one directly would fail anyway
   // (no TG_OP/NEW/OLD outside a real trigger firing) — not a live hole, so
