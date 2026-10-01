@@ -161,9 +161,18 @@ export function nextPhone(): string {
   return `+2519${String(10_000_000 + phoneCounter).slice(-8)}`;
 }
 
-export async function createHarness(migrations: string[]): Promise<Harness> {
+export interface HarnessOptions {
+  /** SQL run after the Supabase stubs and before the migrations, for a test
+   * that needs a table/function its migration references but the shared
+   * stubs above don't model (kept in the test, not here, so the stubs only
+   * ever grow for things many tests need). */
+  prelude?: string;
+}
+
+export async function createHarness(migrations: string[], options: HarnessOptions = {}): Promise<Harness> {
   const db = new PGlite();
   await db.exec(SUPABASE_STUBS);
+  if (options.prelude) await db.exec(options.prelude);
   for (const file of migrations) {
     await db.exec(readFileSync(resolve(MIGRATIONS_DIR, file), "utf8"));
   }

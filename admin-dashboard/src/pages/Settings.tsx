@@ -2,11 +2,14 @@
 import { AlertTriangle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { SkeletonPage, toast } from "@tolo/ui";
+import { SmsOutboxPanel } from "../components/SmsOutboxPanel";
 
 interface PaymentMethods {
   cash_on_delivery: boolean;
   bank_transfer: boolean;
   mobile_money: boolean;
+  chapa: boolean;
+  telebirr: boolean;
 }
 
 interface DeliverySettings {
@@ -61,7 +64,7 @@ interface NotificationChannels {
 }
 
 const DEFAULTS = {
-  payment_methods: { cash_on_delivery: true, bank_transfer: true, mobile_money: true } satisfies PaymentMethods,
+  payment_methods: { cash_on_delivery: true, bank_transfer: true, mobile_money: true, chapa: false, telebirr: false } satisfies PaymentMethods,
   delivery: { enabled: true, base_fee: 0, free_delivery_threshold: null, max_delivery_distance_km: null } satisfies DeliverySettings,
   customer_features: {
     reviews_enabled: true,
@@ -257,6 +260,8 @@ export function Settings() {
             ["cash_on_delivery", "Cash on delivery"],
             ["bank_transfer", "Bank transfer"],
             ["mobile_money", "Mobile money"],
+            ["chapa", "Chapa (online payment)"],
+            ["telebirr", "Telebirr (online payment)"],
           ] as const
         ).map(([k, label]) => (
           <label key={k} className="flex items-center justify-between py-1.5 text-sm">
@@ -269,6 +274,9 @@ export function Settings() {
           </label>
         ))}
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Disabled methods disappear from the customer checkout screen automatically.</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+          Chapa and Telebirr need an online payment gateway connected to the backend first. Until then, checkout refuses them even if they are switched on here.
+        </p>
       </section>
 
       <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
@@ -544,6 +552,8 @@ export function Settings() {
           </label>
         ))}
       </section>
+
+      <SmsOutboxPanel />
     </div>
   );
 }

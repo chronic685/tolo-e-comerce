@@ -22,6 +22,7 @@ import { SavedLocations } from "./pages/SavedLocations";
 import { LegalPage } from "./pages/LegalPage";
 import { AuthHandoff } from "./pages/AuthHandoff";
 import { MerchantApply } from "./pages/MerchantApply";
+import { MockGateway } from "./pages/MockGateway";
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="/orders" element={<Orders />} />
           <Route path="/orders/:id/confirmation" element={<OrderConfirmation />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
+          <Route path="/mock-gateway/:paymentId" element={<MockGateway />} />
           <Route path="/account" element={<Account />} />
           <Route path="/favorites" element={<Favorites />} />
           <Route path="/notifications" element={<Notifications />} />

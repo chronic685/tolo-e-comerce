@@ -4,8 +4,12 @@
 // orders + reserves stock (via the create_order() SQL function), then opens
 // a pending payment record. Stock reservations are rolled back automatically
 // if any line fails (insufficient stock, invalid variant, etc).
+// For online gateway methods (chapa/telebirr) the response also carries
+// checkout_url, the gateway's hosted page to redirect the customer to.
 import { serviceClient, userClient } from "../_shared/client.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { getPaymentProvider, isGatewayProviderName } from "../_shared/payment_providers.ts";
+import { getCustomerAppUrl, loadGatewayCustomer, startGatewayPayment } from "../_shared/payment_start.ts";
 
 // create_order() raises plain Postgres exceptions (see 0026+ migrations) —
 // those messages are meant for developers reading function source, not for
@@ -88,6 +92,15 @@ Deno.serve(async (req) => {
     const { data: paymentMethodsSetting } = await db.from("system_settings").select("value").eq("key", "payment_methods").maybeSingle();
     const enabledMethods = (paymentMethodsSetting?.value as Record<string, boolean> | null) ?? {};
     if (!enabledMethods[payment_provider]) {
+      return jsonResponse({ error: "This payment method is not currently available. Please choose another." }, 400);
+    }
+
+    // An online gateway method (Chapa/Telebirr) can be switched on in Settings
+    // before any gateway is actually connected. Refuse it here, before
+    // create_order() reserves stock, rather than leave the customer with an
+    // order they have no way to pay online.
+    const gateway = isGatewayProviderName(payment_provider) ? getPaymentProvider(payment_provider) : undefined;
+    if (isGatewayProviderName(payment_provider) && !gateway) {
       return jsonResponse({ error: "This payment method is not currently available. Please choose another." }, 400);
     }
 
@@ -201,6 +214,20 @@ Deno.serve(async (req) => {
     if (paymentError) return jsonResponse({ error: paymentError.message }, 400);
 
     await db.from("cart_items").delete().eq("cart_id", cart.id);
+
+    // Online gateway: get the hosted-checkout URL for the client to redirect
+    // to. If the gateway can't be reached the order still exists with a
+    // pending payment (its stock is already reserved), so this is reported as
+    // payment_error, not a failed checkout -- the order page offers "Pay now"
+    // (payment-initiate) to try again.
+    if (gateway) {
+      const customer = await loadGatewayCustomer(db, customerId, userData.user.email);
+      const started = await startGatewayPayment(db, gateway, payment, customer, getCustomerAppUrl());
+      if ("error" in started) {
+        return jsonResponse({ order_id: orderId, payment_id: payment.id, amount: amountDue, checkout_url: null, payment_error: started.error });
+      }
+      return jsonResponse({ order_id: orderId, payment_id: payment.id, amount: amountDue, checkout_url: started.checkoutUrl });
+    }
 
     return jsonResponse({ order_id: orderId, payment_id: payment.id, amount: amountDue });
   } catch (err) {

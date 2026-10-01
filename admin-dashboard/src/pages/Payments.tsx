@@ -11,13 +11,17 @@ const STATUS_VARIANT: Record<string, "warning" | "success" | "danger" | "default
   refunded: "default",
 };
 
-// No automated gateway is connected for any of these (see
+// Cash, bank transfer and mobile money have no automated gateway (see
 // supabase/functions/_shared/payment_providers.ts) — every one of them is
 // confirmed by a human, not a webhook. Cash is confirmed by the merchant
 // (they physically collect it); bank/mobile-money need Tolo finance to
 // reconcile against the real bank/telco statement, since the merchant has
 // no way to verify a transfer into Tolo's own account.
-const FINANCE_CONFIRMABLE = new Set(["bank_transfer", "mobile_money"]);
+// Online gateway payments (Chapa, Telebirr) normally confirm themselves when
+// the gateway calls payment-webhook; they are listed here only so finance can
+// reconcile one by hand if that callback never arrived (money taken, order
+// still pending) -- after checking the payment in the gateway's own dashboard.
+const FINANCE_CONFIRMABLE = new Set(["bank_transfer", "mobile_money", "chapa", "telebirr"]);
 
 export function Payments() {
   const [payments, setPayments] = useState<Payment[]>([]);

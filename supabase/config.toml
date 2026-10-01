@@ -33,3 +33,11 @@ enabled = true
 # docs/integration/tolo-app.md.
 [functions.merchant-application-status]
 verify_jwt = false
+
+# Called by an external payment gateway's server, which holds no Supabase JWT.
+# The gateway's own signature, checked by its adapter in
+# _shared/payment_providers.ts, is the only gate -- and with no gateway
+# registered (the default) every call is refused. See
+# docs/integration/payments-and-sms.md.
+[functions.payment-webhook]
+verify_jwt = false

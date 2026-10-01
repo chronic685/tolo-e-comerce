@@ -234,6 +234,9 @@ export const am: AmharicStrings = {
   "checkout.cashOnDelivery": mt("ጥሬ ገንዘብ ሲደርስ"),
   "checkout.bankTransfer": mt("የባንክ ዝውውር"),
   "checkout.mobileMoney": mt("የሞባይል ገንዘብ"),
+  "checkout.chapa": mt("Chapa (የመስመር ላይ ክፍያ)"),
+  "checkout.telebirr": mt("Telebirr"),
+  "checkout.paymentStartFailed": mt("ትዕዛዝዎ ተመዝግቧል፣ ነገር ግን የክፍያ ገጹን መክፈት አልቻልንም። ከትዕዛዝ ገጽዎ መክፈል ይችላሉ።"),
 
   // order confirmation ---------------------------------------------------
   "orderConfirmation.title": mt("ትዕዛዝ ገብቷል!"),
@@ -287,6 +290,11 @@ export const am: AmharicStrings = {
   "paymentPending.cashOnDelivery": mt("ትዕዛዝዎ ሲደርስ ለአቅራቢው በጥሬ ገንዘብ ይክፈሉ።"),
   "paymentPending.bankTransfer": mt("የባንክ ዝውውርዎን በቅርቡ እናረጋግጣለን።"),
   "paymentPending.mobileMoney": mt("የሞባይል ገንዘብ ክፍያዎን በቅርቡ እናረጋግጣለን።"),
+  "paymentPending.chapa": mt("ትዕዛዝዎን ለማረጋገጥ ክፍያዎን በ Chapa ያጠናቅቁ።"),
+  "paymentPending.telebirr": mt("ትዕዛዝዎን ለማረጋገጥ ክፍያዎን በ Telebirr ያጠናቅቁ።"),
+  "orders.payNow": mt("አሁን ይክፈሉ"),
+  "orders.payNowOpening": mt("ክፍያ በመክፈት ላይ..."),
+  "orders.payNowError": mt("የክፍያ ገጹን መክፈት አልቻልንም። እባክዎ እንደገና ይሞክሩ።"),
 
   // review widget -------------------------------------------------------
   "review.alreadyReviewed": mt("ይህን ምርት ገምግመዋል"),

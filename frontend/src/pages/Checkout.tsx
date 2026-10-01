@@ -16,7 +16,10 @@ import type { Address } from "../types";
 // being re-saved), which silently made "Mobile money" the pre-selected
 // default radio button regardless of which methods were actually enabled or
 // what a customer intended to pick.
-const PAYMENT_METHOD_ORDER = ["cash_on_delivery", "bank_transfer", "mobile_money"] as const;
+// chapa/telebirr are online gateway methods: they only appear once an admin
+// switches them on in Settings AND checkout accepts them (a gateway is
+// connected), see supabase/functions/checkout/index.ts.
+const PAYMENT_METHOD_ORDER = ["cash_on_delivery", "bank_transfer", "mobile_money", "chapa", "telebirr"] as const;
 
 export function Checkout() {
   const { user } = useAuth();
@@ -29,6 +32,8 @@ export function Checkout() {
     cash_on_delivery: t("checkout.cashOnDelivery"),
     bank_transfer: t("checkout.bankTransfer"),
     mobile_money: t("checkout.mobileMoney"),
+    chapa: t("checkout.chapa"),
+    telebirr: t("checkout.telebirr"),
   };
 
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -297,11 +302,23 @@ export function Checkout() {
       return;
     }
 
-    // No payment gateway is connected yet — cash/bank transfer/mobile money
-    // are all confirmed manually by a merchant or Tolo finance once the
-    // money has actually moved (see confirm-payment), never assumed here.
+    // Cash, bank transfer and mobile money are confirmed manually by a
+    // merchant or Tolo finance once the money has actually moved (see
+    // confirm-payment), never assumed here. Online gateway methods (Chapa,
+    // Telebirr) instead return checkout_url: the gateway's hosted page, where
+    // the customer pays; the gateway then tells our backend (payment-webhook)
+    // and the order page shows the result.
     await refresh();
+    if (typeof checkoutData.checkout_url === "string" && /^https?:\/\//.test(checkoutData.checkout_url)) {
+      // Deliberately leaves `placing` on so the button stays disabled while
+      // the browser leaves for the payment page.
+      window.location.assign(checkoutData.checkout_url);
+      return;
+    }
     setPlacing(false);
+    // The order exists but the payment page couldn't be opened (gateway
+    // hiccup): the order page has a "Pay now" button to try again.
+    if (checkoutData.payment_error) toast.error(t("checkout.paymentStartFailed"));
     if (embed) {
       notifyOrderPlaced(checkoutData.order_id);
       if (useWallet) openPayment(checkoutData.order_id, total);
