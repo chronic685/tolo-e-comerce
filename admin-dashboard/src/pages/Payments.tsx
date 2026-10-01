@@ -1,7 +1,22 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, fetchAllRows, formatCurrency, formatOrderNumber, SkeletonRows, Pagination, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Badge,
+  Button,
+  DataTable,
+  fetchAllRows,
+  formatCurrency,
+  formatOrderNumber,
+  SkeletonRows,
+  Pagination,
+  toast,
+  totalPagesFor,
+  usePagination,
+  useTranslation,
+  type DataTableColumn,
+} from "@tolo/ui";
 import type { Payment } from "../types";
 
 const STATUS_VARIANT: Record<string, "warning" | "success" | "danger" | "default"> = {
@@ -24,6 +39,7 @@ const STATUS_VARIANT: Record<string, "warning" | "success" | "danger" | "default
 const FINANCE_CONFIRMABLE = new Set(["bank_transfer", "mobile_money", "chapa", "telebirr"]);
 
 export function Payments() {
+  const { t } = useTranslation();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -56,7 +72,7 @@ export function Payments() {
     const { error } = await supabase.functions.invoke("confirm-payment", { body: { payment_id: payment.id } });
     setConfirmingId(null);
     if (error) {
-      toast.error("Could not confirm this payment. Please try again.");
+      toast.error(t("merchant.confirmCashFailed"));
       return;
     }
     // The status filter is now a real server-side query param, so a

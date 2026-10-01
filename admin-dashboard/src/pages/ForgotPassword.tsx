@@ -1,12 +1,13 @@
 ﻿import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
-import { toast } from "@tolo/ui";
+import { toast, useTranslation } from "@tolo/ui";
 
 const RESEND_COOLDOWN_SECONDS = 30;
 
 export function ForgotPassword() {
   const { requestPasswordReset } = useAuth();
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -31,14 +32,14 @@ export function ForgotPassword() {
     // Someone who types their synthetic address directly would otherwise get
     // "check your email" for an inbox that doesn't exist.
     if (email.trim().toLowerCase().endsWith("@staff.internal")) {
-      toast.error("Username accounts can't reset by email. Ask an admin to reset your account.");
+      toast.error(t("errors.staffAccountNoEmailReset"));
       return;
     }
     setLoading(true);
     const { error } = await requestPasswordReset(email);
     setLoading(false);
     if (error && !/user not found/i.test(error)) {
-      toast.error("We couldn't complete the request. Please try again.");
+      toast.error(t("auth.resetRequestFailed"));
       return;
     }
     setSent(true);

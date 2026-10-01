@@ -2,7 +2,7 @@
 import { FileBarChart } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { EmptyState, ExportCsvButton, fetchAllRows, SkeletonRows, toast } from "@tolo/ui";
+import { EmptyState, ExportCsvButton, fetchAllRows, SkeletonRows, toast, translateServerError, useTranslation } from "@tolo/ui";
 
 interface Summary {
   orders_count: number;
@@ -55,6 +55,7 @@ function today(): string {
 // authorization boundary (is_tolo_finance() OR the finance_reconciliation
 // page grant), independent of this page's own PageGuard.
 export function FinanceReconciliation() {
+  const { t } = useTranslation();
   const [from, setFrom] = useState(defaultFrom());
   const [to, setTo] = useState(today());
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -66,7 +67,7 @@ export function FinanceReconciliation() {
       .rpc("finance_reconciliation_summary", { p_from: isoStartOfDay(from), p_to: isoEndOfDay(to) })
       .single();
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       setSummary(null);
     } else {
       setSummary(data as unknown as Summary);

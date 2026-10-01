@@ -1,12 +1,13 @@
 ﻿import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
-import { toast } from "@tolo/ui";
+import { toast, translateServerError, useTranslation } from "@tolo/ui";
 
 const MIN_LENGTH = 8; // same minimum admin-create-staff enforces
 
 export function ChangePassword() {
   const { user, updatePassword } = useAuth();
+  const { t } = useTranslation();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -48,7 +49,7 @@ export function ChangePassword() {
     const { error: updateError } = await updatePassword(next);
     setSaving(false);
     if (updateError) {
-      toast.error(updateError);
+      toast.error(translateServerError(updateError, t));
       return;
     }
     setCurrent("");
