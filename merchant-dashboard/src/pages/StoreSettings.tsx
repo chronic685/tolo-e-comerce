@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
-import { DAY_KEYS, DAY_LABELS, isOpenNowClientSide, toast, type DayKey, type OperatingHours } from "@tolo/ui";
+import { DAY_KEYS, DAY_LABELS, isOpenNowClientSide, toast, translateServerError, useTranslation, type DayKey, type OperatingHours } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import { getCurrentLocation } from "../lib/geolocation";
@@ -18,6 +18,7 @@ function slugify(name: string) {
 
 export function StoreSettings() {
   const { merchant, store, setStoreLocal } = useMerchant();
+  const { t } = useTranslation();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -61,8 +62,11 @@ export function StoreSettings() {
       setLatitude(loc.latitude);
       setLongitude(loc.longitude);
       setPickupAddress(loc.address || pickupAddress);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not get your location.");
+    } catch {
+      // The browser Geolocation API's own error text is always English and
+      // never one of our known backend errors -- never shown, just the
+      // translated fallback (same treatment as Checkout.tsx).
+      toast.error(t("checkout.couldNotGetLocation"));
     } finally {
       setLocating(false);
     }
@@ -81,7 +85,7 @@ export function StoreSettings() {
 
     setUploadingLogo(false);
     if (uploadError) {
-      toast.error(uploadError.message);
+      toast.error(translateServerError(uploadError.message, t));
       return;
     }
 
@@ -117,7 +121,7 @@ export function StoreSettings() {
 
     setSaving(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       return;
     }
     setStoreLocal(data as Store);

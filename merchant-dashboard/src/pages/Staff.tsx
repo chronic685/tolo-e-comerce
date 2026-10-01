@@ -1,6 +1,20 @@
 import { useEffect, useState } from "react";
 import { Users } from "lucide-react";
-import { ADMIN_PAGE_SIZE, Button, DataTable, EmptyState, Pagination, SkeletonPage, SkeletonRows, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Button,
+  DataTable,
+  EmptyState,
+  Pagination,
+  SkeletonPage,
+  SkeletonRows,
+  toast,
+  totalPagesFor,
+  translateServerError,
+  usePagination,
+  useTranslation,
+  type DataTableColumn,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
@@ -31,6 +45,7 @@ interface FoundProfile {
 export function Staff() {
   const { user } = useAuth();
   const { merchant } = useMerchant();
+  const { t } = useTranslation();
   const isOwner = Boolean(merchant && user && merchant.owner_id === user.id);
 
   const [featureEnabled, setFeatureEnabled] = useState(false);
@@ -106,7 +121,7 @@ export function Staff() {
       .single();
     setAdding(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       return;
     }
     // Reloads rather than patching the array in place, now that the list

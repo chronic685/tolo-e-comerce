@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { I18nProvider } from "@tolo/ui";
 
 const { invoke, setSession } = vi.hoisted(() => ({ invoke: vi.fn(), setSession: vi.fn() }));
 vi.mock("../lib/supabase", () => ({
@@ -13,13 +14,15 @@ const SESSION = { access_token: "at", refresh_token: "rt", expires_in: 3600, tok
 
 function renderAt(url: string) {
   return render(
-    <MemoryRouter initialEntries={[url]}>
-      <Routes>
-        <Route path="/auth/handoff" element={<AuthHandoff />} />
-        <Route path="/" element={<p>dashboard home</p>} />
-        <Route path="/orders" element={<p>orders page</p>} />
-      </Routes>
-    </MemoryRouter>,
+    <I18nProvider>
+      <MemoryRouter initialEntries={[url]}>
+        <Routes>
+          <Route path="/auth/handoff" element={<AuthHandoff />} />
+          <Route path="/" element={<p>dashboard home</p>} />
+          <Route path="/orders" element={<p>orders page</p>} />
+        </Routes>
+      </MemoryRouter>
+    </I18nProvider>,
   );
 }
 

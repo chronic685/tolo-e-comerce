@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 
 // Lands here as /auth/handoff?code=<code>&embed=app when the Tolo app's
@@ -15,6 +16,7 @@ import { supabase } from "../lib/supabase";
 export function AuthHandoff() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const ranRef = useRef(false);
 
@@ -29,14 +31,14 @@ export function AuthHandoff() {
     const next = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
 
     if (!code) {
-      setError("Missing sign-in code.");
+      setError(t("errors.missingSignInCode"));
       return;
     }
 
     (async () => {
       const { data, error: invokeError } = await supabase.functions.invoke("tolo-merchant-login", { body: { code } });
       if (invokeError || !data?.session) {
-        setError("Merchant sign-in failed. Please try again from the Tolo app.");
+        setError(t("errors.toloMerchantSignInFailed"));
         return;
       }
 
@@ -45,7 +47,7 @@ export function AuthHandoff() {
         refresh_token: data.session.refresh_token,
       });
       if (sessionError) {
-        setError("Merchant sign-in failed. Please try again from the Tolo app.");
+        setError(t("errors.toloMerchantSignInFailed"));
         return;
       }
 
@@ -54,10 +56,10 @@ export function AuthHandoff() {
       window.history.replaceState({}, "", window.location.pathname);
       navigate(next, { replace: true });
     })();
-  }, [params, navigate]);
+  }, [params, navigate, t]);
 
   if (error) {
     return <p className="text-red-600 dark:text-red-400 text-center mt-10">{error}</p>;
   }
-  return <p className="text-gray-500 dark:text-gray-400 text-center mt-10">Signing you in...</p>;
+  return <p className="text-gray-500 dark:text-gray-400 text-center mt-10">{t("authHandoff.signingIn")}</p>;
 }

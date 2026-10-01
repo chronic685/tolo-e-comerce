@@ -1,6 +1,6 @@
 ﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { toast } from "@tolo/ui";
+import { toast, translateServerError, useTranslation } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 
 // Standard multi-color Google "G" mark — inline rather than a new icon
@@ -28,6 +28,7 @@ function GoogleIcon() {
 export function Login() {
   const { signIn, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,7 +41,7 @@ export function Login() {
     const { error } = await signIn(email, password);
     setLoading(false);
     if (error) {
-      toast.error(error);
+      toast.error(translateServerError(error, t));
       return;
     }
     navigate("/");
@@ -52,7 +53,7 @@ export function Login() {
     // Only reached if the redirect to Google never happened at all — on
     // success the browser navigates away before this line matters.
     setGoogleLoading(false);
-    if (error) toast.error(error);
+    if (error) toast.error(translateServerError(error, t));
   }
 
   return (

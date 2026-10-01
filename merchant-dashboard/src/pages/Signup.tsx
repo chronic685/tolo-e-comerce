@@ -1,11 +1,12 @@
 ﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { toast } from "@tolo/ui";
+import { toast, translateServerError, useTranslation } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 
 export function Signup() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -19,7 +20,7 @@ export function Signup() {
     const { error } = await signUp(email, password, fullName);
     setLoading(false);
     if (error) {
-      toast.error(error);
+      toast.error(translateServerError(error, t));
       return;
     }
     setDone(true);
