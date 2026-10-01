@@ -56,6 +56,9 @@ export default defineConfig({
       // test` (CI's only test step) silently never runs their tests at all.
       "merchant-dashboard",
       "admin-dashboard",
+      // Edge Function logic + migration (PGlite) tests -- database-free, see
+      // supabase/vitest.config.mts.
+      "supabase/vitest.config.mts",
     ],
   },
 });
