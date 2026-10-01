@@ -44,6 +44,10 @@ jobs:
       QA_CUSTOMER_PASSWORD: ci-customer-password
       QA_STAFF_EMAIL: qa-staff@ci.local
       QA_STAFF_PASSWORD: ci-staff-password
+      # Must match tests/ci/functions.env. Also what enables
+      # tests/smoke/tolo-app-functions.test.ts, which needs the Tolo
+      # backend stub below and so only runs here.
+      TOLO_CI_INBOUND_KEY: ci-tolo-inbound-key
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -68,9 +72,21 @@ jobs:
           } >> "$GITHUB_ENV"
           rm supabase.env
 
+      # Stand-in for the Tolo backend's verify-code endpoint, which
+      # tolo-app-login / tolo-merchant-login call. The functions reach it at
+      # host.docker.internal:54399 (tests/ci/functions.env).
+      - name: Start Tolo backend stub
+        run: |
+          TOLO_BACKEND_SHARED_KEY=ci-tolo-shared-key node tests/ci/tolo-backend-stub.mjs > tolo-stub.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:54399/health > /dev/null && echo "Tolo stub ready" && exit 0
+            sleep 1
+          done
+          echo "Tolo stub never became ready:"; cat tolo-stub.log; exit 1
+
       - name: Serve Edge Functions locally
         run: |
-          npx supabase functions serve > functions.log 2>&1 &
+          npx supabase functions serve --env-file tests/ci/functions.env > functions.log 2>&1 &
           for i in $(seq 1 60); do
             code=$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS "$SUPABASE_URL/functions/v1/order-status" || true)
             [ "$code" = "200" ] && echo "Edge Functions ready" && exit 0
@@ -85,4 +101,7 @@ jobs:
 
       - name: Edge Function logs
         if: failure()
-        run: cat functions.log || true
+        run: |
+          cat functions.log || true
+          echo "--- Tolo backend stub ---"
+          cat tolo-stub.log || true

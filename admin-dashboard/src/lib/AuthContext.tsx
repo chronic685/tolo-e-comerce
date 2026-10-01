@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
+import { ADMIN_PAGES } from "./adminPages";
 
 type AdminTier = "admin" | "super_admin" | null;
 
@@ -83,7 +84,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function hasAccess(pageKey: string) {
-    return isAdmin || permissions.includes(pageKey);
+    if (isAdmin) return true;
+    // An admin-tier-only page stays closed even if its key somehow ended up
+    // in a staff member's permissions list.
+    if (ADMIN_PAGES.find((p) => p.key === pageKey)?.adminTierOnly) return false;
+    return permissions.includes(pageKey);
   }
 
   useEffect(() => {

@@ -21,6 +21,7 @@ import { Support } from "./pages/Support";
 import { SavedLocations } from "./pages/SavedLocations";
 import { LegalPage } from "./pages/LegalPage";
 import { AuthHandoff } from "./pages/AuthHandoff";
+import { MerchantApply } from "./pages/MerchantApply";
 
 export default function App() {
   return (
@@ -47,6 +48,8 @@ export default function App() {
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/support" element={<Support />} />
           <Route path="/locations" element={<SavedLocations />} />
+          {/* Opened by the Tolo app via /auth/handoff?...&next=/merchant/apply (docs/integration/tolo-app.md). */}
+          <Route path="/merchant/apply" element={<MerchantApply />} />
         </Route>
       </Route>
     </Routes>

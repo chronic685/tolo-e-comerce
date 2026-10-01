@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
-import { ADMIN_PAGES } from "../lib/adminPages";
+import { GRANTABLE_ADMIN_PAGES } from "../lib/adminPages";
 import { ADMIN_PAGE_SIZE, Badge, DataTable, Pagination, SkeletonRows, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import { edgeFunctionError } from "../lib/edgeFunctionError";
 import type { StaffProfile } from "../types";
 
 const ROLES = ["tolo_ops", "tolo_finance", "tolo_admin", "tolo_marketing", "tolo_support", "tolo_merchant_verification"];
@@ -19,21 +20,6 @@ function usernameProblem(username: string): string | null {
   if (!/^[a-z0-9]/.test(username)) return "Must start with a letter or number.";
   if (!USERNAME_RE.test(username)) return "Only lowercase letters, numbers, dot (.), dash (-), and underscore (_) are allowed.";
   return null;
-}
-
-// functions.invoke() replaces the function's own JSON error with a generic
-// "non-2xx status code" message; the real one is on error.context.
-async function edgeFunctionError(error: unknown): Promise<string> {
-  const context = (error as { context?: Response })?.context;
-  if (context && typeof context.json === "function") {
-    try {
-      const body = await context.json();
-      if (body?.error) return String(body.error);
-    } catch {
-      // fall through to the generic message
-    }
-  }
-  return (error as Error)?.message ?? "Something went wrong. Please try again.";
 }
 
 const EMPTY_CREATE_FORM = {
@@ -490,7 +476,7 @@ export function Users() {
                 Page access{!editable && <span className="text-gray-400 dark:text-gray-500 font-normal"> (read-only — admin access required to change)</span>}
               </p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                {ADMIN_PAGES.map((page) => (
+                {GRANTABLE_ADMIN_PAGES.map((page) => (
                   <label key={page.key} className={`flex items-center gap-1.5 text-xs ${editable ? "dark:text-gray-200" : "text-gray-500 dark:text-gray-500"}`}>
                     <input
                       type="checkbox"
@@ -615,7 +601,7 @@ export function Users() {
             <div>
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Page access</p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                {ADMIN_PAGES.map((page) => (
+                {GRANTABLE_ADMIN_PAGES.map((page) => (
                   <label key={page.key} className="flex items-center gap-1.5 text-xs dark:text-gray-200">
                     <input
                       type="checkbox"

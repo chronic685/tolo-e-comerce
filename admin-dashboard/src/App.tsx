@@ -7,6 +7,7 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Dashboard } from "./pages/Dashboard";
 import { Merchants } from "./pages/Merchants";
+import { MerchantApplications } from "./pages/MerchantApplications";
 import { Products } from "./pages/Products";
 import { Customers } from "./pages/Customers";
 import { Orders } from "./pages/Orders";
@@ -48,6 +49,14 @@ export default function App() {
             element={
               <PageGuard pageKey="merchants">
                 <Merchants />
+              </PageGuard>
+            }
+          />
+          <Route
+            path="/merchant-applications"
+            element={
+              <PageGuard pageKey="merchant_applications">
+                <MerchantApplications />
               </PageGuard>
             }
           />
