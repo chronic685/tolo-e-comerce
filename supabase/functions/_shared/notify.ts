@@ -6,8 +6,9 @@
 // admin Settings/Notification Templates pages actually changes what gets
 // sent, not just what's stored.
 //
-// SMS reuses the same Africa's Talking integration send-sms-otp already
-// uses for auth OTPs (_shared/sms.ts), and email reuses Resend
+// SMS goes through _shared/sms.ts, the same provider layer send-sms-otp uses
+// for auth OTPs (Africa's Talking live, or the mock provider that logs to
+// sms_outbox instead of sending), and email reuses Resend
 // (_shared/email.ts) — neither stands up a second client for the same
 // provider. Both reuse the same notification_templates row as in_app —
 // there is no separate SMS/email-specific template today, so the outbound
@@ -114,7 +115,7 @@ export async function sendNotification(
         // else notifications are sent (see migration 0033) — an SMS
         // provider hiccup must never fail the order/payment action that
         // triggered it.
-        await sendSms(profile.phone, `${title}: ${body}`);
+        await sendSms(profile.phone, `${title}: ${body}`, { eventType, userId });
       } catch {
         // No logging infra for this yet — swallow rather than throw.
       }

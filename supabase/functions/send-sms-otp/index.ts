@@ -77,7 +77,8 @@ Deno.serve(async (req) => {
 
     const message = `Your Tolo verification code is ${otp}`;
 
-    const result = await sendSms(phone, message);
+    // sensitive: the login code must never be readable from the SMS log.
+    const result = await sendSms(phone, message, { eventType: "auth_otp", sensitive: true });
     if (!result.ok) {
       return jsonResponse({ error: result.error }, 502);
     }
