@@ -1,7 +1,18 @@
 ﻿import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Calendar, CheckCircle2, RotateCcw, Star } from "lucide-react";
-import { Badge, Button, SkeletonPage, Stepper, formatDateTime, formatOrderNumber, toast, useTranslation } from "@tolo/ui";
+import {
+  Badge,
+  Button,
+  SkeletonPage,
+  Stepper,
+  extractServerErrorText,
+  formatDateTime,
+  formatOrderNumber,
+  toast,
+  translateServerError,
+  useTranslation,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
@@ -222,17 +233,8 @@ export function OrderDetail() {
       body: { merchant_order_id: merchantOrderId, status: "cancelled" },
     });
     if (error) {
-      let message = t("orders.cancelGenericError");
-      const context = (error as { context?: Response })?.context;
-      if (context) {
-        try {
-          const body = await context.clone().json();
-          if (body?.error) message = body.error;
-        } catch {
-          // Non-JSON error body — fall back to the generic message above.
-        }
-      }
-      toast.error(message);
+      const rawText = await extractServerErrorText(error);
+      toast.error(rawText ? translateServerError(rawText, t) : t("orders.cancelGenericError"));
       setCancelling(null);
       return;
     }
@@ -520,8 +522,10 @@ function ReviewWidget({
     if (error) {
       // PT429 is this project's convention (see migration 0032) for a
       // database trigger to make PostgREST answer 429 — its message is
-      // already a safe, pre-written string, unlike other DB errors.
-      toast.error(code === "PT429" ? error : t("review.genericError"));
+      // already a safe, pre-written string, unlike other DB errors, but
+      // still raw English: translateServerError maps it to the same
+      // translated rate-limit string every other 429 in the app uses.
+      toast.error(code === "PT429" ? translateServerError(error, t) : t("review.genericError"));
       return;
     }
     setDone(true);
