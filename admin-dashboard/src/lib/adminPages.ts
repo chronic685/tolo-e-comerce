@@ -17,6 +17,7 @@ import {
   Settings as SettingsIcon,
   FileBarChart,
   Image as ImageIcon,
+  FileCheck2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,6 +36,10 @@ export interface AdminPage {
   // this back to false (or delete the line) to re-show it; nothing else
   // needs to change.
   hiddenFromNav?: boolean;
+  // Admin/super_admin only: never grantable to staff through the page
+  // checklist (Users.tsx leaves it out), because the data behind it is
+  // gated on is_tolo_admin() in RLS, not on page permissions.
+  adminTierOnly?: boolean;
   icon: LucideIcon;
   // Sidebar section heading. Dashboard has none (rendered above every
   // group, as the sole ungrouped entry).
@@ -50,6 +55,14 @@ export const ADMIN_PAGES: AdminPage[] = [
   { key: "support", label: "Support", to: "/support", icon: LifeBuoy, group: "Operations" },
 
   { key: "merchants", label: "Merchants", to: "/merchants", icon: Store, group: "Catalog" },
+  {
+    key: "merchant_applications",
+    label: "Merchant Applications",
+    to: "/merchant-applications",
+    icon: FileCheck2,
+    group: "Catalog",
+    adminTierOnly: true,
+  },
   { key: "products", label: "Products", to: "/products", icon: Package, group: "Catalog" },
   { key: "customers", label: "Customers", to: "/customers", icon: UsersIcon, group: "Catalog" },
   { key: "banners", label: "Homepage Banners", to: "/banners", icon: ImageIcon, group: "Catalog" },
@@ -78,3 +91,6 @@ export const ADMIN_PAGES: AdminPage[] = [
   { key: "audit_log", label: "Audit Log", to: "/audit-log", icon: History, group: "Platform" },
   { key: "settings", label: "Settings", to: "/settings", icon: SettingsIcon, group: "Platform" },
 ];
+
+/** Pages a staff member can be granted through the Users & Roles checklist. */
+export const GRANTABLE_ADMIN_PAGES = ADMIN_PAGES.filter((page) => !page.adminTierOnly);
