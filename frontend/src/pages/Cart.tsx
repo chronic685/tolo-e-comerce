@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Minus, Plus, ShoppingCart, Store, Trash2 } from "lucide-react";
 import { Button, Card, CardContent, EmptyState, formatCurrency, LazyImage, SkeletonRows, useTranslation } from "@tolo/ui";
@@ -70,7 +70,7 @@ export function Cart() {
       <div className="md:col-span-2 space-y-6">
         {[...groups.entries()].map(([merchantId, groupItems]) => (
           <div key={merchantId}>
-            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 mb-2">
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">
               <Store className="w-4 h-4" />
               {storeNames.get(merchantId) ?? "Shop"}
             </h2>
@@ -95,7 +95,7 @@ export function Cart() {
                         >
                           {item.product_variants.products.name}
                         </Link>
-                        {attrs && <p className="text-xs text-gray-500">{attrs}</p>}
+                        {attrs && <p className="text-xs text-gray-500 dark:text-gray-400">{attrs}</p>}
                         <p className="text-sm text-navy font-semibold mt-1">{formatCurrency(price)}</p>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -103,7 +103,7 @@ export function Cart() {
                           type="button"
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
                           aria-label="Decrease quantity"
-                          className="w-8 h-8 rounded-md border flex items-center justify-center text-gray-600 hover:bg-gray-50"
+                          className="w-8 h-8 rounded-md border flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:bg-white/5"
                         >
                           <Minus className="w-3.5 h-3.5" />
                         </button>
@@ -112,7 +112,7 @@ export function Cart() {
                           type="button"
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           aria-label="Increase quantity"
-                          className="w-8 h-8 rounded-md border flex items-center justify-center text-gray-600 hover:bg-gray-50"
+                          className="w-8 h-8 rounded-md border flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:bg-white/5"
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
@@ -121,17 +121,17 @@ export function Cart() {
                         type="button"
                         onClick={() => removeItem(item.id)}
                         aria-label="Remove item"
-                        className="text-gray-400 hover:text-red-600 flex-shrink-0"
+                        className="text-gray-400 dark:text-gray-500 hover:text-red-600 flex-shrink-0"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-                    <label className="flex items-center gap-2 mt-3 text-xs text-gray-500">
+                    <label className="flex items-center gap-2 mt-3 text-xs text-gray-500 dark:text-gray-400">
                       {t("cart.ifUnavailable")}
                       <select
                         value={item.on_unavailable}
                         onChange={(e) => updatePreference(item.id, e.target.value as "remove" | "substitute" | "cancel_order")}
-                        className="border rounded-md px-2 py-1 text-xs text-gray-700"
+                        className="border rounded-md px-2 py-1 text-xs text-gray-700 dark:text-gray-300"
                       >
                         {UNAVAILABLE_OPTIONS.map((opt) => (
                           <option key={opt.value} value={opt.value}>
@@ -153,7 +153,7 @@ export function Cart() {
             <span>{t("cart.subtotal")}</span>
             <span>{formatCurrency(total)}</span>
           </div>
-          <p className="text-xs text-gray-400 mb-4">Delivery fee isn't included yet — it's calculated at checkout.</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">Delivery fee isn't included yet — it's calculated at checkout.</p>
           <Button onClick={() => navigate("/checkout")} className="w-full">
             {t("cart.proceedToCheckout")}
           </Button>

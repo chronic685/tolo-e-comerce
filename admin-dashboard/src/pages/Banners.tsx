@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Image as ImageIcon } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { EmptyState, toast } from "@tolo/ui";
+import { Badge, Button, DataTable, EmptyState, toast, type DataTableColumn } from "@tolo/ui";
 
 interface Banner {
   id: string;
@@ -85,23 +85,76 @@ export function Banners() {
     setBanners((prev) => prev.filter((x) => x.id !== b.id));
   }
 
+  const columns: DataTableColumn<Banner>[] = [
+    {
+      key: "banner",
+      header: "Banner",
+      render: (b) => (
+        <div className="flex items-center gap-3">
+          <img src={b.image_url} alt={b.title ?? ""} className="w-24 h-14 object-cover rounded-md flex-shrink-0 bg-gray-100 dark:bg-white/5" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate">{b.title || "(untitled)"}</p>
+            {b.link_url && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{b.link_url}</p>}
+          </div>
+        </div>
+      ),
+      filterValue: (b) => b.title ?? "",
+      csvValue: (b) => b.title ?? "",
+    },
+    {
+      key: "sort_order",
+      header: "Order",
+      render: (b) => (
+        <input
+          type="number"
+          value={b.sort_order}
+          onChange={(e) => updateSortOrder(b, Number(e.target.value))}
+          className="w-16 border rounded-md px-2 py-1 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
+          title="Display order"
+        />
+      ),
+      sortValue: (b) => b.sort_order,
+      csvValue: (b) => b.sort_order,
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (b) => <Badge variant={b.is_active ? "success" : "default"}>{b.is_active ? "Active" : "Inactive"}</Badge>,
+      csvValue: (b) => (b.is_active ? "active" : "inactive"),
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (b) => (
+        <div className="flex items-center gap-2 justify-end">
+          <Button size="sm" variant="outline" onClick={() => toggleActive(b)}>
+            {b.is_active ? "Deactivate" : "Activate"}
+          </Button>
+          <Button size="sm" variant="destructive" onClick={() => handleDelete(b)}>
+            Delete
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-bold mb-4">Homepage Banners</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Homepage Banners</h1>
 
-      <div className="bg-white border rounded-lg p-4 mb-4 space-y-2">
-        <p className="font-medium text-sm">Add a banner</p>
+      <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 space-y-2">
+        <p className="font-medium text-sm dark:text-gray-100">Add a banner</p>
         <input
           placeholder="Title (optional)"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full border rounded-md px-3 py-2 text-sm"
+          className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
         />
         <input
           placeholder="Link URL (optional — e.g. /shops/some-shop)"
           value={linkUrl}
           onChange={(e) => setLinkUrl(e.target.value)}
-          className="w-full border rounded-md px-3 py-2 text-sm"
+          className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
         />
         <input
           type="file"
@@ -112,46 +165,15 @@ export function Banners() {
             if (file) handleAdd(file);
             e.target.value = "";
           }}
-          className="text-sm"
+          className="text-sm dark:text-gray-300"
         />
-        {uploading && <p className="text-xs text-gray-400">Uploading...</p>}
+        {uploading && <p className="text-xs text-gray-400 dark:text-gray-500">Uploading...</p>}
       </div>
 
       {loading ? null : banners.length === 0 ? (
         <EmptyState icon={ImageIcon} title="No banners yet" description="Add an image above to show it on the homepage." />
       ) : (
-        <div className="bg-white border rounded-lg divide-y">
-          {banners.map((b) => (
-            <div key={b.id} className="flex items-center gap-3 p-3">
-              <img src={b.image_url} alt={b.title ?? ""} className="w-24 h-14 object-cover rounded-md flex-shrink-0 bg-gray-100" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{b.title || "(untitled)"}</p>
-                {b.link_url && <p className="text-xs text-gray-500 truncate">{b.link_url}</p>}
-              </div>
-              <input
-                type="number"
-                value={b.sort_order}
-                onChange={(e) => updateSortOrder(b, Number(e.target.value))}
-                className="w-16 border rounded-md px-2 py-1 text-sm flex-shrink-0"
-                title="Display order"
-              />
-              <button
-                onClick={() => toggleActive(b)}
-                className={`text-xs px-2 py-1 rounded-full border flex-shrink-0 ${
-                  b.is_active ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {b.is_active ? "Active" : "Inactive"}
-              </button>
-              <button
-                onClick={() => handleDelete(b)}
-                className="text-xs text-red-600 border border-red-200 px-2 py-1 rounded-md hover:bg-red-50 flex-shrink-0"
-              >
-                Delete
-              </button>
-            </div>
-          ))}
-        </div>
+        <DataTable storageKey="admin.banners" columns={columns} rows={banners} getRowId={(b) => b.id} />
       )}
     </div>
   );

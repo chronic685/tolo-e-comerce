@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { GRANTABLE_ADMIN_PAGES } from "../lib/adminPages";
-import { ADMIN_PAGE_SIZE, Pagination, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, DataTable, Pagination, SkeletonRows, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
 import { edgeFunctionError } from "../lib/edgeFunctionError";
 import type { StaffProfile } from "../types";
 
@@ -88,7 +88,7 @@ export function Users() {
     setSearchResults((data as StaffProfile[]) ?? []);
   }
 
-  // Same row (via RoleRow) renders in both `staff` (filtered role <>
+  // Same row (via renderRow) renders in both `staff` (filtered role <>
   // 'customer') and `searchResults` (unfiltered) -- was `await load(); await
   // handleSearch();` after every mutation below, each of which sets
   // loading=true/re-runs the search, flashing both lists. Patches both
@@ -223,7 +223,7 @@ export function Users() {
   // server-side for anyone the DB trigger doesn't accept regardless of this
   // UI (prevent_role_self_escalation, migration 0050) -- the checklist
   // isn't even rendered as editable for a caller who can't manage this row
-  // in the first place (see RoleRow below).
+  // in the first place (see renderRow below).
   async function updatePermissions(p: StaffProfile, pageKey: string, checked: boolean) {
     const next = checked ? [...p.permissions, pageKey] : p.permissions.filter((k) => k !== pageKey);
     const { error } = await supabase.from("profiles").update({ permissions: next }).eq("id", p.id);
@@ -304,43 +304,34 @@ export function Users() {
     toast.success(`Account "${data.username}" created.`);
   }
 
-  // A render function, not a nested component: a component declared inside
-  // Users() is a new type on every render, so React remounted each row on
-  // every keystroke and text inputs inside it (suspend reason, username,
-  // password) lost focus after one character.
+  // A render function feeding DataTable's `render`, not a nested
+  // component: a component declared inside Users() is a new type on every
+  // render, so React remounted each row on every keystroke and text inputs
+  // inside it (suspend reason, username, password) lost focus after one
+  // character.
   function renderRow(p: StaffProfile) {
     const editable = canManage(p);
     const credEditable = canEditCredentials(p);
     const isProtected = p.admin_tier === "super_admin";
     return (
-      <div>
-        <div className="p-3 flex items-center justify-between gap-3">
+      <div className="py-1">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <p className="text-sm font-medium flex items-center gap-1.5">
               {p.full_name ?? p.username ?? "Unnamed"}
-              {p.admin_tier && (
-                <span
-                  className={`text-xs px-1.5 py-0.5 rounded-full ${
-                    p.admin_tier === "super_admin" ? "bg-navy text-white" : "bg-navy-50 text-navy"
-                  }`}
-                >
-                  {p.admin_tier === "super_admin" ? "Super Admin" : "Admin"}
-                </span>
-              )}
+              {p.admin_tier && <Badge variant={p.admin_tier === "super_admin" ? "navy" : "navy-subtle"}>{p.admin_tier === "super_admin" ? "Super Admin" : "Admin"}</Badge>}
             </p>
-            <p className="text-xs text-gray-500">
-              {p.username ? `@${p.username}` : (p.phone ?? "—")}
-            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{p.username ? `@${p.username}` : (p.phone ?? "—")}</p>
             {p.account_status === "suspended" && p.suspension_reason && (
-              <p className="text-xs text-red-600 mt-0.5">Suspended: {p.suspension_reason}</p>
+              <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">Suspended: {p.suspension_reason}</p>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
             <select
               value={p.role}
               onChange={(e) => changeRole(p, e.target.value)}
               disabled={!editable}
-              className="border rounded-md px-2 py-1.5 text-xs capitalize disabled:opacity-50 disabled:bg-gray-50"
+              className="border rounded-md px-2 py-1.5 text-xs capitalize disabled:opacity-50 disabled:bg-gray-50 dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
             >
               <option value="customer">customer (remove staff access)</option>
               {ROLES.map((r) => (
@@ -352,8 +343,8 @@ export function Users() {
             <button
               onClick={() => toggleStatus(p)}
               disabled={!editable || p.id === user?.id || isProtected}
-              className={`text-xs px-2 py-1.5 rounded-md border disabled:opacity-50 ${
-                p.account_status === "active" ? "hover:bg-gray-50" : "bg-red-50 text-red-700 border-red-200"
+              className={`text-xs px-2 py-1.5 rounded-md border disabled:opacity-50 dark:border-white/20 ${
+                p.account_status === "active" ? "hover:bg-gray-50 dark:hover:bg-white/5 dark:text-gray-200" : "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400"
               }`}
             >
               {p.account_status === "active" ? "Suspend" : "Reactivate"}
@@ -361,33 +352,27 @@ export function Users() {
             {isSuperAdmin && !isProtected && (
               <button
                 onClick={() => updateAdminTier(p, p.admin_tier !== "admin")}
-                className={`text-xs px-2 py-1.5 rounded-md border ${
-                  p.admin_tier === "admin" ? "bg-navy-50 text-navy border-navy-100" : "hover:bg-gray-50"
+                className={`text-xs px-2 py-1.5 rounded-md border dark:border-white/20 ${
+                  p.admin_tier === "admin" ? "bg-navy-50 text-navy border-navy-100 dark:bg-navy-light/20 dark:text-navy-light" : "hover:bg-gray-50 dark:hover:bg-white/5 dark:text-gray-200"
                 }`}
               >
                 {p.admin_tier === "admin" ? "Revoke admin" : "Grant admin"}
               </button>
             )}
             {credEditable && p.username && (
-              <button
-                onClick={() => openCredEdit(p, "username")}
-                className="text-xs px-2 py-1.5 rounded-md border hover:bg-gray-50"
-              >
+              <button onClick={() => openCredEdit(p, "username")} className="text-xs px-2 py-1.5 rounded-md border dark:border-white/20 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5">
                 Edit username
               </button>
             )}
             {credEditable && (
-              <button
-                onClick={() => openCredEdit(p, "password")}
-                className="text-xs px-2 py-1.5 rounded-md border hover:bg-gray-50"
-              >
+              <button onClick={() => openCredEdit(p, "password")} className="text-xs px-2 py-1.5 rounded-md border dark:border-white/20 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5">
                 Reset password
               </button>
             )}
             {editable && p.role !== "customer" && !isProtected && (
               <button
                 onClick={() => setDeleteConfirmId(deleteConfirmId === p.id ? null : p.id)}
-                className="text-xs text-red-600 border border-red-200 px-2 py-1.5 rounded-md hover:bg-red-50"
+                className="text-xs text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 px-2 py-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40"
               >
                 Delete
               </button>
@@ -395,17 +380,14 @@ export function Users() {
           </div>
         </div>
         {reasonPromptId === p.id && (
-          <div className="px-3 pb-3 flex gap-2">
+          <div className="pt-3 flex gap-2">
             <input
               placeholder="Reason for suspension"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="flex-1 border rounded-md px-3 py-1.5 text-sm"
+              className="flex-1 border rounded-md px-3 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
             />
-            <button
-              onClick={() => confirmSuspend(p)}
-              className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700"
-            >
+            <button onClick={() => confirmSuspend(p)} className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700">
               Confirm suspend
             </button>
           </div>
@@ -417,7 +399,7 @@ export function Users() {
               saveCredentials(p);
             }}
             autoComplete="off"
-            className="px-3 pb-3"
+            className="pt-3"
           >
             <div className="flex gap-2">
               {credEdit.mode === "username" ? (
@@ -431,7 +413,7 @@ export function Users() {
                   autoCapitalize="none"
                   spellCheck={false}
                   autoFocus
-                  className="flex-1 border rounded-md px-3 py-1.5 text-sm"
+                  className="flex-1 border rounded-md px-3 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
                 />
               ) : (
                 <input
@@ -443,28 +425,20 @@ export function Users() {
                   onChange={(e) => setCredValue(e.target.value)}
                   autoComplete="new-password"
                   autoFocus
-                  className="flex-1 border rounded-md px-3 py-1.5 text-sm"
+                  className="flex-1 border rounded-md px-3 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
                 />
               )}
-              <button
-                type="submit"
-                disabled={credSaving}
-                className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
-              >
+              <button type="submit" disabled={credSaving} className="text-xs bg-navy dark:bg-navy-light text-white px-3 py-1.5 rounded-md hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60">
                 {credSaving ? "Saving..." : credEdit.mode === "username" ? "Save username" : "Set password"}
               </button>
-              <button
-                type="button"
-                onClick={() => setCredEdit(null)}
-                className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50"
-              >
+              <button type="button" onClick={() => setCredEdit(null)} className="text-xs border dark:border-white/20 dark:text-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-white/5">
                 Cancel
               </button>
             </div>
             {credError ? (
-              <p className="text-xs text-red-600 mt-1">{credError}</p>
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">{credError}</p>
             ) : (
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                 {credEdit.mode === "username"
                   ? "3–31 characters: lowercase letters, numbers, . _ - (no @). They sign in with the new name right away."
                   : "Takes effect immediately; their old password stops working."}
@@ -473,18 +447,14 @@ export function Users() {
           </form>
         )}
         {deleteConfirmId === p.id && (
-          <div className="px-3 pb-3 flex items-center gap-2">
-            <span className="text-xs text-gray-700">
+          <div className="pt-3 flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-700 dark:text-gray-300">
               Delete {p.full_name ?? p.username}? This immediately revokes their access and can't be undone.
             </span>
-            <button
-              onClick={() => handleDelete(p)}
-              disabled={deleting}
-              className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700 disabled:opacity-60"
-            >
+            <button onClick={() => handleDelete(p)} disabled={deleting} className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700 disabled:opacity-60">
               {deleting ? "Deleting..." : "Yes, delete"}
             </button>
-            <button onClick={() => setDeleteConfirmId(null)} className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50">
+            <button onClick={() => setDeleteConfirmId(null)} className="text-xs border dark:border-white/20 dark:text-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-white/5">
               Cancel
             </button>
           </div>
@@ -497,17 +467,17 @@ export function Users() {
             usefully edit. */}
         {p.role !== "customer" &&
           (p.admin_tier ? (
-            <div className="px-3 pb-3 pt-1 border-t">
-              <p className="text-xs text-gray-500">Full access to every page (admin tier) — the checklist below doesn't apply.</p>
+            <div className="pt-3 mt-2 border-t dark:border-white/10">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Full access to every page (admin tier) — the checklist below doesn't apply.</p>
             </div>
           ) : (
-            <div className="px-3 pb-3 pt-1 border-t">
-              <p className="text-xs font-medium text-gray-500 mb-1.5">
-                Page access{!editable && <span className="text-gray-400 font-normal"> (read-only — admin access required to change)</span>}
+            <div className="pt-3 mt-2 border-t dark:border-white/10">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
+                Page access{!editable && <span className="text-gray-400 dark:text-gray-500 font-normal"> (read-only — admin access required to change)</span>}
               </p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                 {GRANTABLE_ADMIN_PAGES.map((page) => (
-                  <label key={page.key} className={`flex items-center gap-1.5 text-xs ${editable ? "" : "text-gray-500"}`}>
+                  <label key={page.key} className={`flex items-center gap-1.5 text-xs ${editable ? "dark:text-gray-200" : "text-gray-500 dark:text-gray-500"}`}>
                     <input
                       type="checkbox"
                       checked={p.permissions.includes(page.key)}
@@ -524,10 +494,20 @@ export function Users() {
     );
   }
 
+  const columns: DataTableColumn<StaffProfile>[] = [
+    {
+      key: "row",
+      header: "Staff",
+      render: renderRow,
+      filterValue: (p) => `${p.full_name ?? ""} ${p.username ?? ""} ${p.phone ?? ""} ${p.role}`,
+      csvValue: (p) => p.full_name ?? p.username ?? "",
+    },
+  ];
+
   return (
     <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-1">
-        <h1 className="text-xl font-bold">Users &amp; Roles</h1>
+        <h1 className="text-xl font-bold dark:text-gray-100">Users &amp; Roles</h1>
         {isAdmin && (
           <button
             onClick={() => {
@@ -536,21 +516,21 @@ export function Users() {
               setUsernameUnlocked(false);
               setShowCreateForm(!showCreateForm);
             }}
-            className="bg-navy text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark"
+            className="bg-navy dark:bg-navy-light text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark dark:hover:bg-navy"
           >
             {showCreateForm ? "Cancel" : "+ New account"}
           </button>
         )}
       </div>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
         Admin and super admin accounts can create, edit, and delete staff accounts and their page access. Only the super admin can create,
         delete, or edit another admin-tier account — regular staff never see these controls, even with Users &amp; Roles access.
       </p>
 
       {showCreateForm && isAdmin && (
-        <form onSubmit={handleCreate} autoComplete="off" className="bg-white border rounded-lg p-4 mb-4 space-y-3">
-          <h2 className="font-medium text-sm">Create account</h2>
-          <p className="text-xs text-gray-400">
+        <form onSubmit={handleCreate} autoComplete="off" className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 space-y-3">
+          <h2 className="font-medium text-sm dark:text-gray-100">Create account</h2>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
             No email required — this account signs in with just the username and password below.
           </p>
           <div className="grid grid-cols-2 gap-2">
@@ -559,8 +539,6 @@ export function Users() {
                 placeholder="Username"
                 name="new-staff-username"
                 value={createForm.username}
-                // Lowercased as typed: the server lowercases anyway, so this
-                // shows exactly what they'll sign in with.
                 onChange={(e) => setCreateForm({ ...createForm, username: e.target.value.toLowerCase() })}
                 readOnly={!usernameUnlocked}
                 onFocus={() => setUsernameUnlocked(true)}
@@ -568,14 +546,14 @@ export function Users() {
                 autoCapitalize="none"
                 spellCheck={false}
                 aria-invalid={usernameProblem(createForm.username.trim()) !== null}
-                className={`w-full border rounded-md px-3 py-2 text-sm ${
-                  usernameProblem(createForm.username.trim()) ? "border-red-400" : ""
+                className={`w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100 ${
+                  usernameProblem(createForm.username.trim()) ? "border-red-400 dark:border-red-700" : ""
                 }`}
               />
               {usernameProblem(createForm.username.trim()) ? (
-                <p className="text-xs text-red-600 mt-1">{usernameProblem(createForm.username.trim())}</p>
+                <p className="text-xs text-red-600 dark:text-red-400 mt-1">{usernameProblem(createForm.username.trim())}</p>
               ) : (
-                <p className="text-xs text-gray-400 mt-1">3–31 characters: lowercase letters, numbers, . _ - (no @).</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">3–31 characters: lowercase letters, numbers, . _ - (no @).</p>
               )}
             </div>
             <div>
@@ -586,13 +564,9 @@ export function Users() {
                 value={createForm.password}
                 onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                 autoComplete="new-password"
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
-              <p
-                className={`text-xs mt-1 ${
-                  createForm.password && createForm.password.length < 8 ? "text-red-600" : "text-gray-400"
-                }`}
-              >
+              <p className={`text-xs mt-1 ${createForm.password && createForm.password.length < 8 ? "text-red-600 dark:text-red-400" : "text-gray-400 dark:text-gray-500"}`}>
                 At least 8 characters.
               </p>
             </div>
@@ -601,14 +575,14 @@ export function Users() {
             placeholder="Full name (optional)"
             value={createForm.full_name}
             onChange={(e) => setCreateForm({ ...createForm, full_name: e.target.value })}
-            className="w-full border rounded-md px-3 py-2 text-sm"
+            className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Role</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Role</label>
             <select
               value={createForm.role}
               onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
-              className="w-full border rounded-md px-2 py-1.5 text-sm capitalize"
+              className="w-full border rounded-md px-2 py-1.5 text-sm capitalize dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
             >
               {ROLES.map((r) => (
                 <option key={r} value={r}>
@@ -618,21 +592,17 @@ export function Users() {
             </select>
           </div>
           {isSuperAdmin && (
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={createForm.grantAdmin}
-                onChange={(e) => setCreateForm({ ...createForm, grantAdmin: e.target.checked })}
-              />
+            <label className="flex items-center gap-2 text-sm dark:text-gray-200">
+              <input type="checkbox" checked={createForm.grantAdmin} onChange={(e) => setCreateForm({ ...createForm, grantAdmin: e.target.checked })} />
               Grant admin tier (full access to everything, can manage staff accounts)
             </label>
           )}
           {!createForm.grantAdmin && (
             <div>
-              <p className="text-xs font-medium text-gray-500 mb-1.5">Page access</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Page access</p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                 {GRANTABLE_ADMIN_PAGES.map((page) => (
-                  <label key={page.key} className="flex items-center gap-1.5 text-xs">
+                  <label key={page.key} className="flex items-center gap-1.5 text-xs dark:text-gray-200">
                     <input
                       type="checkbox"
                       checked={createForm.permissions.includes(page.key)}
@@ -651,55 +621,45 @@ export function Users() {
               </div>
             </div>
           )}
-          <button
-            type="submit"
-            disabled={creating}
-            className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
-          >
+          <button type="submit" disabled={creating} className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60">
             {creating ? "Creating..." : "Create account"}
           </button>
         </form>
       )}
 
-      <div className="bg-white border rounded-lg p-4 mb-4">
-        <h2 className="font-medium mb-2 text-sm">Find a registered account to promote to staff</h2>
+      <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4">
+        <h2 className="font-medium mb-2 text-sm dark:text-gray-100">Find a registered account to promote to staff</h2>
         <div className="flex gap-2">
           <input
             placeholder="Search by name or phone"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            className="flex-1 border rounded-md px-3 py-2 text-sm"
+            className="flex-1 border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
-          <button onClick={handleSearch} className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark">
+          <button onClick={handleSearch} className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy">
             Search
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
           For someone who already has a Tolo account (e.g. as a customer) — for a brand-new account with no email, use "+ New account" above.
         </p>
       </div>
 
       {searchResults.length > 0 && (
-        <div className="bg-white border rounded-lg divide-y mb-6">
-          {searchResults.map((p) => (
-            <div key={p.id}>{renderRow(p)}</div>
-          ))}
+        <div className="mb-6">
+          <DataTable storageKey="admin.users.search" columns={columns} rows={searchResults} getRowId={(p) => p.id} />
         </div>
       )}
 
-      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Current Tolo Staff</h2>
+      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Current Tolo Staff</h2>
       {loading ? (
         <SkeletonRows />
       ) : staff.length === 0 ? (
-        <p className="text-gray-500 text-sm">No staff accounts yet.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">No staff accounts yet.</p>
       ) : (
         <>
-          <div className="bg-white border rounded-lg divide-y">
-            {staff.map((p) => (
-              <div key={p.id}>{renderRow(p)}</div>
-            ))}
-          </div>
+          <DataTable storageKey="admin.users.staff" columns={columns} rows={staff} getRowId={(p) => p.id} />
           <div className="mt-4">
             <Pagination page={page} totalPages={totalPagesFor(staffTotalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
           </div>

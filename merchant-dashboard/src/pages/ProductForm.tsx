@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
@@ -174,7 +174,7 @@ export function ProductForm() {
     <div className="max-w-xl">
       <h1 className="text-xl font-bold mb-4">{isNew ? "New product" : "Edit product"}</h1>
 
-      <div className="bg-white border rounded-lg p-4 space-y-3 mb-4">
+      <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 space-y-3 mb-4">
         <input
           placeholder="Product name"
           value={name}
@@ -205,7 +205,7 @@ export function ProductForm() {
             className="w-full border rounded-md px-3 py-2 text-sm"
           />
           {basePrice && commissionRate !== null && (
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               You keep the full {Number(basePrice).toFixed(2)} ETB. Customers will pay{" "}
               {(Number(basePrice) * (1 + commissionRate / 100)).toFixed(2)} ETB (includes Tolo's {commissionRate}% commission).
             </p>
@@ -213,7 +213,7 @@ export function ProductForm() {
         </div>
       </div>
 
-      <div className="bg-white border rounded-lg p-4 mb-4">
+      <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
         <div className="flex justify-between items-center mb-2">
           <h2 className="font-medium text-sm">Variants &amp; stock</h2>
           <button
@@ -272,10 +272,10 @@ export function ProductForm() {
             />
           </div>
         ))}
-        <p className="text-xs text-gray-400 mt-1">"Low-stock alert at" — you'll be notified when a variant's stock falls to or below this number.</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">"Low-stock alert at" — you'll be notified when a variant's stock falls to or below this number.</p>
       </div>
 
-      <div className="bg-white border rounded-lg p-4 mb-4">
+      <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
         <div className="flex justify-between items-center mb-2">
           <h2 className="font-medium text-sm">Product photos</h2>
           <button onClick={() => setImages([...images, { url: "" }])} className="text-xs text-navy font-medium">
@@ -297,7 +297,7 @@ export function ProductForm() {
               }}
               className="flex-1 border rounded-md px-2 py-1.5 text-sm"
             />
-            <label className="text-xs text-gray-700 border rounded-md px-2 py-1.5 cursor-pointer hover:bg-gray-50 flex-shrink-0">
+            <label className="text-xs text-gray-700 dark:text-gray-300 border rounded-md px-2 py-1.5 cursor-pointer hover:bg-gray-50 dark:bg-white/5 flex-shrink-0">
               {uploadingImageIdx === idx ? "Uploading..." : "Upload"}
               <input
                 type="file"
@@ -318,7 +318,7 @@ export function ProductForm() {
         <button
           onClick={() => handleSave("draft")}
           disabled={saving}
-          className="border px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-60"
+          className="border px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 dark:bg-white/5 disabled:opacity-60"
         >
           Save as draft
         </button>

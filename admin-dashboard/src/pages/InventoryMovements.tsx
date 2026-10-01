@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, DataTable, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
 import type { InventoryMovement } from "../types";
 
 const TYPE_FILTERS = ["all", "restock", "sale", "return", "adjustment", "reserve", "release"];
 
-const typeColors: Record<string, string> = {
-  restock: "bg-emerald-100 text-emerald-800",
-  sale: "bg-blue-100 text-blue-800",
-  return: "bg-orange-100 text-orange-800",
-  adjustment: "bg-yellow-100 text-yellow-800",
-  reserve: "bg-gray-100 text-gray-700",
-  release: "bg-gray-100 text-gray-700",
+const typeVariant: Record<string, "success" | "info" | "warning" | "default"> = {
+  restock: "success",
+  sale: "info",
+  return: "warning",
+  adjustment: "warning",
+  reserve: "default",
+  release: "default",
 };
 
 export function InventoryMovements() {
@@ -67,12 +67,41 @@ export function InventoryMovements() {
     );
   }
 
+  const columns: DataTableColumn<InventoryMovement>[] = [
+    {
+      key: "product",
+      header: "Product",
+      render: (m) => (
+        <div>
+          <p className="text-sm font-medium">{m.product_variants?.products?.name ?? "Unknown product"}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {m.product_variants?.sku ?? "—"} · {new Date(m.created_at).toLocaleString()}
+          </p>
+        </div>
+      ),
+      filterValue: (m) => `${m.product_variants?.products?.name ?? ""} ${m.product_variants?.sku ?? ""}`,
+      sortValue: (m) => m.created_at,
+      csvValue: (m) => m.product_variants?.products?.name ?? "",
+    },
+    {
+      key: "quantity",
+      header: "Qty",
+      render: (m) => <span className="text-sm font-semibold">{m.quantity > 0 ? "+" : ""}{m.quantity}</span>,
+      sortValue: (m) => m.quantity,
+      csvValue: (m) => m.quantity,
+      align: "right",
+    },
+    {
+      key: "type",
+      header: "Type",
+      render: (m) => <Badge variant={typeVariant[m.movement_type] ?? "default"} className="capitalize">{m.movement_type}</Badge>,
+      csvValue: (m) => m.movement_type,
+    },
+  ];
+
   return (
     <div className="max-w-3xl">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Inventory Movements</h1>
-        <ExportCsvButton onExport={handleExport} disabled={movements.length === 0} />
-      </div>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Inventory Movements</h1>
 
       <div className="flex gap-2 mb-4 flex-wrap">
         {TYPE_FILTERS.map((t) => (
@@ -80,7 +109,7 @@ export function InventoryMovements() {
             key={t}
             onClick={() => setTypeFilter(t)}
             className={`px-3 py-1.5 rounded-full text-xs border capitalize ${
-              typeFilter === t ? "bg-navy text-white border-navy" : "bg-white"
+              typeFilter === t ? "bg-navy text-white border-navy dark:bg-navy-light dark:border-navy-light" : "bg-white dark:bg-navy-dark dark:border-white/20 dark:text-gray-300"
             }`}
           >
             {t}
@@ -91,30 +120,13 @@ export function InventoryMovements() {
       {loading ? (
         <SkeletonRows />
       ) : movements.length === 0 ? (
-        <p className="text-gray-500">No movements in this view.</p>
+        <p className="text-gray-500 dark:text-gray-400">No movements in this view.</p>
       ) : (
         <>
-        <div className="bg-white border rounded-lg divide-y">
-          {movements.map((m) => (
-            <div key={m.id} className="p-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">{m.product_variants?.products?.name ?? "Unknown product"}</p>
-                <p className="text-xs text-gray-500">
-                  {m.product_variants?.sku ?? "—"} · {new Date(m.created_at).toLocaleString()}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-sm font-semibold">{m.quantity > 0 ? "+" : ""}{m.quantity}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${typeColors[m.movement_type] ?? "bg-gray-100"}`}>
-                  {m.movement_type}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4">
-          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
-        </div>
+          <DataTable storageKey="admin.inventoryMovements" columns={columns} rows={movements} getRowId={(m) => m.id} onExportAll={handleExport} />
+          <div className="mt-4">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
         </>
       )}
     </div>

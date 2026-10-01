@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Heart, Star } from "lucide-react";
 import { Button, Card, CardContent, LazyImage, SkeletonPage, cn, formatCurrency, formatRelativeTime } from "@tolo/ui";
@@ -159,7 +159,7 @@ export function ProductDetail() {
                 aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
                 className="flex-shrink-0"
               >
-                <Heart className={`w-6 h-6 ${isFavorite(product.id) ? "fill-current text-red-500" : "text-gray-400"}`} />
+                <Heart className={`w-6 h-6 ${isFavorite(product.id) ? "fill-current text-red-500" : "text-gray-400 dark:text-gray-500"}`} />
               </button>
             )}
           </div>
@@ -188,7 +188,7 @@ export function ProductDetail() {
           {variant?.stock_status === "low" && variant.stock_remaining != null && (
             <p className="text-sm font-medium text-orange-600 mt-1">Only {variant.stock_remaining} left</p>
           )}
-          {product.description && <p className="text-gray-600 mt-4">{product.description}</p>}
+          {product.description && <p className="text-gray-600 dark:text-gray-300 mt-4">{product.description}</p>}
 
           {product.product_variants.length > 1 && (
             <div className="mt-5">
@@ -202,7 +202,7 @@ export function ProductDetail() {
                       "px-3 py-1.5 rounded-full border text-sm font-medium transition-colors",
                       variantId === v.id
                         ? "bg-navy text-white border-navy"
-                        : "bg-white text-gray-700 border-gray-300 hover:border-navy",
+                        : "bg-white dark:bg-navy-dark text-gray-700 dark:text-gray-300 border-gray-300 hover:border-navy",
                     )}
                   >
                     {Object.values(v.attributes).join(" / ") || v.sku}
@@ -229,9 +229,9 @@ export function ProductDetail() {
                       <Star key={n} className={cn("w-3.5 h-3.5", n <= r.rating ? "fill-amber-400 text-amber-400" : "text-gray-200")} />
                     ))}
                   </div>
-                  <span className="text-xs text-gray-400">{formatRelativeTime(r.created_at)}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{formatRelativeTime(r.created_at)}</span>
                 </div>
-                {r.comment && <p className="text-sm text-gray-700 mt-1">{r.comment}</p>}
+                {r.comment && <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{r.comment}</p>}
               </div>
             ))}
           </div>
@@ -242,7 +242,7 @@ export function ProductDetail() {
           own fixed bottom tab bar (~56px incl. its safe-area padding) so the
           two don't overlap. */}
       <div
-        className="md:hidden fixed inset-x-0 bottom-14 z-20 bg-white border-t px-4 py-3"
+        className="md:hidden fixed inset-x-0 bottom-14 z-20 bg-white dark:bg-navy-dark border-t px-4 py-3"
         style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}
       >
         {cartControls("max-w-md mx-auto")}

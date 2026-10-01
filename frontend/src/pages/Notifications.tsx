@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
@@ -75,15 +75,15 @@ export function Notifications() {
                 key={n.id}
                 onClick={() => !n.is_read && markRead(n.id)}
                 className={`w-full text-left border rounded-lg p-3 transition-colors ${
-                  n.is_read ? "bg-white" : "bg-navy-50 border-navy-100"
+                  n.is_read ? "bg-white dark:bg-navy-dark" : "bg-navy-50 border-navy-100"
                 }`}
               >
                 <div className="flex justify-between items-start gap-2">
                   <p className="font-medium text-sm">{n.title}</p>
                   {!n.is_read && <span className="w-2 h-2 rounded-full bg-orange-500 mt-1.5 shrink-0" aria-label="Unread" />}
                 </div>
-                {n.body && <p className="text-sm text-gray-600 mt-0.5">{n.body}</p>}
-                <p className="text-xs text-gray-400 mt-1">{new Date(n.created_at).toLocaleString()}</p>
+                {n.body && <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">{n.body}</p>}
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{new Date(n.created_at).toLocaleString()}</p>
               </button>
             ))}
           </div>

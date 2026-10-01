@@ -27,9 +27,9 @@ export function MerchantGate() {
 
   if (merchant.status !== "active" && merchant.status !== "approved") {
     return (
-      <div className="max-w-md mx-auto mt-16 text-center bg-white border rounded-lg p-8">
-        <h1 className="text-lg font-bold mb-2">Application status: {merchant.status.replace(/_/g, " ")}</h1>
-        <p className="text-gray-600 text-sm">{statusMessages[merchant.status] ?? "Please wait for Tolo to process your account."}</p>
+      <div className="max-w-md mx-auto mt-16 text-center bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-8">
+        <h1 className="text-lg font-bold mb-2 dark:text-gray-100">Application status: {merchant.status.replace(/_/g, " ")}</h1>
+        <p className="text-gray-600 dark:text-gray-400 text-sm">{statusMessages[merchant.status] ?? "Please wait for Tolo to process your account."}</p>
       </div>
     );
   }

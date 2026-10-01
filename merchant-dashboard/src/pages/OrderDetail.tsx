@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Calendar } from "lucide-react";
 import { formatOrderNumber, SkeletonPage, toast, useTranslation } from "@tolo/ui";
@@ -186,7 +186,7 @@ export function OrderDetail() {
       )}
 
       {order.orders?.addresses && (
-        <div className="bg-white border rounded-lg p-4 mb-4 text-sm">
+        <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4 text-sm">
           <p className="font-medium mb-1">{t("merchant.deliverTo")}</p>
           <p>
             {order.orders.addresses.recipient_name} — {order.orders.addresses.phone}
@@ -197,14 +197,14 @@ export function OrderDetail() {
         </div>
       )}
 
-      <div className="bg-white border rounded-lg p-4 mb-4">
+      <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
         <p className="font-medium text-sm mb-2">{t("merchant.itemsHeading")}</p>
         {order.order_items.map((item) => {
           const canResolve = item.item_status === "active" && ["new", "accepted", "processing"].includes(order.status);
           return (
             <div key={item.id} className="mb-2">
               <div className="flex justify-between text-sm">
-                <span className={item.item_status === "removed" ? "line-through text-gray-400" : ""}>
+                <span className={item.item_status === "removed" ? "line-through text-gray-400 dark:text-gray-500" : ""}>
                   {item.product_name_snapshot}
                   {Object.values(item.variant_attributes_snapshot ?? {}).length > 0 &&
                     ` (${Object.values(item.variant_attributes_snapshot).join(" / ")})`}{" "}
@@ -224,8 +224,8 @@ export function OrderDetail() {
                 </button>
               )}
               {resolvingItemId === item.id && (
-                <div className="bg-gray-50 border rounded-md p-3 mt-1 text-xs space-y-2">
-                  <p className="text-gray-600">{UNAVAILABLE_PREFERENCE_LABELS[item.on_unavailable]}</p>
+                <div className="bg-gray-50 dark:bg-white/5 border rounded-md p-3 mt-1 text-xs space-y-2">
+                  <p className="text-gray-600 dark:text-gray-300">{UNAVAILABLE_PREFERENCE_LABELS[item.on_unavailable]}</p>
                   {item.on_unavailable === "remove" && (
                     <button
                       onClick={() => handleResolveItem(item, "remove")}
@@ -267,7 +267,7 @@ export function OrderDetail() {
                       {t("substitution.cancelOrderRefund")}
                     </button>
                   )}
-                  <button onClick={() => setResolvingItemId(null)} className="text-gray-500 hover:underline block">
+                  <button onClick={() => setResolvingItemId(null)} className="text-gray-500 dark:text-gray-400 hover:underline block">
                     {t("common.cancel")}
                   </button>
                 </div>
@@ -280,7 +280,7 @@ export function OrderDetail() {
             <span>{t("orders.subtotal")}</span>
             <span>{order.subtotal.toFixed(2)} ETB</span>
           </div>
-          <div className="flex justify-between text-gray-500">
+          <div className="flex justify-between text-gray-500 dark:text-gray-400">
             <span>{t("merchant.platformCommission")}</span>
             <span>-{order.commission_amount.toFixed(2)} ETB</span>
           </div>
@@ -292,10 +292,10 @@ export function OrderDetail() {
       </div>
 
       {order.orders?.payments[0] && (
-        <div className="bg-white border rounded-lg p-4 mb-4 flex items-center justify-between text-sm">
+        <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4 flex items-center justify-between text-sm">
           <div>
             <p className="font-medium">{t("merchant.paymentLabel", { provider: order.orders.payments[0].provider.replace(/_/g, " ") })}</p>
-            <p className="text-xs text-gray-500 capitalize">{order.orders.payments[0].status}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{order.orders.payments[0].status}</p>
           </div>
           {order.orders.payments[0].provider === "cash_on_delivery" && order.orders.payments[0].status === "pending" && (
             <button
@@ -317,7 +317,7 @@ export function OrderDetail() {
               onClick={() => handleTransition(a.status)}
               disabled={busy}
               className={`px-4 py-2 rounded-md text-sm font-medium disabled:opacity-60 ${
-                a.primary ? "bg-navy text-white hover:bg-navy-dark" : "border hover:bg-gray-50"
+                a.primary ? "bg-navy text-white hover:bg-navy-dark" : "border hover:bg-gray-50 dark:bg-white/5"
               }`}
             >
               {a.label}
@@ -326,9 +326,9 @@ export function OrderDetail() {
         </div>
       )}
 
-      <div className="bg-white border rounded-lg p-4">
-        <p className="text-xs font-medium text-gray-500 mb-2">{t("orders.statusHistory")}</p>
-        <ol className="text-xs text-gray-600 space-y-1">
+      <div className="bg-white dark:bg-navy-dark border rounded-lg p-4">
+        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t("orders.statusHistory")}</p>
+        <ol className="text-xs text-gray-600 dark:text-gray-300 space-y-1">
           {order.order_status_history
             .slice()
             .sort((a, b) => new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime())

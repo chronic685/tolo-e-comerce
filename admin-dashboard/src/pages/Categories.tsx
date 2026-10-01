@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { ADMIN_PAGE_SIZE, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, Pagination, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
 import type { Category } from "../types";
 
 function slugify(name: string) {
@@ -56,6 +56,13 @@ export function Categories() {
     setCategories((prev) => prev.map((cat) => (cat.id === c.id ? { ...cat, is_active: !cat.is_active } : cat)));
   }
 
+  async function bulkToggle(rows: Category[], makeActive: boolean) {
+    const targets = rows.filter((c) => c.is_active !== makeActive);
+    if (targets.length === 0) return;
+    await supabase.from("categories").update({ is_active: makeActive }).in("id", targets.map((c) => c.id));
+    setCategories((prev) => prev.map((c) => (targets.some((t) => t.id === c.id) ? { ...c, is_active: makeActive } : c)));
+  }
+
   function startEdit(c: Category) {
     setEditingId(c.id);
     setEditingName(c.name);
@@ -103,78 +110,100 @@ export function Categories() {
     setDeleteTarget(null);
   }
 
+  const columns: DataTableColumn<Category>[] = [
+    {
+      key: "name",
+      header: "Name",
+      render: (c) =>
+        editingId === c.id ? (
+          <input
+            autoFocus
+            value={editingName}
+            onChange={(e) => setEditingName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleRename(c);
+              if (e.key === "Escape") setEditingId(null);
+            }}
+            className="border rounded-md px-2 py-1 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
+          />
+        ) : (
+          <span className="text-sm">{c.name}</span>
+        ),
+      filterValue: (c) => c.name,
+      sortValue: (c) => c.name,
+      csvValue: (c) => c.name,
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (c) => <Badge variant={c.is_active ? "success" : "default"}>{c.is_active ? "Active" : "Inactive"}</Badge>,
+      csvValue: (c) => (c.is_active ? "active" : "inactive"),
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (c) => (
+        <div className="flex items-center gap-2 justify-end">
+          {editingId === c.id ? (
+            <>
+              <Button size="sm" variant="outline" onClick={() => handleRename(c)}>
+                Save
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => startEdit(c)}>
+              Rename
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={() => toggleActive(c)}>
+            {c.is_active ? "Deactivate" : "Activate"}
+          </Button>
+          <Button size="sm" variant="destructive" onClick={() => confirmDelete(c)}>
+            Delete
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="max-w-lg">
-      <h1 className="text-xl font-bold mb-4">Categories</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Categories</h1>
 
       <form onSubmit={handleAdd} className="flex gap-2 mb-4">
         <input
           placeholder="New category name"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          className="flex-1 border rounded-md px-3 py-2 text-sm"
+          className="flex-1 border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
         />
-        <button type="submit" className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark">
+        <button type="submit" className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy">
           Add
         </button>
       </form>
 
-      <div className="bg-white border rounded-lg divide-y">
-        {categories.map((c) => (
-          <div key={c.id} className="flex items-center justify-between p-3 gap-2">
-            {editingId === c.id ? (
-              <input
-                autoFocus
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleRename(c);
-                  if (e.key === "Escape") setEditingId(null);
-                }}
-                className="flex-1 border rounded-md px-2 py-1 text-sm"
-              />
-            ) : (
-              <span className="text-sm">{c.name}</span>
-            )}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {editingId === c.id ? (
-                <>
-                  <button onClick={() => handleRename(c)} className="text-xs text-navy font-medium">
-                    Save
-                  </button>
-                  <button onClick={() => setEditingId(null)} className="text-xs text-gray-500">
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <button onClick={() => startEdit(c)} className="text-xs border px-2 py-1 rounded-md hover:bg-gray-50">
-                  Rename
-                </button>
-              )}
-              <button
-                onClick={() => toggleActive(c)}
-                className={`text-xs px-2 py-1 rounded-full border ${
-                  c.is_active ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {c.is_active ? "Active" : "Inactive"}
-              </button>
-              <button onClick={() => confirmDelete(c)} className="text-xs text-red-600 border border-red-200 px-2 py-1 rounded-md hover:bg-red-50">
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+      <DataTable
+        storageKey="admin.categories"
+        columns={columns}
+        rows={categories}
+        getRowId={(c) => c.id}
+        bulkActions={[
+          { label: "Activate", onAction: (rows) => bulkToggle(rows, true) },
+          { label: "Deactivate", onAction: (rows) => bulkToggle(rows, false), variant: "outline" },
+        ]}
+      />
       <div className="mt-4">
         <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
       </div>
 
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-5 max-w-sm w-full">
-            <h2 className="font-semibold mb-2">Delete "{deleteTarget.category.name}"?</h2>
-            <p className="text-sm text-gray-600 mb-4">
+          <div className="bg-white dark:bg-navy-dark rounded-lg p-5 max-w-sm w-full">
+            <h2 className="font-semibold mb-2 dark:text-gray-100">Delete "{deleteTarget.category.name}"?</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               {deleteTarget.productCount > 0
                 ? `${deleteTarget.productCount} product${deleteTarget.productCount === 1 ? "" : "s"} currently use this category — ${
                     deleteTarget.productCount === 1 ? "it" : "they"
@@ -185,7 +214,7 @@ export function Categories() {
               <button
                 onClick={() => setDeleteTarget(null)}
                 disabled={deleting}
-                className="text-sm border px-3 py-1.5 rounded-md hover:bg-gray-50 disabled:opacity-60"
+                className="text-sm border dark:border-white/20 dark:text-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-white/5 disabled:opacity-60"
               >
                 Cancel
               </button>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Package } from "lucide-react";
 import {
@@ -72,16 +72,16 @@ export function Orders() {
           <Link
             key={o.id}
             to={`/orders/${o.id}`}
-            className="block bg-white border rounded-lg p-4 hover:shadow-md transition-shadow"
+            className="block bg-white dark:bg-navy-dark border rounded-lg p-4 hover:shadow-md transition-shadow"
           >
             <div className="flex justify-between items-center">
               <div>
                 <p className="font-medium">{t("orders.orderLabel", { orderNumber: formatOrderNumber(o.order_number) })}</p>
-                <p className="text-xs text-gray-500">{new Date(o.created_at).toLocaleString()}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(o.created_at).toLocaleString()}</p>
               </div>
               <div className="text-right">
                 <p className="font-semibold text-navy">{o.total.toFixed(2)} ETB</p>
-                <p className="text-xs text-gray-500 capitalize">{o.payment_status}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{o.payment_status}</p>
               </div>
             </div>
             <div className="flex gap-2 mt-2 flex-wrap">

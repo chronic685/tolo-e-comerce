@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { PackageSearch } from "lucide-react";
 import { CUSTOMER_PAGE_SIZE, EmptyState, LazyImage, Pagination, SkeletonPage, SkeletonRows, todaysHours, totalPagesFor, usePagination } from "@tolo/ui";
@@ -127,7 +127,7 @@ export function Storefront() {
     return (
       <div className="max-w-lg mx-auto text-center py-12">
         <h1 className="text-xl font-bold mb-2">Store not found</h1>
-        <p className="text-gray-500 text-sm">This store link doesn't match any shop on Tolo — check the link and try again.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">This store link doesn't match any shop on Tolo — check the link and try again.</p>
       </div>
     );
   }
@@ -140,14 +140,14 @@ export function Storefront() {
     return (
       <div className="max-w-lg mx-auto text-center py-12">
         <h1 className="text-xl font-bold mb-2">{store.name}</h1>
-        <p className="text-gray-500 text-sm">This store isn't available right now. Please check back later.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">This store isn't available right now. Please check back later.</p>
       </div>
     );
   }
 
   return (
     <div>
-      <div className="bg-white border rounded-lg overflow-hidden mb-6">
+      <div className="bg-white dark:bg-navy-dark border rounded-lg overflow-hidden mb-6">
         {store.banner_url && <LazyImage src={store.banner_url} alt="" aspect="aspect-[3/1]" />}
         <div className="p-4 flex items-center gap-4">
           <div className="w-16 h-16 rounded-full border flex-shrink-0 overflow-hidden">
@@ -158,7 +158,7 @@ export function Storefront() {
             <RatingBadge avgRating={store.merchants?.avg_rating ?? null} reviewCount={store.merchants?.review_count ?? 0} />
             <span
               className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                store.is_open_now ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"
+                store.is_open_now ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300"
               }`}
             >
               {store.is_open_now ? "Open now" : "Closed now"}
@@ -169,12 +169,12 @@ export function Storefront() {
               </span>
             )}
           </div>
-          {store.description && <p className="text-sm text-gray-500 mt-0.5">{store.description}</p>}
+          {store.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{store.description}</p>}
           {!store.is_open_now &&
             (() => {
               const today = todaysHours(store.operating_hours);
               return (
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                   {today ? `Today's hours: ${today.open}–${today.close}` : "Closed today"} — you can browse, but orders can't be placed until it
                   reopens.
                 </p>
@@ -187,7 +187,7 @@ export function Storefront() {
         <div className="flex gap-2 mb-4 flex-wrap">
           <button
             onClick={() => setActiveCategory(null)}
-            className={`px-3 py-1.5 rounded-full text-sm border ${activeCategory === null ? "bg-navy text-white border-navy" : "bg-white"}`}
+            className={`px-3 py-1.5 rounded-full text-sm border ${activeCategory === null ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark"}`}
           >
             All
           </button>
@@ -195,7 +195,7 @@ export function Storefront() {
             <button
               key={c.id}
               onClick={() => setActiveCategory(c.id)}
-              className={`px-3 py-1.5 rounded-full text-sm border ${activeCategory === c.id ? "bg-navy text-white border-navy" : "bg-white"}`}
+              className={`px-3 py-1.5 rounded-full text-sm border ${activeCategory === c.id ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark"}`}
             >
               {c.name}
             </button>

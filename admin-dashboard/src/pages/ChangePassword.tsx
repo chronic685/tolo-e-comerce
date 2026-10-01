@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { toast } from "@tolo/ui";
@@ -60,8 +60,8 @@ export function ChangePassword() {
   return (
     <div className="max-w-sm">
       <h1 className="text-xl font-bold mb-1">Change password</h1>
-      <p className="text-sm text-gray-500 mb-4">Enter your current password, then choose a new one.</p>
-      <form onSubmit={handleSubmit} className="space-y-3 bg-white border rounded-lg p-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Enter your current password, then choose a new one.</p>
+      <form onSubmit={handleSubmit} className="space-y-3 bg-white dark:bg-navy-dark border rounded-lg p-4">
         <input
           type="password"
           placeholder="Current password"
@@ -80,7 +80,7 @@ export function ChangePassword() {
           autoComplete="new-password"
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
-        <p className={`text-xs -mt-2 ${next && next.length < MIN_LENGTH ? "text-red-600" : "text-gray-400"}`}>
+        <p className={`text-xs -mt-2 ${next && next.length < MIN_LENGTH ? "text-red-600" : "text-gray-400 dark:text-gray-500"}`}>
           At least {MIN_LENGTH} characters.
         </p>
         <input

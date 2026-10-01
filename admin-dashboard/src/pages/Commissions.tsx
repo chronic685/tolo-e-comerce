@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { ADMIN_PAGE_SIZE, Pagination, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, Pagination, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
 import type { Category, CommissionRule, Merchant } from "../types";
 
 export function Commissions() {
@@ -84,14 +84,57 @@ export function Commissions() {
     return r.scope_id;
   }
 
+  const columns: DataTableColumn<CommissionRule>[] = [
+    {
+      key: "scope",
+      header: "Scope",
+      render: (r) => (
+        <span>
+          <span className="text-xs uppercase text-gray-400 dark:text-gray-500 mr-2">{r.scope_type}</span>
+          <span className="text-sm dark:text-gray-200">{labelFor(r)}</span>
+        </span>
+      ),
+      filterValue: (r) => labelFor(r) ?? "",
+      csvValue: (r) => labelFor(r) ?? "",
+    },
+    {
+      key: "rate",
+      header: "Rate",
+      render: (r) => <span className="font-semibold text-sm">{r.rate_percent}%</span>,
+      sortValue: (r) => r.rate_percent,
+      csvValue: (r) => r.rate_percent,
+      align: "right",
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (r) => <Badge variant={r.is_active ? "success" : "default"}>{r.is_active ? "Active" : "Inactive"}</Badge>,
+      csvValue: (r) => (r.is_active ? "active" : "inactive"),
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (r) => (
+        <div className="flex items-center gap-2 justify-end">
+          <Button size="sm" variant="outline" onClick={() => startEdit(r)}>
+            Edit
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => toggleActive(r)}>
+            {r.is_active ? "Deactivate" : "Activate"}
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-bold mb-4">Commission Rules</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Commission Rules</h1>
 
-      <form onSubmit={handleSubmit} className="bg-white border rounded-lg p-4 mb-4 flex gap-2 items-end flex-wrap">
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 flex gap-2 items-end flex-wrap">
         <div>
-          <label className="text-xs text-gray-500 block mb-1">Scope</label>
-          <select value={scopeType} onChange={(e) => setScopeType(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm">
+          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Scope</label>
+          <select value={scopeType} onChange={(e) => setScopeType(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100">
             <option value="platform">Platform</option>
             <option value="category">Category</option>
             <option value="merchant">Merchant</option>
@@ -99,8 +142,8 @@ export function Commissions() {
         </div>
         {scopeType !== "platform" && (
           <div>
-            <label className="text-xs text-gray-500 block mb-1">{scopeType === "category" ? "Category" : "Merchant"}</label>
-            <select value={scopeId} onChange={(e) => setScopeId(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm">
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{scopeType === "category" ? "Category" : "Merchant"}</label>
+            <select value={scopeId} onChange={(e) => setScopeId(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100">
               <option value="">Select...</option>
               {(scopeType === "category" ? categories : merchants).map((item) => (
                 <option key={item.id} value={item.id}>
@@ -111,49 +154,26 @@ export function Commissions() {
           </div>
         )}
         <div>
-          <label className="text-xs text-gray-500 block mb-1">Rate (%)</label>
+          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Rate (%)</label>
           <input
             type="number"
             step="0.1"
             value={rate}
             onChange={(e) => setRate(e.target.value)}
-            className="border rounded-md px-2 py-1.5 text-sm w-24"
+            className="border rounded-md px-2 py-1.5 text-sm w-24 dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
         </div>
-        <button type="submit" className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark">
+        <button type="submit" className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy">
           {editingId ? "Save changes" : "Add rule"}
         </button>
         {editingId && (
-          <button type="button" onClick={resetForm} className="text-sm text-gray-500 px-2 py-2">
+          <button type="button" onClick={resetForm} className="text-sm text-gray-500 dark:text-gray-400 px-2 py-2">
             Cancel
           </button>
         )}
       </form>
 
-      <div className="bg-white border rounded-lg divide-y">
-        {rules.map((r) => (
-          <div key={r.id} className="flex items-center justify-between p-3">
-            <div>
-              <span className="text-xs uppercase text-gray-400 mr-2">{r.scope_type}</span>
-              <span className="text-sm">{labelFor(r)}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="font-semibold text-sm">{r.rate_percent}%</span>
-              <button onClick={() => startEdit(r)} className="text-xs border px-2 py-1 rounded-md hover:bg-gray-50">
-                Edit
-              </button>
-              <button
-                onClick={() => toggleActive(r)}
-                className={`text-xs px-2 py-1 rounded-full border ${
-                  r.is_active ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {r.is_active ? "Active" : "Inactive"}
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+      <DataTable storageKey="admin.commissions" columns={columns} rows={rules} getRowId={(r) => r.id} />
       <div className="mt-4">
         <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
       </div>

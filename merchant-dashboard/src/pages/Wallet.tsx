@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { Receipt } from "lucide-react";
-import { ADMIN_PAGE_SIZE, EmptyState, exportToCsv, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Button, DataTable, EmptyState, exportToCsv, formatCurrency, Pagination, SkeletonRows, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import type { Statement, WalletTransaction } from "../types";
 
 const typeColors: Record<string, string> = {
-  sale: "text-emerald-700",
-  commission: "text-red-600",
-  refund: "text-red-600",
-  adjustment: "text-blue-600",
-  settlement: "text-gray-600",
+  sale: "text-emerald-700 dark:text-emerald-400",
+  commission: "text-red-600 dark:text-red-400",
+  refund: "text-red-600 dark:text-red-400",
+  adjustment: "text-blue-600 dark:text-blue-400",
+  settlement: "text-gray-600 dark:text-gray-400",
 };
 
 export function Wallet() {
@@ -139,76 +139,105 @@ export function Wallet() {
       });
   }, [merchant, from, to]);
 
+  const transactionColumns: DataTableColumn<WalletTransaction>[] = [
+    {
+      key: "type",
+      header: "Transaction",
+      render: (t) => (
+        <div>
+          <p className="text-sm font-medium capitalize">{t.type}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(t.created_at).toLocaleString()}</p>
+          {t.note && <p className="text-xs text-gray-400 dark:text-gray-500">{t.note}</p>}
+        </div>
+      ),
+      filterValue: (t) => t.type,
+      sortValue: (t) => t.created_at,
+      csvValue: (t) => t.type,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      render: (t) => (
+        <div className="text-right">
+          <p className={`font-semibold text-sm ${typeColors[t.type] ?? ""}`}>
+            {t.amount >= 0 ? "+" : ""}
+            {formatCurrency(t.amount)}
+          </p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">Balance: {t.balance_after.toFixed(2)}</p>
+        </div>
+      ),
+      sortValue: (t) => t.amount,
+      csvValue: (t) => t.amount,
+      align: "right",
+    },
+  ];
+
+  const statementColumns: DataTableColumn<Statement>[] = [
+    {
+      key: "period",
+      header: "Period",
+      render: (s) => (
+        <div>
+          <p className="text-sm font-medium">
+            {s.period_start} → {s.period_end}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+            {s.status === "paid" && s.paid_at ? `Paid ${new Date(s.paid_at).toLocaleDateString()}` : s.status}
+          </p>
+        </div>
+      ),
+      sortValue: (s) => s.period_start,
+      csvValue: (s) => `${s.period_start} - ${s.period_end}`,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      render: (s) => <span className="font-semibold text-sm">{formatCurrency(s.total_amount)}</span>,
+      sortValue: (s) => s.total_amount,
+      csvValue: (s) => s.total_amount,
+      align: "right",
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (s) => (
+        <Button size="sm" variant="outline" onClick={() => downloadStatement(s)} disabled={downloadingStatementId === s.id}>
+          {downloadingStatementId === s.id ? "..." : "Download CSV"}
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <div className="max-w-xl">
-      <h1 className="text-xl font-bold mb-4">Wallet</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Wallet</h1>
 
-      <div className="bg-white border rounded-lg p-6 mb-4">
-        <p className="text-xs text-gray-500">Available balance</p>
-        <p className="text-3xl font-bold mt-1">{balance !== null ? `${balance.toFixed(2)} ETB` : "..."}</p>
+      <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-6 mb-4">
+        <p className="text-xs text-gray-500 dark:text-gray-400">Available balance</p>
+        <p className="text-3xl font-bold mt-1 dark:text-gray-100">{balance !== null ? formatCurrency(balance) : "..."}</p>
       </div>
 
       {loading ? (
         <SkeletonRows />
       ) : transactions.length === 0 ? (
-        <div className="bg-white border rounded-lg">
+        <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg">
           <EmptyState icon={Receipt} title="No transactions yet" description="Wallet activity from sales and payouts will show up here." />
         </div>
       ) : (
         <>
-          <div className="bg-white border rounded-lg divide-y">
-            {transactions.map((t) => (
-              <div key={t.id} className="flex justify-between items-center p-4">
-                <div>
-                  <p className="text-sm font-medium capitalize">{t.type}</p>
-                  <p className="text-xs text-gray-500">{new Date(t.created_at).toLocaleString()}</p>
-                  {t.note && <p className="text-xs text-gray-400">{t.note}</p>}
-                </div>
-                <div className="text-right">
-                  <p className={`font-semibold text-sm ${typeColors[t.type] ?? ""}`}>
-                    {t.amount >= 0 ? "+" : ""}
-                    {t.amount.toFixed(2)} ETB
-                  </p>
-                  <p className="text-xs text-gray-400">Balance: {t.balance_after.toFixed(2)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <DataTable storageKey="merchant.wallet.transactions" columns={transactionColumns} rows={transactions} getRowId={(t) => t.id} />
           <div className="mt-4">
             <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
           </div>
         </>
       )}
 
-      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mt-8 mb-2">Payout Statements</h2>
+      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-8 mb-2">Payout Statements</h2>
       {statements.length === 0 ? (
-        <p className="text-gray-500 text-sm">No settlements yet — these appear once Tolo runs a payout for a period.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">No settlements yet — these appear once Tolo runs a payout for a period.</p>
       ) : (
         <>
-          <div className="bg-white border rounded-lg divide-y">
-            {statements.map((s) => (
-              <div key={s.id} className="flex items-center justify-between p-3 gap-3">
-                <div>
-                  <p className="text-sm font-medium">
-                    {s.period_start} → {s.period_end}
-                  </p>
-                  <p className="text-xs text-gray-500 capitalize">
-                    {s.status === "paid" && s.paid_at ? `Paid ${new Date(s.paid_at).toLocaleDateString()}` : s.status}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <p className="font-semibold text-sm">{s.total_amount.toFixed(2)} ETB</p>
-                  <button
-                    onClick={() => downloadStatement(s)}
-                    disabled={downloadingStatementId === s.id}
-                    className="text-xs border px-2 py-1 rounded-md hover:bg-gray-50 disabled:opacity-60"
-                  >
-                    {downloadingStatementId === s.id ? "..." : "Download CSV"}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <DataTable storageKey="merchant.wallet.statements" columns={statementColumns} rows={statements} getRowId={(s) => s.id} />
           <div className="mt-4">
             <Pagination
               page={statementsPage.page}

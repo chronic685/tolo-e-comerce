@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { toast } from "@tolo/ui";
@@ -47,11 +47,11 @@ export function ForgotPassword() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100">
-      <div className="max-w-sm w-full bg-white border rounded-lg p-8">
+      <div className="max-w-sm w-full bg-white dark:bg-navy-dark border rounded-lg p-8">
         {sent ? (
           <div className="text-center">
             <h1 className="text-xl font-bold mb-2">Check your email</h1>
-            <p className="text-gray-600 text-sm mb-4">
+            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
               If a staff account exists for <strong>{email}</strong>, we've sent a password-reset link.
             </p>
             <button
@@ -61,7 +61,7 @@ export function ForgotPassword() {
             >
               {cooldown > 0 ? `Resend available in ${cooldown}s` : loading ? "Sending..." : "Resend link"}
             </button>
-            <p className="text-sm text-gray-500 mt-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
               <Link to="/login" className="text-navy font-medium">
                 Back to login
               </Link>
@@ -70,7 +70,7 @@ export function ForgotPassword() {
         ) : (
           <>
             <h1 className="text-xl font-bold mb-1">Forgot your password?</h1>
-            <p className="text-sm text-gray-500 mb-4">Enter your staff account email and we'll send you a password-reset link.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Enter your staff account email and we'll send you a password-reset link.</p>
             <form onSubmit={handleSubmit} className="space-y-3">
               <input
                 type="email"
@@ -88,7 +88,7 @@ export function ForgotPassword() {
                 {loading ? "Sending..." : "Send reset link"}
               </button>
             </form>
-            <p className="text-sm text-gray-500 mt-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
               <Link to="/login" className="text-navy font-medium">
                 Back to login
               </Link>

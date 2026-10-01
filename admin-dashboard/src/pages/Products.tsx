@@ -3,19 +3,19 @@ import { useSearchParams } from "react-router-dom";
 import { Star } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, fetchAllRows, formatCurrency, Pagination, SkeletonRows, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
 import type { AdminProduct } from "../types";
 import { Categories } from "./Categories";
 
 const STATUS_FILTERS = ["all", "submitted", "approved", "published", "paused", "archived", "draft", "rejected"];
 
-const statusColors: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  submitted: "bg-yellow-100 text-yellow-800",
-  approved: "bg-blue-100 text-blue-800",
-  published: "bg-emerald-100 text-emerald-800",
-  paused: "bg-orange-100 text-orange-800",
-  archived: "bg-red-100 text-red-800",
+const statusVariant: Record<string, "default" | "warning" | "info" | "success" | "danger"> = {
+  draft: "default",
+  submitted: "warning",
+  approved: "info",
+  published: "success",
+  paused: "warning",
+  archived: "danger",
 };
 
 // Categories folded in as a sub-tab (same ?tab= pattern as DeliveryOps.tsx/
@@ -46,14 +46,14 @@ export function Products() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4">Products</h1>
-      <div className="flex items-center gap-1 border-b mb-4">
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Products</h1>
+      <div className="flex items-center gap-1 border-b dark:border-white/10 mb-4">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
-              activeTab === t.key ? "border-navy text-navy" : "border-transparent text-gray-500 hover:text-gray-700"
+              activeTab === t.key ? "border-navy dark:border-navy-light text-navy dark:text-navy-light" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             }`}
           >
             {t.label}
@@ -143,6 +143,13 @@ function ProductCatalog() {
     setProducts((prev) => prev.map((prod) => (prod.id === p.id ? { ...prod, is_featured: !prod.is_featured } : prod)));
   }
 
+  async function bulkArchive(rows: AdminProduct[]) {
+    const targets = rows.filter((p) => p.status !== "archived");
+    if (targets.length === 0) return;
+    await supabase.from("products").update({ status: "archived" }).in("id", targets.map((p) => p.id));
+    await load();
+  }
+
   // Exports every product matching the current status filter/search, not
   // just the page on screen.
   async function handleExport() {
@@ -172,19 +179,97 @@ function ProductCatalog() {
     );
   }
 
+  const columns: DataTableColumn<AdminProduct>[] = [
+    {
+      key: "name",
+      header: "Product",
+      render: (p) => (
+        <div>
+          <p className="font-medium text-sm flex items-center gap-1">
+            {p.name}{" "}
+            {p.is_featured && (
+              <span title="Featured">
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+              </span>
+            )}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {p.merchants?.business_name ?? "—"} · {p.categories?.name ?? "Uncategorized"} · {formatCurrency(p.base_price)}
+            {p.sku && ` · SKU ${p.sku}`}
+          </p>
+          {p.status === "draft" && p.rejection_reason && <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">Rejected: {p.rejection_reason}</p>}
+          {rejectingId === p.id && (
+            <div className="mt-2 flex gap-2">
+              <input
+                placeholder="Reason for rejection"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="flex-1 border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
+              />
+              <Button size="sm" variant="destructive" onClick={() => setStatus(p, "draft", rejectReason || "Rejected by Tolo")}>
+                Confirm reject
+              </Button>
+            </div>
+          )}
+        </div>
+      ),
+      filterValue: (p) => `${p.name} ${p.sku ?? ""} ${p.merchants?.business_name ?? ""}`,
+      sortValue: (p) => p.name,
+      csvValue: (p) => p.name,
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (p) => <Badge variant={statusVariant[p.status] ?? "default"} className="capitalize">{p.status}</Badge>,
+      csvValue: (p) => p.status,
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (p) => (
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Button size="sm" variant="outline" onClick={() => toggleFeatured(p)}>
+            {p.is_featured ? "Unfeature" : "Feature"}
+          </Button>
+          {p.status === "submitted" && (
+            <>
+              <Button size="sm" onClick={() => setStatus(p, "published")}>
+                Approve &amp; Publish
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setRejectingId(rejectingId === p.id ? null : p.id)}>
+                Reject
+              </Button>
+            </>
+          )}
+          {p.status === "published" && (
+            <Button size="sm" variant="outline" onClick={() => setStatus(p, "paused")}>
+              Pause
+            </Button>
+          )}
+          {p.status === "paused" && (
+            <Button size="sm" onClick={() => setStatus(p, "published")}>
+              Republish
+            </Button>
+          )}
+          {p.status !== "archived" && (
+            <Button size="sm" variant="outline" onClick={() => setStatus(p, "archived")}>
+              Archive
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div>
-      <div className="flex items-center justify-end mb-4">
-        <ExportCsvButton onExport={handleExport} disabled={products.length === 0} />
-      </div>
-
       <div className="flex gap-2 mb-4 flex-wrap items-center">
         {STATUS_FILTERS.map((s) => (
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
             className={`px-3 py-1.5 rounded-full text-xs border capitalize ${
-              statusFilter === s ? "bg-navy text-white border-navy" : "bg-white"
+              statusFilter === s ? "bg-navy text-white border-navy dark:bg-navy-light dark:border-navy-light" : "bg-white dark:bg-navy-dark dark:border-white/20 dark:text-gray-300"
             }`}
           >
             {s}
@@ -196,100 +281,26 @@ function ProductCatalog() {
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && setCommittedSearch(search)}
           onBlur={() => setCommittedSearch(search)}
-          className="border rounded-md px-3 py-1.5 text-sm ml-auto"
+          className="border rounded-md px-3 py-1.5 text-sm ml-auto dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
         />
       </div>
 
       {loading ? (
         <SkeletonRows />
-      ) : products.length === 0 ? (
-        <p className="text-gray-500">No products in this view.</p>
       ) : (
         <>
-        <div className="bg-white border rounded-lg divide-y">
-          {products.map((p) => (
-            <div key={p.id} className="p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-medium text-sm truncate flex items-center gap-1">
-                    {p.name}{" "}
-                    {p.is_featured && (
-                      <span title="Featured">
-                        <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {p.merchants?.business_name ?? "—"} · {p.categories?.name ?? "Uncategorized"} · {p.base_price.toFixed(2)} ETB
-                    {p.sku && ` · SKU ${p.sku}`}
-                  </p>
-                  {p.status === "draft" && p.rejection_reason && (
-                    <p className="text-xs text-red-600 mt-0.5">Rejected: {p.rejection_reason}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${statusColors[p.status]}`}>{p.status}</span>
-                  <button onClick={() => toggleFeatured(p)} className="text-xs border px-2 py-1 rounded-md hover:bg-gray-50">
-                    {p.is_featured ? "Unfeature" : "Feature"}
-                  </button>
-                  {p.status === "submitted" && (
-                    <>
-                      <button
-                        onClick={() => setStatus(p, "published")}
-                        className="text-xs bg-navy text-white px-2 py-1 rounded-md hover:bg-navy-dark"
-                      >
-                        Approve &amp; Publish
-                      </button>
-                      <button
-                        onClick={() => setRejectingId(rejectingId === p.id ? null : p.id)}
-                        className="text-xs border px-2 py-1 rounded-md hover:bg-gray-50"
-                      >
-                        Reject
-                      </button>
-                    </>
-                  )}
-                  {p.status === "published" && (
-                    <button onClick={() => setStatus(p, "paused")} className="text-xs border px-2 py-1 rounded-md hover:bg-gray-50">
-                      Pause
-                    </button>
-                  )}
-                  {p.status === "paused" && (
-                    <button
-                      onClick={() => setStatus(p, "published")}
-                      className="text-xs bg-navy text-white px-2 py-1 rounded-md hover:bg-navy-dark"
-                    >
-                      Republish
-                    </button>
-                  )}
-                  {p.status !== "archived" && (
-                    <button onClick={() => setStatus(p, "archived")} className="text-xs border px-2 py-1 rounded-md hover:bg-gray-50">
-                      Archive
-                    </button>
-                  )}
-                </div>
-              </div>
-              {rejectingId === p.id && (
-                <div className="mt-2 flex gap-2">
-                  <input
-                    placeholder="Reason for rejection"
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                    className="flex-1 border rounded-md px-2 py-1.5 text-sm"
-                  />
-                  <button
-                    onClick={() => setStatus(p, "draft", rejectReason || "Rejected by Tolo")}
-                    className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700"
-                  >
-                    Confirm reject
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="mt-4">
-          <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
-        </div>
+          <DataTable
+            storageKey="admin.products"
+            columns={columns}
+            rows={products}
+            getRowId={(p) => p.id}
+            onExportAll={handleExport}
+            emptyMessage="No products in this view."
+            bulkActions={[{ label: "Archive", onAction: bulkArchive, variant: "destructive" }]}
+          />
+          <div className="mt-4">
+            <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
+          </div>
         </>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+﻿import { useParams } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { useTranslation } from "@tolo/ui";
 import { useLegalDocs, type LegalDoc } from "../lib/legalContent";
@@ -16,7 +16,7 @@ export function LegalPage() {
     return (
       <div className="max-w-2xl mx-auto text-center py-12">
         <h1 className="text-xl font-bold mb-2">{t("legal.pageNotFound")}</h1>
-        <p className="text-gray-500 text-sm">{t("legal.documentDoesNotExist")}</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">{t("legal.documentDoesNotExist")}</p>
       </div>
     );
   }
@@ -24,7 +24,7 @@ export function LegalPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-xl font-bold mb-1">{doc.title}</h1>
-      <p className="text-xs text-gray-400 mb-4">{t("legal.effectiveDate", { date: doc.lastUpdated })}</p>
+      <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">{t("legal.effectiveDate", { date: doc.lastUpdated })}</p>
 
       <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-3 mb-6 text-xs">
         <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -38,7 +38,7 @@ export function LegalPage() {
           <section key={section.heading}>
             <h2 className="text-sm font-semibold mb-1.5">{section.heading}</h2>
             {section.body.map((paragraph, i) => (
-              <p key={i} className="text-sm text-gray-600 leading-relaxed">
+              <p key={i} className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
                 {paragraph}
               </p>
             ))}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
@@ -60,13 +60,13 @@ export function ResetPassword() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100">
-      <div className="max-w-sm w-full bg-white border rounded-lg p-8">
-        {recoveryState === "checking" && <p className="text-center text-gray-500">Verifying your reset link...</p>}
+      <div className="max-w-sm w-full bg-white dark:bg-navy-dark border rounded-lg p-8">
+        {recoveryState === "checking" && <p className="text-center text-gray-500 dark:text-gray-400">Verifying your reset link...</p>}
 
         {recoveryState === "invalid" && (
           <div className="text-center">
             <h1 className="text-xl font-bold mb-2">Link invalid or expired</h1>
-            <p className="text-gray-600 text-sm mb-4">This password-reset link is invalid or has expired.</p>
+            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">This password-reset link is invalid or has expired.</p>
             <button onClick={() => navigate("/forgot-password")} className="text-navy text-sm font-medium">
               Request a new reset link
             </button>
@@ -76,7 +76,7 @@ export function ResetPassword() {
         {recoveryState === "ready" && done && (
           <div className="text-center">
             <h1 className="text-xl font-bold mb-2">Password updated</h1>
-            <p className="text-gray-600 text-sm mb-4">Your password has been changed. Sign in with your new password.</p>
+            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">Your password has been changed. Sign in with your new password.</p>
             <button
               onClick={() => navigate("/login")}
               className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark"

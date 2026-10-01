@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { SkeletonPage, toast } from "@tolo/ui";
@@ -186,15 +186,15 @@ export function Settings() {
   return (
     <div className="max-w-3xl space-y-4">
       <h1 className="text-xl font-bold mb-1">Platform Settings</h1>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
         These control customer and merchant app behavior directly — no code change or redeploy required.
       </p>
 
-      <section className={`border rounded-lg p-4 ${maintenanceMode ? "bg-red-50 border-red-300" : "bg-white"}`}>
+      <section className={`border rounded-lg p-4 ${maintenanceMode ? "bg-red-50 border-red-300" : "bg-white dark:bg-navy-dark"}`}>
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-medium">Platform maintenance mode</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               A master kill switch — while on, customers cannot place new orders anywhere on the platform. Tolo staff are unaffected.
             </p>
           </div>
@@ -204,7 +204,7 @@ export function Settings() {
             className={`w-12 h-7 rounded-full transition-colors relative flex-shrink-0 ml-4 ${maintenanceMode ? "bg-red-600" : "bg-gray-300"}`}
           >
             <span
-              className={`absolute top-0.5 w-6 h-6 bg-white rounded-full transition-transform ${maintenanceMode ? "translate-x-5" : "translate-x-0.5"}`}
+              className={`absolute top-0.5 w-6 h-6 bg-white dark:bg-navy-dark rounded-full transition-transform ${maintenanceMode ? "translate-x-5" : "translate-x-0.5"}`}
             />
           </button>
         </div>
@@ -216,12 +216,12 @@ export function Settings() {
         )}
       </section>
 
-      <section className="bg-white border rounded-lg p-4">
+      <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <h2 className="font-medium mb-3">Commerce</h2>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium">Minimum order value (ETB)</p>
-            <p className="text-xs text-gray-500">Checkout is rejected below this subtotal.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Checkout is rejected below this subtotal.</p>
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -241,7 +241,7 @@ export function Settings() {
         </div>
       </section>
 
-      <section className="bg-white border rounded-lg p-4">
+      <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-medium">Payment methods</h2>
           <button
@@ -268,10 +268,10 @@ export function Settings() {
             />
           </label>
         ))}
-        <p className="text-xs text-gray-400 mt-2">Disabled methods disappear from the customer checkout screen automatically.</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Disabled methods disappear from the customer checkout screen automatically.</p>
       </section>
 
-      <section className="bg-white border rounded-lg p-4">
+      <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-medium">Delivery</h2>
           <button
@@ -288,7 +288,7 @@ export function Settings() {
         </label>
         <div className="grid grid-cols-3 gap-2 mt-2">
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Base fee (ETB)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Base fee (ETB)</label>
             <input
               type="number"
               value={delivery.base_fee}
@@ -297,7 +297,7 @@ export function Settings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Free above (ETB)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Free above (ETB)</label>
             <input
               type="number"
               value={delivery.free_delivery_threshold ?? ""}
@@ -306,7 +306,7 @@ export function Settings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Max distance (km)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Max distance (km)</label>
             <input
               type="number"
               value={delivery.max_delivery_distance_km ?? ""}
@@ -317,7 +317,7 @@ export function Settings() {
         </div>
       </section>
 
-      <section className="bg-white border rounded-lg p-4">
+      <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-medium">Customer app features</h2>
           <button
@@ -351,7 +351,7 @@ export function Settings() {
         ))}
       </section>
 
-      <section className="bg-white border rounded-lg p-4">
+      <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-medium">Merchant app features</h2>
           <button
@@ -382,7 +382,7 @@ export function Settings() {
         ))}
       </section>
 
-      <section className="bg-white border rounded-lg p-4">
+      <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-medium">Merchant new-order alerts</h2>
           <button
@@ -403,7 +403,7 @@ export function Settings() {
         </label>
         <div className="grid grid-cols-2 gap-2 mt-2">
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Reminder every (minutes)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Reminder every (minutes)</label>
             <input
               type="number"
               value={newOrderAlerts.reminder_interval_minutes}
@@ -412,7 +412,7 @@ export function Settings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Escalate to Tolo ops after (minutes)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Escalate to Tolo ops after (minutes)</label>
             <input
               type="number"
               value={newOrderAlerts.escalate_after_minutes}
@@ -423,7 +423,7 @@ export function Settings() {
         </div>
       </section>
 
-      <section className="bg-white border rounded-lg p-4">
+      <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-medium">Auto-cancel unresponsive orders</h2>
           <button
@@ -434,7 +434,7 @@ export function Settings() {
             Save
           </button>
         </div>
-        <p className="text-xs text-gray-400 mb-2">
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
           If a merchant still hasn't acknowledged an order after this long, it's automatically cancelled and refunded (if already paid) —
           separate from the ops escalation above, which only sends a notification.
         </p>
@@ -443,7 +443,7 @@ export function Settings() {
           <input type="checkbox" checked={autoCancel.enabled} onChange={(e) => setAutoCancel({ ...autoCancel, enabled: e.target.checked })} />
         </label>
         <div>
-          <label className="text-xs text-gray-500 block mb-1">Auto-cancel after (minutes)</label>
+          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Auto-cancel after (minutes)</label>
           <input
             type="number"
             value={autoCancel.after_minutes}
@@ -453,7 +453,7 @@ export function Settings() {
         </div>
       </section>
 
-      <section className="bg-white border rounded-lg p-4">
+      <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-medium">Cash-on-delivery fraud controls</h2>
           <button
@@ -464,7 +464,7 @@ export function Settings() {
             Save
           </button>
         </div>
-        <p className="text-xs text-gray-400 mb-2">
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
           Limits how many cash-on-delivery orders a new account can place while unverified. Once an account is older than the age below,
           these limits stop applying to it.
         </p>
@@ -478,7 +478,7 @@ export function Settings() {
         </label>
         <div className="grid grid-cols-3 gap-2 mt-2">
           <div>
-            <label className="text-xs text-gray-500 block mb-1">"New" account age (days)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">"New" account age (days)</label>
             <input
               type="number"
               value={codFraudControls.new_account_age_days}
@@ -487,7 +487,7 @@ export function Settings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Max COD orders</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Max COD orders</label>
             <input
               type="number"
               value={codFraudControls.max_cod_orders}
@@ -496,7 +496,7 @@ export function Settings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">Max COD total (ETB)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Max COD total (ETB)</label>
             <input
               type="number"
               value={codFraudControls.max_cod_amount_etb}
@@ -507,11 +507,11 @@ export function Settings() {
         </div>
       </section>
 
-      <section className="bg-white border rounded-lg p-4">
+      <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="font-medium">Notification channels</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Turn a whole delivery channel off platform-wide (e.g. during an SMS provider outage).</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Turn a whole delivery channel off platform-wide (e.g. during an SMS provider outage).</p>
           </div>
           <button
             onClick={() => save("notification_channels", notificationChannels)}
@@ -532,7 +532,7 @@ export function Settings() {
           <label key={k} className={`flex items-center justify-between py-1.5 text-sm ${available ? "" : "opacity-50"}`}>
             <span>
               {label}
-              {!available && <span className="text-xs text-gray-400 ml-1.5">(not yet available — no provider connected)</span>}
+              {!available && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">(not yet available — no provider connected)</span>}
             </span>
             <input
               type="checkbox"

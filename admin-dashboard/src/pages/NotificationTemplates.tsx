@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { SkeletonPage, toast } from "@tolo/ui";
 import type { NotificationTemplate } from "../types";
@@ -57,7 +57,7 @@ export function NotificationTemplates() {
   return (
     <div className="max-w-3xl">
       <h1 className="text-xl font-bold mb-1">Notification Templates</h1>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
         Edit the in-app copy for each event. Use <code>{"{{variable}}"}</code> placeholders — e.g. order_number (readable order number, "TL-1234" — prefer this
         over order_id_short), merchant_name, amount.
       </p>
@@ -67,13 +67,13 @@ export function NotificationTemplates() {
           const d = draft(t);
           const dirty = d.title !== t.title_template || d.body !== t.body_template;
           return (
-            <div key={t.id} className="bg-white border rounded-lg p-4">
+            <div key={t.id} className="bg-white dark:bg-navy-dark border rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-medium capitalize">{t.event_type.replace(/_/g, " ")}</p>
                 <button
                   onClick={() => toggleEnabled(t)}
                   className={`text-xs px-2 py-0.5 rounded-full border ${
-                    t.enabled ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-gray-100 text-gray-600"
+                    t.enabled ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300"
                   }`}
                 >
                   {t.enabled ? "Enabled" : "Disabled"}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ChevronRight, Download } from "lucide-react";
 import { SkeletonPage, toast } from "@tolo/ui";
@@ -254,7 +254,7 @@ export function BulkUpload() {
     return (
       <div className="max-w-lg">
         <h1 className="text-xl font-bold mb-2">Bulk upload</h1>
-        <p className="text-gray-600 text-sm">
+        <p className="text-gray-600 dark:text-gray-300 text-sm">
           Bulk product upload isn't available on your account yet. Contact Tolo support if you'd like it enabled.
         </p>
         <Link to="/products" className="text-navy text-sm font-medium mt-4 inline-flex items-center gap-1">
@@ -266,7 +266,7 @@ export function BulkUpload() {
   }
 
   if (!store) {
-    return <p className="text-gray-600">Set up your store profile before bulk-uploading products. Go to Store Settings.</p>;
+    return <p className="text-gray-600 dark:text-gray-300">Set up your store profile before bulk-uploading products. Go to Store Settings.</p>;
   }
 
   const validCount = rows.filter((r) => !r.validationError).length;
@@ -281,29 +281,29 @@ export function BulkUpload() {
         </Link>
       </div>
 
-      <div className="bg-white border rounded-lg p-4 mb-4">
+      <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
         <h2 className="font-medium text-sm mb-2">1. Download the template</h2>
-        <p className="text-xs text-gray-500 mb-3">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
           One row per product (a single variant each). <code>category</code> must match an existing category name exactly.{" "}
           <code>attributes</code> is optional, comma-separated <code>key:value</code> pairs (e.g. <code>color:Red, size:M</code>) — add more
           variants afterward from the product's own edit page if you need them.{" "}
           <code>image_url</code> is optional: paste a direct image link and it's attached as-is, the same as pasting a URL in the normal
           product form — nothing is re-uploaded or re-hosted.
         </p>
-        <button onClick={handleDownloadTemplate} className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 inline-flex items-center gap-1">
+        <button onClick={handleDownloadTemplate} className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 dark:bg-white/5 inline-flex items-center gap-1">
           <Download className="w-4 h-4" />
           Download CSV template
         </button>
       </div>
 
-      <div className="bg-white border rounded-lg p-4 mb-4">
+      <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
         <h2 className="font-medium text-sm mb-2">2. Upload your CSV</h2>
         <input type="file" accept=".csv,text/csv" onChange={handleFileChange} className="text-sm" />
-        {fileName && <p className="text-xs text-gray-500 mt-2">{fileName}</p>}
+        {fileName && <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{fileName}</p>}
       </div>
 
       {rows.length > 0 && !results && (
-        <div className="bg-white border rounded-lg p-4 mb-4">
+        <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-medium text-sm">
               3. Review ({validCount} of {rows.length} row{rows.length === 1 ? "" : "s"} ready)
@@ -326,7 +326,7 @@ export function BulkUpload() {
                   {r.validationError ? (
                     <p className="text-xs text-red-600">{r.validationError}</p>
                   ) : (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       {r.categoryName || "Uncategorized"} · {r.price} ETB · stock {r.stock}
                     </p>
                   )}
@@ -355,9 +355,9 @@ export function BulkUpload() {
       )}
 
       {results && (
-        <div className="bg-white border rounded-lg p-4">
+        <div className="bg-white dark:bg-navy-dark border rounded-lg p-4">
           <h2 className="font-medium text-sm mb-1">Import results</h2>
-          <p className="text-xs text-gray-500 mb-3">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
             {results.filter((r) => r.outcome !== "failed").length} of {results.length} row{results.length === 1 ? "" : "s"} created —
             partial success is normal, fix and re-upload just the failed rows if you want another pass.
           </p>
@@ -368,7 +368,7 @@ export function BulkUpload() {
                   <p className="font-medium truncate">
                     Row {r.rowNumber}: {r.name || "(no name)"}
                   </p>
-                  {r.reason && <p className="text-xs text-gray-500">{r.reason}</p>}
+                  {r.reason && <p className="text-xs text-gray-500 dark:text-gray-400">{r.reason}</p>}
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${OUTCOME_COLOR[r.outcome]}`}>
                   {OUTCOME_LABEL[r.outcome]}
