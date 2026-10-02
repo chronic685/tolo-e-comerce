@@ -1,9 +1,9 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "@tolo/ui";
+import { toast, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
-import { isEligibleForListing, LISTING_ELIGIBILITY_ERROR, parseAttributes, slugify } from "../lib/productRules";
+import { isEligibleForListing, parseAttributes, slugify } from "../lib/productRules";
 import { saveProduct } from "../lib/productWrites";
 import type { Category, ProductVariant } from "../types";
 
@@ -22,6 +22,7 @@ interface ImageDraft {
 }
 
 export function ProductForm() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const isNew = id === "new";
   const { merchant, store } = useMerchant();
@@ -49,7 +50,7 @@ export function ProductForm() {
 
     setUploadingImageIdx(null);
     if (uploadError) {
-      toast.error(uploadError.message);
+      toast.error(t("productForm.imageUploadError"));
       return;
     }
 
@@ -115,7 +116,7 @@ export function ProductForm() {
   async function handleSave(targetStatus: "draft" | "published" | "submitted") {
     if (!merchant || !store) return;
     if (!name.trim() || !basePrice) {
-      toast.error("Name and base price are required.");
+      toast.error(t("productForm.nameRequired"));
       return;
     }
 
@@ -129,7 +130,7 @@ export function ProductForm() {
       const allEligible =
         pricedVariants.length > 0 && pricedVariants.every((v) => isEligibleForListing(Number(v.price), Number(v.stock) || 0));
       if (!allEligible) {
-        toast.error(LISTING_ELIGIBILITY_ERROR);
+        toast.error(t("productForm.eligibilityError"));
         return;
       }
     }
@@ -164,7 +165,7 @@ export function ProductForm() {
 
     setSaving(false);
     if (!result.ok) {
-      toast.error(result.error);
+      toast.error(t("productForm.saveError"));
       return;
     }
     navigate("/products");
@@ -172,24 +173,24 @@ export function ProductForm() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-xl font-bold mb-4">{isNew ? "New product" : "Edit product"}</h1>
+      <h1 className="text-xl font-bold mb-4">{isNew ? t("productForm.newProductTitle") : t("productForm.editProductTitle")}</h1>
 
       <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 space-y-3 mb-4">
         <input
-          placeholder="Product name"
+          placeholder={t("productForm.namePlaceholder")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
         <textarea
-          placeholder="Description"
+          placeholder={t("common.description")}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
         <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm">
-          <option value="">Select category</option>
+          <option value="">{t("productForm.selectCategory")}</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -199,15 +200,18 @@ export function ProductForm() {
         <div>
           <input
             type="number"
-            placeholder="Your price (ETB)"
+            placeholder={t("productForm.yourPrice")}
             value={basePrice}
             onChange={(e) => setBasePrice(e.target.value)}
             className="w-full border rounded-md px-3 py-2 text-sm"
           />
           {basePrice && commissionRate !== null && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              You keep the full {Number(basePrice).toFixed(2)} ETB. Customers will pay{" "}
-              {(Number(basePrice) * (1 + commissionRate / 100)).toFixed(2)} ETB (includes Tolo's {commissionRate}% commission).
+              {t("productForm.commissionNote", {
+                basePrice: Number(basePrice).toFixed(2),
+                customerPrice: (Number(basePrice) * (1 + commissionRate / 100)).toFixed(2),
+                rate: commissionRate,
+              })}
             </p>
           )}
         </div>
@@ -215,18 +219,18 @@ export function ProductForm() {
 
       <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
         <div className="flex justify-between items-center mb-2">
-          <h2 className="font-medium text-sm">Variants &amp; stock</h2>
+          <h2 className="font-medium text-sm">{t("productForm.variantsAndStock")}</h2>
           <button
             onClick={() => setVariants([...variants, { sku: "", attributesText: "", price: basePrice, stock: "0", lowStockThreshold: "5" }])}
             className="text-xs text-navy font-medium"
           >
-            + Add variant
+            {t("productForm.addVariant")}
           </button>
         </div>
         {variants.map((v, idx) => (
           <div key={idx} className="grid grid-cols-5 gap-2 mb-2">
             <input
-              placeholder="Attributes (color:Red)"
+              placeholder={t("productForm.attributesPlaceholder")}
               value={v.attributesText}
               onChange={(e) => {
                 const next = [...variants];
@@ -237,7 +241,7 @@ export function ProductForm() {
             />
             <input
               type="number"
-              placeholder="Price"
+              placeholder={t("common.price")}
               value={v.price}
               onChange={(e) => {
                 const next = [...variants];
@@ -248,7 +252,7 @@ export function ProductForm() {
             />
             <input
               type="number"
-              placeholder="Stock"
+              placeholder={t("common.stock")}
               value={v.stock}
               onChange={(e) => {
                 const next = [...variants];
@@ -260,8 +264,8 @@ export function ProductForm() {
             <input
               type="number"
               min={0}
-              placeholder="Low-stock alert at"
-              title="You'll get an alert when stock falls to or below this number"
+              placeholder={t("productForm.lowStockAlertAt")}
+              title={t("productForm.lowStockAlertTooltip")}
               value={v.lowStockThreshold}
               onChange={(e) => {
                 const next = [...variants];
@@ -272,14 +276,14 @@ export function ProductForm() {
             />
           </div>
         ))}
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">"Low-stock alert at" — you'll be notified when a variant's stock falls to or below this number.</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t("productForm.lowStockAlertNote")}</p>
       </div>
 
       <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
         <div className="flex justify-between items-center mb-2">
-          <h2 className="font-medium text-sm">Product photos</h2>
+          <h2 className="font-medium text-sm">{t("productForm.productPhotos")}</h2>
           <button onClick={() => setImages([...images, { url: "" }])} className="text-xs text-navy font-medium">
-            + Add another
+            {t("productForm.addAnother")}
           </button>
         </div>
         {images.map((img, idx) => (
@@ -288,7 +292,7 @@ export function ProductForm() {
               <img src={img.url} alt="" className="w-12 h-12 object-cover rounded border flex-shrink-0" />
             )}
             <input
-              placeholder="Photo URL, or upload a file →"
+              placeholder={t("productForm.photoUrlPlaceholder")}
               value={img.url}
               onChange={(e) => {
                 const next = [...images];
@@ -298,7 +302,7 @@ export function ProductForm() {
               className="flex-1 border rounded-md px-2 py-1.5 text-sm"
             />
             <label className="text-xs text-gray-700 dark:text-gray-300 border rounded-md px-2 py-1.5 cursor-pointer hover:bg-gray-50 dark:bg-white/5 flex-shrink-0">
-              {uploadingImageIdx === idx ? "Uploading..." : "Upload"}
+              {uploadingImageIdx === idx ? t("common.uploading") : t("productForm.upload")}
               <input
                 type="file"
                 accept=".jpg,.jpeg,.png,.webp"
@@ -320,14 +324,14 @@ export function ProductForm() {
           disabled={saving}
           className="border px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 dark:bg-white/5 disabled:opacity-60"
         >
-          Save as draft
+          {t("productForm.saveAsDraft")}
         </button>
         <button
           onClick={() => handleSave(store?.status === "active" ? "published" : "submitted")}
           disabled={saving}
           className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
         >
-          {saving ? "Saving..." : "Publish"}
+          {saving ? t("common.saving") : t("merchantProducts.publish")}
         </button>
       </div>
     </div>

@@ -63,7 +63,7 @@ export function Support() {
   const columns: DataTableColumn<Ticket>[] = [
     {
       key: "subject",
-      header: "Ticket",
+      header: t("support.ticketColumn"),
       render: (ticket) => (
         <div>
           <p className="font-medium text-sm">{ticket.subject}</p>
@@ -87,13 +87,13 @@ export function Support() {
     },
     {
       key: "status",
-      header: "Status",
+      header: t("common.status"),
       render: (ticket) => <Badge variant={statusVariant[ticket.status] ?? "default"}>{t(`support.status.${ticket.status}`)}</Badge>,
       csvValue: (ticket) => ticket.status,
     },
     {
       key: "created_at",
-      header: "Date",
+      header: t("common.date"),
       render: (ticket) => <span className="text-xs text-gray-400 dark:text-gray-500">{new Date(ticket.created_at).toLocaleString()}</span>,
       sortValue: (ticket) => ticket.created_at,
       csvValue: (ticket) => ticket.created_at,
@@ -109,7 +109,7 @@ export function Support() {
         <EmptyState icon={LifeBuoy} title={t("support.empty")} description={t("support.emptyDescription")} />
       ) : (
         <>
-          <DataTable storageKey="merchant.support" columns={columns} rows={tickets} getRowId={(t) => t.id} />
+          <DataTable storageKey="merchant.support" columns={columns} rows={tickets} getRowId={(ticket) => ticket.id} />
           <div className="mt-4">
             <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
           </div>

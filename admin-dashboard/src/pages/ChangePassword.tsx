@@ -1,11 +1,12 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
-import { toast } from "@tolo/ui";
+import { toast, translateAuthError, useTranslation } from "@tolo/ui";
 
 const MIN_LENGTH = 8; // same minimum admin-create-staff enforces
 
 export function ChangePassword() {
+  const { t } = useTranslation();
   const { user, updatePassword } = useAuth();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -17,19 +18,19 @@ export function ChangePassword() {
     e.preventDefault();
     setDone(false);
     if (next.length < MIN_LENGTH) {
-      toast.error(`New password must be at least ${MIN_LENGTH} characters.`);
+      toast.error(t("changePassword.minLength", { min: MIN_LENGTH }));
       return;
     }
     if (next !== confirm) {
-      toast.error("New passwords don't match.");
+      toast.error(t("changePassword.dontMatch"));
       return;
     }
     if (next === current) {
-      toast.error("New password must be different from your current one.");
+      toast.error(t("changePassword.mustDiffer"));
       return;
     }
     if (!user?.email) {
-      toast.error("You're not signed in. Please sign in again.");
+      toast.error(t("changePassword.notSignedIn"));
       return;
     }
 
@@ -41,14 +42,14 @@ export function ChangePassword() {
     const { error: reauthError } = await supabase.auth.signInWithPassword({ email: user.email, password: current });
     if (reauthError) {
       setSaving(false);
-      toast.error("Current password is incorrect.");
+      toast.error(t("changePassword.currentIncorrect"));
       return;
     }
 
     const { error: updateError } = await updatePassword(next);
     setSaving(false);
     if (updateError) {
-      toast.error(updateError);
+      toast.error(translateAuthError(updateError, t));
       return;
     }
     setCurrent("");
@@ -59,12 +60,12 @@ export function ChangePassword() {
 
   return (
     <div className="max-w-sm">
-      <h1 className="text-xl font-bold mb-1">Change password</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Enter your current password, then choose a new one.</p>
+      <h1 className="text-xl font-bold mb-1">{t("admin.changePassword")}</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t("changePassword.description")}</p>
       <form onSubmit={handleSubmit} className="space-y-3 bg-white dark:bg-navy-dark border rounded-lg p-4">
         <input
           type="password"
-          placeholder="Current password"
+          placeholder={t("changePassword.currentPassword")}
           value={current}
           onChange={(e) => setCurrent(e.target.value)}
           required
@@ -73,7 +74,7 @@ export function ChangePassword() {
         />
         <input
           type="password"
-          placeholder="New password"
+          placeholder={t("auth.newPassword")}
           value={next}
           onChange={(e) => setNext(e.target.value)}
           required
@@ -81,24 +82,24 @@ export function ChangePassword() {
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
         <p className={`text-xs -mt-2 ${next && next.length < MIN_LENGTH ? "text-red-600" : "text-gray-400 dark:text-gray-500"}`}>
-          At least {MIN_LENGTH} characters.
+          {t("changePassword.atLeastChars", { min: MIN_LENGTH })}
         </p>
         <input
           type="password"
-          placeholder="Confirm new password"
+          placeholder={t("auth.confirmNewPassword")}
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           required
           autoComplete="new-password"
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
-        {done && <p className="text-sm bg-navy-50 text-navy rounded-md px-3 py-2">Password changed. Use it next time you sign in.</p>}
+        {done && <p className="text-sm bg-navy-50 text-navy rounded-md px-3 py-2">{t("changePassword.successMessage")}</p>}
         <button
           type="submit"
           disabled={saving}
           className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
         >
-          {saving ? "Saving..." : "Change password"}
+          {saving ? t("common.saving") : t("admin.changePassword")}
         </button>
       </form>
     </div>

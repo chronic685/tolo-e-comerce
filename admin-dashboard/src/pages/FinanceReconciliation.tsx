@@ -2,7 +2,7 @@
 import { FileBarChart } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { EmptyState, ExportCsvButton, fetchAllRows, SkeletonRows, toast } from "@tolo/ui";
+import { EmptyState, ExportCsvButton, fetchAllRows, SkeletonRows, toast, useTranslation } from "@tolo/ui";
 
 interface Summary {
   orders_count: number;
@@ -55,6 +55,7 @@ function today(): string {
 // authorization boundary (is_tolo_finance() OR the finance_reconciliation
 // page grant), independent of this page's own PageGuard.
 export function FinanceReconciliation() {
+  const { t } = useTranslation();
   const [from, setFrom] = useState(defaultFrom());
   const [to, setTo] = useState(today());
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -66,7 +67,7 @@ export function FinanceReconciliation() {
       .rpc("finance_reconciliation_summary", { p_from: isoStartOfDay(from), p_to: isoEndOfDay(to) })
       .single();
     if (error) {
-      toast.error(error.message);
+      toast.error(t("financeRecon.loadError"));
       setSummary(null);
     } else {
       setSummary(data as unknown as Summary);
@@ -106,58 +107,55 @@ export function FinanceReconciliation() {
 
   const summaryCards = summary
     ? [
-        { label: "Orders", value: String(summary.orders_count) },
-        { label: "Order subtotal", value: `${summary.orders_subtotal.toFixed(2)} ETB` },
-        { label: "Discounts", value: `-${summary.orders_discount.toFixed(2)} ETB` },
-        { label: "Delivery fees", value: `${summary.orders_delivery_fee.toFixed(2)} ETB` },
-        { label: "Rider tips", value: `${summary.orders_rider_tip.toFixed(2)} ETB` },
-        { label: "Order total", value: `${summary.orders_total.toFixed(2)} ETB` },
-        { label: "Payments collected", value: `${summary.payments_collected.toFixed(2)} ETB` },
-        { label: "Refunds issued", value: `${summary.refunds_issued.toFixed(2)} ETB` },
-        { label: "Commission earned", value: `${summary.commission_earned.toFixed(2)} ETB` },
-        { label: "Payouts paid", value: `${summary.payouts_paid.toFixed(2)} ETB` },
+        { labelKey: "financeRecon.orders", value: String(summary.orders_count) },
+        { labelKey: "financeRecon.orderSubtotal", value: `${summary.orders_subtotal.toFixed(2)} ETB` },
+        { labelKey: "financeRecon.discounts", value: `-${summary.orders_discount.toFixed(2)} ETB` },
+        { labelKey: "financeRecon.deliveryFees", value: `${summary.orders_delivery_fee.toFixed(2)} ETB` },
+        { labelKey: "financeRecon.riderTips", value: `${summary.orders_rider_tip.toFixed(2)} ETB` },
+        { labelKey: "financeRecon.orderTotal", value: `${summary.orders_total.toFixed(2)} ETB` },
+        { labelKey: "financeRecon.paymentsCollected", value: `${summary.payments_collected.toFixed(2)} ETB` },
+        { labelKey: "financeRecon.refundsIssued", value: `${summary.refunds_issued.toFixed(2)} ETB` },
+        { labelKey: "financeRecon.commissionEarned", value: `${summary.commission_earned.toFixed(2)} ETB` },
+        { labelKey: "financeRecon.payoutsPaid", value: `${summary.payouts_paid.toFixed(2)} ETB` },
       ]
     : [];
 
   return (
     <div className="max-w-4xl">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Finance Reconciliation</h1>
+        <h1 className="text-xl font-bold">{t("financeRecon.title")}</h1>
         <ExportCsvButton onExport={handleExport} disabled={!summary || summary.orders_count === 0} />
       </div>
 
       <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4 flex items-end gap-3">
         <label className="text-sm">
-          <span className="block text-gray-500 dark:text-gray-400 mb-1">From</span>
+          <span className="block text-gray-500 dark:text-gray-400 mb-1">{t("financeRecon.from")}</span>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm" />
         </label>
         <label className="text-sm">
-          <span className="block text-gray-500 dark:text-gray-400 mb-1">To</span>
+          <span className="block text-gray-500 dark:text-gray-400 mb-1">{t("financeRecon.to")}</span>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm" />
         </label>
         <button onClick={load} className="bg-navy text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-navy-dark">
-          Run report
+          {t("financeRecon.runReport")}
         </button>
       </div>
 
       {loading ? (
         <SkeletonRows />
       ) : !summary || summary.orders_count === 0 ? (
-        <EmptyState icon={FileBarChart} title="No activity in this period" description="Choose a different date range and run the report again." />
+        <EmptyState icon={FileBarChart} title={t("financeRecon.emptyTitle")} description={t("financeRecon.emptyDescription")} />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {summaryCards.map((c) => (
-            <div key={c.label} className="bg-white dark:bg-navy-dark border rounded-lg p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400">{c.label}</p>
+            <div key={c.labelKey} className="bg-white dark:bg-navy-dark border rounded-lg p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t(c.labelKey)}</p>
               <p className="text-lg font-semibold">{c.value}</p>
             </div>
           ))}
         </div>
       )}
-      <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
-        "Payments collected" only counts confirmed (verified) payments in this period. Export CSV for the full per-order breakdown, including
-        each order's payment and any refund against it.
-      </p>
+      <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">{t("financeRecon.footnote")}</p>
     </div>
   );
 }

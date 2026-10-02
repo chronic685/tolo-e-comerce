@@ -46,7 +46,7 @@ export function ProductCard({ product, rating, className }: ProductCardProps) {
       {enabled && user && (
         <button
           onClick={() => toggleFavorite(product.id)}
-          aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
+          aria-label={favorited ? t("productDetail.removeFromFavorites") : t("productDetail.addToFavorites")}
           className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 dark:bg-navy-dark/90 shadow flex items-center justify-center"
         >
           <Heart className={`w-4 h-4 ${favorited ? "fill-current text-red-500" : "text-gray-400"}`} />
@@ -74,10 +74,10 @@ export function ProductCard({ product, rating, className }: ProductCardProps) {
             )}
           </div>
           {defaultVariant?.stock_status === "out_of_stock" && (
-            <p className="text-xs font-medium text-red-600 mt-0.5">Out of stock</p>
+            <p className="text-xs font-medium text-red-600 mt-0.5">{t("productDetail.outOfStock")}</p>
           )}
           {defaultVariant?.stock_status === "low" && defaultVariant.stock_remaining != null && (
-            <p className="text-xs font-medium text-orange-600 mt-0.5">Only {defaultVariant.stock_remaining} left</p>
+            <p className="text-xs font-medium text-orange-600 mt-0.5">{t("productCard.onlyLeft", { count: defaultVariant.stock_remaining })}</p>
           )}
         </Link>
       </div>

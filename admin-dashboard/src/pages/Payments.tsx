@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, fetchAllRows, formatCurrency, formatOrderNumber, SkeletonRows, Pagination, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, fetchAllRows, formatCurrency, formatOrderNumber, SkeletonRows, Pagination, toast, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
 import type { Payment } from "../types";
 
 const STATUS_VARIANT: Record<string, "warning" | "success" | "danger" | "default"> = {
@@ -9,6 +9,22 @@ const STATUS_VARIANT: Record<string, "warning" | "success" | "danger" | "default
   verified: "success",
   failed: "danger",
   refunded: "default",
+};
+
+const PAYMENT_STATUS_KEYS: Record<string, string> = {
+  pending: "paymentStatus.pending",
+  verified: "paymentStatus.verified",
+  failed: "paymentStatus.failed",
+  refunded: "paymentStatus.refunded",
+  all: "paymentStatus.all",
+};
+
+const PROVIDER_KEYS: Record<string, string> = {
+  cash: "paymentProvider.cash",
+  bank_transfer: "paymentProvider.bank_transfer",
+  mobile_money: "paymentProvider.mobile_money",
+  chapa: "paymentProvider.chapa",
+  telebirr: "paymentProvider.telebirr",
 };
 
 // Cash, bank transfer and mobile money have no automated gateway (see
@@ -24,6 +40,7 @@ const STATUS_VARIANT: Record<string, "warning" | "success" | "danger" | "default
 const FINANCE_CONFIRMABLE = new Set(["bank_transfer", "mobile_money", "chapa", "telebirr"]);
 
 export function Payments() {
+  const { t } = useTranslation();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -56,7 +73,7 @@ export function Payments() {
     const { error } = await supabase.functions.invoke("confirm-payment", { body: { payment_id: payment.id } });
     setConfirmingId(null);
     if (error) {
-      toast.error("Could not confirm this payment. Please try again.");
+      toast.error(t("payments.confirmError"));
       return;
     }
     // The status filter is now a real server-side query param, so a
@@ -94,14 +111,15 @@ export function Payments() {
   const columns: DataTableColumn<Payment>[] = [
     {
       key: "customer",
-      header: "Payment",
+      header: t("payments.column"),
       render: (p) => (
         <div>
           <p className="text-sm font-medium">
-            {p.orders?.profiles?.full_name ?? "Customer"} · {p.provider.replace(/_/g, " ")}
+            {p.orders?.profiles?.full_name ?? t("payments.customerFallback")} · {PROVIDER_KEYS[p.provider] ? t(PROVIDER_KEYS[p.provider]) : p.provider}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Order {p.orders?.order_number ? formatOrderNumber(p.orders.order_number) : `#${p.order_id.slice(0, 8)}`} · {new Date(p.created_at).toLocaleString()}
+            {t("orders.orderLabel", { orderNumber: p.orders?.order_number ? formatOrderNumber(p.orders.order_number) : `#${p.order_id.slice(0, 8)}` })} ·{" "}
+            {new Date(p.created_at).toLocaleString()}
           </p>
         </div>
       ),
@@ -111,7 +129,7 @@ export function Payments() {
     },
     {
       key: "amount",
-      header: "Amount",
+      header: t("payments.amountColumn"),
       render: (p) => <span className="font-semibold text-sm">{formatCurrency(p.amount, p.currency)}</span>,
       sortValue: (p) => p.amount,
       csvValue: (p) => p.amount,
@@ -119,8 +137,8 @@ export function Payments() {
     },
     {
       key: "status",
-      header: "Status",
-      render: (p) => <Badge variant={STATUS_VARIANT[p.status] ?? "default"}>{p.status}</Badge>,
+      header: t("common.status"),
+      render: (p) => <Badge variant={STATUS_VARIANT[p.status] ?? "default"}>{PAYMENT_STATUS_KEYS[p.status] ? t(PAYMENT_STATUS_KEYS[p.status]) : p.status}</Badge>,
       csvValue: (p) => p.status,
     },
     {
@@ -129,7 +147,7 @@ export function Payments() {
       render: (p) =>
         p.status === "pending" && FINANCE_CONFIRMABLE.has(p.provider) ? (
           <Button size="sm" onClick={() => handleConfirm(p)} disabled={confirmingId === p.id}>
-            {confirmingId === p.id ? "Confirming..." : "Confirm received"}
+            {confirmingId === p.id ? t("payments.confirming") : t("payments.confirmReceived")}
           </Button>
         ) : null,
     },
@@ -139,7 +157,7 @@ export function Payments() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Payments</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">{t("payments.title")}</h1>
 
       <div className="flex gap-2 mb-4 flex-wrap">
         {["pending", "verified", "failed", "refunded", "all"].map((s) => (
@@ -148,13 +166,15 @@ export function Payments() {
             onClick={() => setFilter(s)}
             className={`px-3 py-1.5 rounded-full text-sm border capitalize ${filter === s ? "bg-navy text-white border-navy dark:bg-navy-light dark:border-navy-light" : "bg-white dark:bg-navy-dark dark:border-white/20 dark:text-gray-300"}`}
           >
-            {s}
+            {t(PAYMENT_STATUS_KEYS[s])}
           </button>
         ))}
       </div>
 
       {payments.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400 text-sm">No {filter !== "all" ? filter : ""} payments.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">
+          {filter !== "all" ? t("payments.noneForFilter", { filter: t(PAYMENT_STATUS_KEYS[filter]).toLowerCase() }) : t("payments.noneAll")}
+        </p>
       ) : (
         <>
           <DataTable storageKey="admin.payments" columns={columns} rows={payments} getRowId={(p) => p.id} onExportAll={handleExport} />

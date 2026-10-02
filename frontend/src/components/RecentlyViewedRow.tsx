@@ -11,7 +11,8 @@ const PRODUCT_SELECT = `
   customer_price:products_customer_price,
   product_variants ( id, sku, attributes, price, discount_price, is_default, stock_status:variant_stock_status, stock_remaining:variant_stock_remaining ),
   product_images ( id, url, is_primary, variant_id ),
-  stores ( name, slug )
+  stores ( name, slug ),
+  merchants!inner ( is_test )
 `;
 
 /** Item 7: "recently viewed row" on the customer site -- backed by
@@ -29,11 +30,15 @@ export function RecentlyViewedRow() {
       setProducts([]);
       return;
     }
+    // merchants.is_test excludes a QA/CI fixture product (migration 0079) —
+    // a stale localStorage entry from before this filter existed shouldn't
+    // resurface one.
     supabase
       .from("products")
       .select(PRODUCT_SELECT)
       .in("id", ids)
       .eq("status", "published")
+      .eq("merchants.is_test", false)
       .then(({ data }) => {
         const byId = new Map(((data as unknown as Product[]) ?? []).map((p) => [p.id, p]));
         // Re-sort to the original most-recent-first order -- `.in()` does

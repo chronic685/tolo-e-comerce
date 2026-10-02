@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { SkeletonPage, toast } from "@tolo/ui";
+import { SkeletonPage, toast, useTranslation } from "@tolo/ui";
 import { SmsOutboxPanel } from "../components/SmsOutboxPanel";
 
 interface PaymentMethods {
@@ -99,6 +99,7 @@ const DEFAULTS = {
 };
 
 export function Settings() {
+  const { t } = useTranslation();
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [minOrderValue, setMinOrderValue] = useState("0");
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethods>(DEFAULTS.payment_methods);
@@ -178,28 +179,24 @@ export function Settings() {
     const { error } = await supabase.from("system_settings").update({ value }).eq("key", key);
     setSavingKey(null);
     if (error) {
-      toast.error(error.message);
+      toast.error(t("settings.saveError"));
       return;
     }
-    toast.success(`Saved "${key}".`);
+    toast.success(t("settings.savedToast", { key }));
   }
 
   if (loading) return <SkeletonPage />;
 
   return (
     <div className="max-w-3xl space-y-4">
-      <h1 className="text-xl font-bold mb-1">Platform Settings</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        These control customer and merchant app behavior directly — no code change or redeploy required.
-      </p>
+      <h1 className="text-xl font-bold mb-1">{t("settings.title")}</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t("settings.description")}</p>
 
       <section className={`border rounded-lg p-4 ${maintenanceMode ? "bg-red-50 border-red-300" : "bg-white dark:bg-navy-dark"}`}>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-medium">Platform maintenance mode</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              A master kill switch — while on, customers cannot place new orders anywhere on the platform. Tolo staff are unaffected.
-            </p>
+            <h2 className="font-medium">{t("settings.maintenanceMode")}</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t("settings.maintenanceModeDescription")}</p>
           </div>
           <button
             type="button"
@@ -214,17 +211,17 @@ export function Settings() {
         {maintenanceMode && (
           <p className="flex items-center gap-1.5 text-xs text-red-800 font-medium mt-2">
             <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-            Live now — checkout is blocked for all customers until this is switched off.
+            {t("settings.maintenanceModeLiveWarning")}
           </p>
         )}
       </section>
 
       <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
-        <h2 className="font-medium mb-3">Commerce</h2>
+        <h2 className="font-medium mb-3">{t("settings.commerce")}</h2>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium">Minimum order value (ETB)</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Checkout is rejected below this subtotal.</p>
+            <p className="text-sm font-medium">{t("settings.minOrderValue")}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t("settings.minOrderValueDescription")}</p>
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -238,7 +235,7 @@ export function Settings() {
               disabled={savingKey === "min_order_value"}
               className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
             >
-              Save
+              {t("common.save")}
             </button>
           </div>
         </div>
@@ -246,26 +243,26 @@ export function Settings() {
 
       <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-medium">Payment methods</h2>
+          <h2 className="font-medium">{t("settings.paymentMethods")}</h2>
           <button
             onClick={() => save("payment_methods", paymentMethods)}
             disabled={savingKey === "payment_methods"}
             className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
           >
-            Save
+            {t("common.save")}
           </button>
         </div>
         {(
           [
-            ["cash_on_delivery", "Cash on delivery"],
-            ["bank_transfer", "Bank transfer"],
-            ["mobile_money", "Mobile money"],
-            ["chapa", "Chapa (online payment)"],
-            ["telebirr", "Telebirr (online payment)"],
+            ["cash_on_delivery", "settings.cashOnDelivery"],
+            ["bank_transfer", "settings.bankTransfer"],
+            ["mobile_money", "settings.mobileMoney"],
+            ["chapa", "settings.chapaOnline"],
+            ["telebirr", "settings.telebirrOnline"],
           ] as const
-        ).map(([k, label]) => (
+        ).map(([k, labelKey]) => (
           <label key={k} className="flex items-center justify-between py-1.5 text-sm">
-            {label}
+            {t(labelKey)}
             <input
               type="checkbox"
               checked={paymentMethods[k]}
@@ -273,30 +270,28 @@ export function Settings() {
             />
           </label>
         ))}
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Disabled methods disappear from the customer checkout screen automatically.</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-          Chapa and Telebirr need an online payment gateway connected to the backend first. Until then, checkout refuses them even if they are switched on here.
-        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{t("settings.paymentMethodsNote1")}</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t("settings.paymentMethodsNote2")}</p>
       </section>
 
       <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-medium">Delivery</h2>
+          <h2 className="font-medium">{t("settings.delivery")}</h2>
           <button
             onClick={() => save("delivery", delivery)}
             disabled={savingKey === "delivery"}
             className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
           >
-            Save
+            {t("common.save")}
           </button>
         </div>
         <label className="flex items-center justify-between py-1.5 text-sm">
-          Delivery enabled
+          {t("settings.deliveryEnabled")}
           <input type="checkbox" checked={delivery.enabled} onChange={(e) => setDelivery({ ...delivery, enabled: e.target.checked })} />
         </label>
         <div className="grid grid-cols-3 gap-2 mt-2">
           <div>
-            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Base fee (ETB)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settings.baseFee")}</label>
             <input
               type="number"
               value={delivery.base_fee}
@@ -305,7 +300,7 @@ export function Settings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Free above (ETB)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settings.freeAbove")}</label>
             <input
               type="number"
               value={delivery.free_delivery_threshold ?? ""}
@@ -314,7 +309,7 @@ export function Settings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Max distance (km)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settings.maxDistance")}</label>
             <input
               type="number"
               value={delivery.max_delivery_distance_km ?? ""}
@@ -327,29 +322,29 @@ export function Settings() {
 
       <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-medium">Customer app features</h2>
+          <h2 className="font-medium">{t("settings.customerAppFeatures")}</h2>
           <button
             onClick={() => save("customer_features", customerFeatures)}
             disabled={savingKey === "customer_features"}
             className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
           >
-            Save
+            {t("common.save")}
           </button>
         </div>
         {(
           [
-            ["reviews_enabled", "Product reviews"],
-            ["wallet_enabled", "Customer wallet"],
-            ["referrals_enabled", "Referral system"],
-            ["guest_browsing_enabled", "Guest browsing (no login to browse)"],
-            ["favorites_enabled", "Favorites / saved products"],
-            ["scheduled_orders_enabled", "Scheduled orders"],
-            ["order_cancellation_enabled", "Customer can cancel an order"],
-            ["promo_codes_enabled", "Promo code entry at checkout"],
+            ["reviews_enabled", "settings.productReviews"],
+            ["wallet_enabled", "settings.customerWallet"],
+            ["referrals_enabled", "settings.referralSystem"],
+            ["guest_browsing_enabled", "settings.guestBrowsing"],
+            ["favorites_enabled", "settings.favoritesSaved"],
+            ["scheduled_orders_enabled", "settings.scheduledOrders"],
+            ["order_cancellation_enabled", "settings.customerCanCancel"],
+            ["promo_codes_enabled", "settings.promoCodeEntry"],
           ] as const
-        ).map(([k, label]) => (
+        ).map(([k, labelKey]) => (
           <label key={k} className="flex items-center justify-between py-1.5 text-sm">
-            {label}
+            {t(labelKey)}
             <input
               type="checkbox"
               checked={customerFeatures[k]}
@@ -361,26 +356,26 @@ export function Settings() {
 
       <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-medium">Merchant app features</h2>
+          <h2 className="font-medium">{t("settings.merchantAppFeatures")}</h2>
           <button
             onClick={() => save("merchant_features", merchantFeatures)}
             disabled={savingKey === "merchant_features"}
             className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
           >
-            Save
+            {t("common.save")}
           </button>
         </div>
         {(
           [
-            ["self_registration_enabled", "Merchants can self-register"],
-            ["bulk_upload_enabled", "Bulk product upload"],
-            ["staff_accounts_enabled", "Merchant staff accounts"],
-            ["multiple_branches_enabled", "Multiple branches per merchant"],
-            ["settlement_requests_enabled", "Merchant-initiated settlement requests"],
+            ["self_registration_enabled", "settings.merchantSelfRegister"],
+            ["bulk_upload_enabled", "settings.bulkProductUpload"],
+            ["staff_accounts_enabled", "settings.merchantStaffAccounts"],
+            ["multiple_branches_enabled", "settings.multipleBranches"],
+            ["settlement_requests_enabled", "settings.merchantSettlementRequests"],
           ] as const
-        ).map(([k, label]) => (
+        ).map(([k, labelKey]) => (
           <label key={k} className="flex items-center justify-between py-1.5 text-sm">
-            {label}
+            {t(labelKey)}
             <input
               type="checkbox"
               checked={merchantFeatures[k]}
@@ -392,17 +387,17 @@ export function Settings() {
 
       <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-medium">Merchant new-order alerts</h2>
+          <h2 className="font-medium">{t("settings.newOrderAlerts")}</h2>
           <button
             onClick={() => save("merchant_new_order_alerts", newOrderAlerts)}
             disabled={savingKey === "merchant_new_order_alerts"}
             className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
           >
-            Save
+            {t("common.save")}
           </button>
         </div>
         <label className="flex items-center justify-between py-1.5 text-sm">
-          Vibrate on new order
+          {t("settings.vibrateOnNewOrder")}
           <input
             type="checkbox"
             checked={newOrderAlerts.vibrate}
@@ -411,7 +406,7 @@ export function Settings() {
         </label>
         <div className="grid grid-cols-2 gap-2 mt-2">
           <div>
-            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Reminder every (minutes)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settings.reminderEvery")}</label>
             <input
               type="number"
               value={newOrderAlerts.reminder_interval_minutes}
@@ -420,7 +415,7 @@ export function Settings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Escalate to Tolo ops after (minutes)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settings.escalateAfter")}</label>
             <input
               type="number"
               value={newOrderAlerts.escalate_after_minutes}
@@ -433,25 +428,22 @@ export function Settings() {
 
       <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-medium">Auto-cancel unresponsive orders</h2>
+          <h2 className="font-medium">{t("settings.autoCancelUnresponsive")}</h2>
           <button
             onClick={() => save("auto_cancel_unresponsive_orders", autoCancel)}
             disabled={savingKey === "auto_cancel_unresponsive_orders"}
             className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
           >
-            Save
+            {t("common.save")}
           </button>
         </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
-          If a merchant still hasn't acknowledged an order after this long, it's automatically cancelled and refunded (if already paid) —
-          separate from the ops escalation above, which only sends a notification.
-        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{t("settings.autoCancelDescription")}</p>
         <label className="flex items-center justify-between py-1.5 text-sm">
-          Enabled
+          {t("settings.enabled")}
           <input type="checkbox" checked={autoCancel.enabled} onChange={(e) => setAutoCancel({ ...autoCancel, enabled: e.target.checked })} />
         </label>
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Auto-cancel after (minutes)</label>
+          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settings.autoCancelAfter")}</label>
           <input
             type="number"
             value={autoCancel.after_minutes}
@@ -463,21 +455,18 @@ export function Settings() {
 
       <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-medium">Cash-on-delivery fraud controls</h2>
+          <h2 className="font-medium">{t("settings.codFraudControls")}</h2>
           <button
             onClick={() => save("cod_fraud_controls", codFraudControls)}
             disabled={savingKey === "cod_fraud_controls"}
             className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
           >
-            Save
+            {t("common.save")}
           </button>
         </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
-          Limits how many cash-on-delivery orders a new account can place while unverified. Once an account is older than the age below,
-          these limits stop applying to it.
-        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{t("settings.codFraudControlsDescription")}</p>
         <label className="flex items-center justify-between py-1.5 text-sm">
-          Enabled
+          {t("settings.enabled")}
           <input
             type="checkbox"
             checked={codFraudControls.enabled}
@@ -486,7 +475,7 @@ export function Settings() {
         </label>
         <div className="grid grid-cols-3 gap-2 mt-2">
           <div>
-            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">"New" account age (days)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settings.newAccountAge")}</label>
             <input
               type="number"
               value={codFraudControls.new_account_age_days}
@@ -495,7 +484,7 @@ export function Settings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Max COD orders</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settings.maxCodOrders")}</label>
             <input
               type="number"
               value={codFraudControls.max_cod_orders}
@@ -504,7 +493,7 @@ export function Settings() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Max COD total (ETB)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settings.maxCodTotal")}</label>
             <input
               type="number"
               value={codFraudControls.max_cod_amount_etb}
@@ -518,35 +507,35 @@ export function Settings() {
       <section className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="font-medium">Notification channels</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Turn a whole delivery channel off platform-wide (e.g. during an SMS provider outage).</p>
+            <h2 className="font-medium">{t("settings.notificationChannels")}</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t("settings.notificationChannelsDescription")}</p>
           </div>
           <button
             onClick={() => save("notification_channels", notificationChannels)}
             disabled={savingKey === "notification_channels"}
             className="text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark disabled:opacity-60"
           >
-            Save
+            {t("common.save")}
           </button>
         </div>
         {(
           [
-            ["push", "Push notifications", false],
-            ["sms", "SMS", true],
-            ["email", "Email", true],
-            ["in_app", "In-app notifications", true],
+            ["push", "settings.pushNotifications", false],
+            ["sms", "settings.sms", true],
+            ["email", "settings.email", true],
+            ["in_app", "settings.inAppNotifications", true],
           ] as const
-        ).map(([k, label, available]) => (
+        ).map(([k, labelKey, available]) => (
           <label key={k} className={`flex items-center justify-between py-1.5 text-sm ${available ? "" : "opacity-50"}`}>
             <span>
-              {label}
-              {!available && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">(not yet available — no provider connected)</span>}
+              {t(labelKey)}
+              {!available && <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">{t("settings.notYetAvailable")}</span>}
             </span>
             <input
               type="checkbox"
               checked={notificationChannels[k]}
               disabled={!available}
-              title={available ? undefined : "No provider connected yet — this toggle has no effect"}
+              title={available ? undefined : t("settings.noProviderConnectedTitle")}
               onChange={(e) => setNotificationChannels({ ...notificationChannels, [k]: e.target.checked })}
             />
           </label>

@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { Store } from "lucide-react";
-import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { ShopCard } from "../components/ShopCard";
 import { fetchMerchantRatings } from "../lib/merchantRatings";
@@ -13,7 +13,7 @@ interface ShopRow {
   logo_url: string | null;
   status: string;
   merchant_id: string;
-  merchants: { status: string } | null;
+  merchants: { status: string; is_test: boolean } | null;
 }
 
 interface ShopSummary {
@@ -25,6 +25,7 @@ interface ShopSummary {
 }
 
 export function BrowseShops() {
+  const { t } = useTranslation();
   const [shops, setShops] = useState<ShopRow[] | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [summaries, setSummaries] = useState<Map<string, ShopSummary>>(new Map());
@@ -38,13 +39,23 @@ export function BrowseShops() {
     // account is suspended, which isn't something a browse listing should
     // surface as a live shop either. Pushed into the query itself (rather
     // than filtered after fetching) so .range()/count reflect the real,
-    // filtered page — PostgREST turns the merchants.status filter into an
-    // inner join automatically once it's referenced.
+    // filtered page -- this REQUIRES the `!inner` embed hint below, or
+    // PostgREST treats merchants as a left join: a row whose merchant
+    // fails the filter comes back with merchants: null instead of being
+    // excluded, leaving the store (and the wrong product/shop) in the
+    // result set. (A previous version of this comment claimed PostgREST
+    // did this automatically -- it doesn't; that was the actual bug that
+    // let "QA TEST Store — DO NOT USE" stay publicly listed even once a
+    // status/is_test filter was added here, see migration 0079.)
+    // merchants.is_test excludes QA/CI fixture merchants -- they're
+    // otherwise indistinguishable from a real one here, since the fixture
+    // deliberately sets status: 'active' too.
     supabase
       .from("stores")
-      .select("id, name, slug, logo_url, status, merchant_id, merchants ( status )", { count: "exact" })
+      .select("id, name, slug, logo_url, status, merchant_id, merchants!inner ( status, is_test )", { count: "exact" })
       .eq("status", "active")
       .in("merchants.status", ["active", "approved"])
+      .eq("merchants.is_test", false)
       .order("name")
       .range(from, to)
       .then(({ data, count }) => {
@@ -105,7 +116,7 @@ export function BrowseShops() {
 
   function summaryLine(shopId: string): string {
     const summary = summaries.get(shopId);
-    if (!summary || (summary.categoryNames.length === 0 && summary.productNames.length === 0)) return "New shop — no products yet";
+    if (!summary || (summary.categoryNames.length === 0 && summary.productNames.length === 0)) return t("browseShops.newShopNoProducts");
     if (summary.categoryNames.length > 0) return summary.categoryNames.slice(0, 3).join(" · ");
     // Uncategorized products still exist — fall back to naming a few of
     // them rather than showing nothing, same reasoning as Storefront.tsx's
@@ -115,13 +126,13 @@ export function BrowseShops() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-1">Shops</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Browse every shop on Tolo.</p>
+      <h1 className="text-xl font-bold mb-1">{t("nav.shops")}</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{t("browseShops.subtitle")}</p>
 
       {shops === null ? (
         <SkeletonRows count={4} />
       ) : shops.length === 0 ? (
-        <EmptyState icon={Store} title="No shops are open right now" description="Check back again soon." />
+        <EmptyState icon={Store} title={t("browseShops.noShopsTitle")} description={t("browseShops.noShopsDescription")} />
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">

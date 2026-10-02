@@ -2,19 +2,19 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, Badge, DataTable, fetchAllRows, formatCurrency, formatOrderNumber, Pagination, SkeletonRows, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, DataTable, fetchAllRows, formatCurrency, formatOrderNumber, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
 import type { OrderRow, UnacknowledgedMerchantOrderRow } from "../types";
 
-const STATUS_LABELS: Record<string, string> = {
-  new: "New order",
-  accepted: "Order received",
-  processing: "Preparing",
-  ready_for_pickup: "Ready for pickup",
-  picked_up: "Picked up",
-  delivered: "Delivered",
-  completed: "Completed",
-  cancelled: "Cancelled",
-  rejected: "Rejected",
+const STATUS_KEYS: Record<string, string> = {
+  new: "orderStatus.new",
+  accepted: "orderStatus.accepted",
+  processing: "orderStatus.processing",
+  ready_for_pickup: "orderStatus.ready_for_pickup",
+  picked_up: "orderStatus.picked_up",
+  delivered: "orderStatus.delivered",
+  completed: "orderStatus.completed",
+  cancelled: "orderStatus.cancelled",
+  rejected: "orderStatus.rejected",
 };
 
 // Same field the escalate_unacknowledged_orders() cron job reads
@@ -43,6 +43,7 @@ const UNACKNOWLEDGED_SELECT = `id, merchant_id, status, subtotal, notification_s
    orders ( id, order_number, total, payment_status, created_at )`;
 
 export function Orders() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const onlyUnacknowledged = searchParams.get("filter") === "unacknowledged";
   // Set from a support ticket's "linked order" reference (Support.tsx) —
@@ -132,7 +133,7 @@ export function Orders() {
           merchant_order_id: mo.id,
           order_id: mo.orders?.id ?? "",
           order_number: mo.orders?.order_number ? formatOrderNumber(mo.orders.order_number) : "",
-          merchant: mo.merchants?.business_name ?? "Merchant",
+          merchant: mo.merchants?.business_name ?? t("adminOrders.merchantFallback"),
           subtotal_etb: mo.subtotal,
           notification_sent_at: mo.notification_sent_at ?? "",
           escalated: Boolean(mo.escalated_at),
@@ -153,8 +154,8 @@ export function Orders() {
         total_etb: o.total,
         payment_status: o.payment_status,
         created_at: o.created_at,
-        merchants: o.merchant_orders.map((mo) => mo.merchants?.business_name ?? "Merchant").join(" | "),
-        merchant_statuses: o.merchant_orders.map((mo) => STATUS_LABELS[mo.status] ?? mo.status).join(" | "),
+        merchants: o.merchant_orders.map((mo) => mo.merchants?.business_name ?? t("adminOrders.merchantFallback")).join(" | "),
+        merchant_statuses: o.merchant_orders.map((mo) => (STATUS_KEYS[mo.status] ? t(STATUS_KEYS[mo.status]) : mo.status)).join(" | "),
         has_unacknowledged: o.merchant_orders.some((mo) => isUnacknowledged(mo, escalateAfterMinutes)),
       })),
     );
@@ -163,14 +164,15 @@ export function Orders() {
   const unacknowledgedColumns: DataTableColumn<UnacknowledgedMerchantOrderRow>[] = [
     {
       key: "order",
-      header: "Order",
+      header: t("adminOrders.orderColumn"),
       render: (mo) => (
         <div>
           <p className="font-medium text-sm">
-            {mo.merchants?.business_name ?? "Merchant"} — Order {mo.orders?.order_number ? formatOrderNumber(mo.orders.order_number) : `#${mo.id.slice(0, 8)}`}
+            {mo.merchants?.business_name ?? t("adminOrders.merchantFallback")} —{" "}
+            {mo.orders?.order_number ? t("orders.orderLabel", { orderNumber: formatOrderNumber(mo.orders.order_number) }) : `#${mo.id.slice(0, 8)}`}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {mo.notification_sent_at ? `Notified ${new Date(mo.notification_sent_at).toLocaleString()}` : ""} · {formatCurrency(mo.subtotal)}
+            {mo.notification_sent_at ? t("adminOrders.notifiedAt", { time: new Date(mo.notification_sent_at).toLocaleString() }) : ""} · {formatCurrency(mo.subtotal)}
           </p>
         </div>
       ),
@@ -181,7 +183,7 @@ export function Orders() {
     {
       key: "status",
       header: "",
-      render: (mo) => <Badge variant={mo.escalated_at ? "warning" : "danger"}>{mo.escalated_at ? "ESCALATED" : "UNACKNOWLEDGED"}</Badge>,
+      render: (mo) => <Badge variant={mo.escalated_at ? "warning" : "danger"}>{mo.escalated_at ? t("adminOrders.escalated") : t("adminOrders.unacknowledged")}</Badge>,
       csvValue: (mo) => (mo.escalated_at ? "escalated" : "unacknowledged"),
     },
   ];
@@ -189,10 +191,10 @@ export function Orders() {
   const orderColumns: DataTableColumn<OrderRow>[] = [
     {
       key: "order",
-      header: "Order",
+      header: t("adminOrders.orderColumn"),
       render: (o) => (
         <div>
-          <p className="font-medium text-sm">Order {formatOrderNumber(o.order_number)}</p>
+          <p className="font-medium text-sm">{t("orders.orderLabel", { orderNumber: formatOrderNumber(o.order_number) })}</p>
           <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(o.created_at).toLocaleString()}</p>
           <div className="flex gap-1.5 flex-wrap mt-1">
             {o.merchant_orders.map((mo) => (
@@ -200,8 +202,8 @@ export function Orders() {
                 key={mo.id}
                 variant={mo.escalated_at ? "warning" : isUnacknowledged(mo, escalateAfterMinutes) ? "danger" : "default"}
               >
-                {mo.merchants?.business_name ?? "Merchant"}: {STATUS_LABELS[mo.status] ?? mo.status}
-                {mo.escalated_at ? " — ESCALATED" : isUnacknowledged(mo, escalateAfterMinutes) ? " — UNACKNOWLEDGED" : ""}
+                {mo.merchants?.business_name ?? t("adminOrders.merchantFallback")}: {STATUS_KEYS[mo.status] ? t(STATUS_KEYS[mo.status]) : mo.status}
+                {mo.escalated_at ? t("adminOrders.escalatedSuffix") : isUnacknowledged(mo, escalateAfterMinutes) ? t("adminOrders.unacknowledgedSuffix") : ""}
               </Badge>
             ))}
           </div>
@@ -213,7 +215,7 @@ export function Orders() {
     },
     {
       key: "total",
-      header: "Total",
+      header: t("adminOrders.totalColumn"),
       render: (o) => (
         <div className="text-right">
           <p className="font-semibold text-sm">{formatCurrency(o.total)}</p>
@@ -234,13 +236,13 @@ export function Orders() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold dark:text-gray-100">
-          {linkedOrderId ? "Order (from support ticket)" : onlyUnacknowledged ? "Unacknowledged Orders" : "All Orders"}
+          {linkedOrderId ? t("adminOrders.fromSupportTicket") : onlyUnacknowledged ? t("adminOrders.unacknowledgedOrdersTitle") : t("adminOrders.allOrdersTitle")}
         </h1>
       </div>
 
       {onlyUnacknowledged ? (
         unacknowledgedRows.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400">Nothing here.</p>
+          <p className="text-gray-500 dark:text-gray-400">{t("adminOrders.nothingHere")}</p>
         ) : (
           <>
             <DataTable
@@ -256,7 +258,7 @@ export function Orders() {
           </>
         )
       ) : orders.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400">Nothing here.</p>
+        <p className="text-gray-500 dark:text-gray-400">{t("adminOrders.nothingHere")}</p>
       ) : (
         <>
           <DataTable

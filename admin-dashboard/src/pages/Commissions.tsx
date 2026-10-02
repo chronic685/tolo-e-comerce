@@ -1,9 +1,21 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, Pagination, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Badge,
+  Button,
+  DataTable,
+  Pagination,
+  toast,
+  totalPagesFor,
+  usePagination,
+  useTranslation,
+  type DataTableColumn,
+} from "@tolo/ui";
 import type { Category, CommissionRule, Merchant } from "../types";
 
 export function Commissions() {
+  const { t } = useTranslation();
   const [rules, setRules] = useState<CommissionRule[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
@@ -49,7 +61,7 @@ export function Commissions() {
       ? await supabase.from("commission_rules").update(payload).eq("id", editingId).select().single()
       : await supabase.from("commission_rules").insert(payload).select().single();
     if (error) {
-      toast.error(error.message);
+      toast.error(t("commissions.saveError"));
       return;
     }
     if (editingId) setRules((prev) => prev.map((r) => (r.id === editingId ? data : r)));
@@ -78,7 +90,7 @@ export function Commissions() {
   }
 
   function labelFor(r: CommissionRule) {
-    if (r.scope_type === "platform") return "Platform default";
+    if (r.scope_type === "platform") return t("commissions.platformDefault");
     if (r.scope_type === "category") return categories.find((c) => c.id === r.scope_id)?.name ?? r.scope_id;
     if (r.scope_type === "merchant") return merchants.find((m) => m.id === r.scope_id)?.business_name ?? r.scope_id;
     return r.scope_id;
@@ -87,7 +99,7 @@ export function Commissions() {
   const columns: DataTableColumn<CommissionRule>[] = [
     {
       key: "scope",
-      header: "Scope",
+      header: t("commissions.scope"),
       render: (r) => (
         <span>
           <span className="text-xs uppercase text-gray-400 dark:text-gray-500 mr-2">{r.scope_type}</span>
@@ -99,7 +111,7 @@ export function Commissions() {
     },
     {
       key: "rate",
-      header: "Rate",
+      header: t("commissions.rateColumn"),
       render: (r) => <span className="font-semibold text-sm">{r.rate_percent}%</span>,
       sortValue: (r) => r.rate_percent,
       csvValue: (r) => r.rate_percent,
@@ -107,8 +119,8 @@ export function Commissions() {
     },
     {
       key: "status",
-      header: "Status",
-      render: (r) => <Badge variant={r.is_active ? "success" : "default"}>{r.is_active ? "Active" : "Inactive"}</Badge>,
+      header: t("common.status"),
+      render: (r) => <Badge variant={r.is_active ? "success" : "default"}>{r.is_active ? t("common.active") : t("common.inactive")}</Badge>,
       csvValue: (r) => (r.is_active ? "active" : "inactive"),
     },
     {
@@ -117,10 +129,10 @@ export function Commissions() {
       render: (r) => (
         <div className="flex items-center gap-2 justify-end">
           <Button size="sm" variant="outline" onClick={() => startEdit(r)}>
-            Edit
+            {t("common.edit")}
           </Button>
           <Button size="sm" variant="outline" onClick={() => toggleActive(r)}>
-            {r.is_active ? "Deactivate" : "Activate"}
+            {r.is_active ? t("banners.deactivate") : t("banners.activate")}
           </Button>
         </div>
       ),
@@ -129,22 +141,24 @@ export function Commissions() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Commission Rules</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">{t("commissions.title")}</h1>
 
       <form onSubmit={handleSubmit} className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 flex gap-2 items-end flex-wrap">
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Scope</label>
+          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("commissions.scope")}</label>
           <select value={scopeType} onChange={(e) => setScopeType(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100">
-            <option value="platform">Platform</option>
-            <option value="category">Category</option>
-            <option value="merchant">Merchant</option>
+            <option value="platform">{t("commissions.scopePlatform")}</option>
+            <option value="category">{t("commissions.scopeCategory")}</option>
+            <option value="merchant">{t("commissions.scopeMerchant")}</option>
           </select>
         </div>
         {scopeType !== "platform" && (
           <div>
-            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{scopeType === "category" ? "Category" : "Merchant"}</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">
+              {scopeType === "category" ? t("commissions.scopeCategory") : t("commissions.scopeMerchant")}
+            </label>
             <select value={scopeId} onChange={(e) => setScopeId(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100">
-              <option value="">Select...</option>
+              <option value="">{t("commissions.selectEllipsis")}</option>
               {(scopeType === "category" ? categories : merchants).map((item) => (
                 <option key={item.id} value={item.id}>
                   {"name" in item ? item.name : item.business_name}
@@ -154,7 +168,7 @@ export function Commissions() {
           </div>
         )}
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Rate (%)</label>
+          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("commissions.rateLabel")}</label>
           <input
             type="number"
             step="0.1"
@@ -164,11 +178,11 @@ export function Commissions() {
           />
         </div>
         <button type="submit" className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy">
-          {editingId ? "Save changes" : "Add rule"}
+          {editingId ? t("commissions.saveChanges") : t("commissions.addRule")}
         </button>
         {editingId && (
           <button type="button" onClick={resetForm} className="text-sm text-gray-500 dark:text-gray-400 px-2 py-2">
-            Cancel
+            {t("common.cancel")}
           </button>
         )}
       </form>

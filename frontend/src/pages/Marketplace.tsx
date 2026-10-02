@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { PackageSearch, Search, SlidersHorizontal, Store as StoreIcon } from "lucide-react";
-import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Input, Pagination, Sheet, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Input, Pagination, Sheet, SkeletonRows, totalPagesFor, usePagination, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { fetchMerchantRatings } from "../lib/merchantRatings";
 import { ProductCard } from "../components/ProductCard";
@@ -18,12 +18,20 @@ interface Banner {
   title: string | null;
 }
 
+// merchants!inner ( is_test ) lets every query below exclude QA/CI fixture
+// merchants (migration 0079) -- their products deliberately carry
+// status: 'published' too, so nothing else here would tell them apart
+// from a real listing. The `!inner` hint is required for the
+// merchants.is_test filter below to actually exclude a matching row --
+// without it, PostgREST leaves `products` as a left join and a failing
+// filter just nulls the merchants embed instead (see BrowseShops.tsx).
 const PRODUCT_SELECT = `
   id, merchant_id, store_id, category_id, name, slug, description, base_price, discount_price, status,
   customer_price:products_customer_price,
   product_variants ( id, sku, attributes, price, discount_price, is_default, stock_status:variant_stock_status, stock_remaining:variant_stock_remaining ),
   product_images ( id, url, is_primary, variant_id ),
-  stores ( name, slug )
+  stores ( name, slug ),
+  merchants!inner ( is_test )
 `;
 
 interface ShopHit {
@@ -32,28 +40,37 @@ interface ShopHit {
   slug: string;
   logo_url: string | null;
   status: string;
-  merchants: { status: string } | null;
+  merchants: { status: string; is_test: boolean } | null;
 }
 
-// Same "open" definition BrowseShops.tsx/Storefront.tsx use.
+// Same "open" definition BrowseShops.tsx/Storefront.tsx use, plus
+// excluding a QA/CI fixture merchant the same way PRODUCT_SELECT does.
 function isStoreOpen(store: ShopHit): boolean {
-  return store.status === "active" && (store.merchants?.status === "active" || store.merchants?.status === "approved");
+  return (
+    store.status === "active" &&
+    (store.merchants?.status === "active" || store.merchants?.status === "approved") &&
+    store.merchants?.is_test !== true
+  );
 }
 
 type SortOption = "newest" | "price_asc" | "price_desc" | "rating_desc";
 
-const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: "newest", label: "Newest" },
-  { value: "price_asc", label: "Price: low to high" },
-  { value: "price_desc", label: "Price: high to low" },
-  { value: "rating_desc", label: "Highest rated" },
-];
+const SORT_OPTION_VALUES: SortOption[] = ["newest", "price_asc", "price_desc", "rating_desc"];
+// t()'s translation keys for each -- resolved inside the component, since
+// module scope has no access to the active locale.
+const SORT_OPTION_KEYS: Record<SortOption, string> = {
+  newest: "marketplace.sort.newest",
+  price_asc: "marketplace.sort.priceAsc",
+  price_desc: "marketplace.sort.priceDesc",
+  rating_desc: "marketplace.sort.ratingDesc",
+};
 
 function isSortOption(value: string | null): value is SortOption {
-  return SORT_OPTIONS.some((o) => o.value === value);
+  return (SORT_OPTION_VALUES as string[]).includes(value ?? "");
 }
 
 export function Marketplace() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.get("q") ?? "";
   const activeCategory = searchParams.get("category");
@@ -115,7 +132,11 @@ export function Marketplace() {
 
   useEffect(() => {
     setLoading(true);
-    let query = supabase.from("products").select(PRODUCT_SELECT, { count: "exact" }).eq("status", "published");
+    let query = supabase
+      .from("products")
+      .select(PRODUCT_SELECT, { count: "exact" })
+      .eq("status", "published")
+      .eq("merchants.is_test", false);
 
     if (activeCategory) query = query.eq("category_id", activeCategory);
     if (search.trim()) query = query.ilike("name", `%${search.trim()}%`);
@@ -150,12 +171,13 @@ export function Marketplace() {
       .select(PRODUCT_SELECT)
       .eq("status", "published")
       .eq("is_featured", true)
+      .eq("merchants.is_test", false)
       .limit(10)
       .then(({ data }) => setFeatured((data as unknown as Product[]) ?? []));
 
     supabase
       .from("stores")
-      .select("id, name, slug, logo_url, status, merchants ( status )")
+      .select("id, name, slug, logo_url, status, merchants ( status, is_test )")
       .limit(12)
       .then(({ data }) => setShops(((data as unknown as ShopHit[]) ?? []).filter(isStoreOpen)));
   }, [hasActiveFilters]);
@@ -169,7 +191,7 @@ export function Marketplace() {
     }
     supabase
       .from("stores")
-      .select("id, name, slug, logo_url, status, merchants ( status )")
+      .select("id, name, slug, logo_url, status, merchants ( status, is_test )")
       .ilike("name", `%${search.trim()}%`)
       .limit(6)
       .then(({ data }) => setShopMatches(((data as unknown as ShopHit[]) ?? []).filter(isStoreOpen)));
@@ -210,7 +232,7 @@ export function Marketplace() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
           <Input
             type="search"
-            placeholder="Search products and shops..."
+            placeholder={t("marketplace.searchPlaceholder")}
             value={search}
             onChange={(e) => updateParam("q", e.target.value)}
             className="pl-9"
@@ -218,7 +240,7 @@ export function Marketplace() {
         </div>
         <Button variant="outline" onClick={() => setFilterSheetOpen(true)} className="flex-shrink-0">
           <SlidersHorizontal className="w-4 h-4" />
-          <span className="hidden sm:inline">Filters</span>
+          <span className="hidden sm:inline">{t("marketplace.filters")}</span>
         </Button>
       </div>
 
@@ -229,7 +251,7 @@ export function Marketplace() {
             activeCategory === null ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark"
           }`}
         >
-          All
+          {t("marketplace.allCategories")}
         </button>
         {categories.map((c) => (
           <button
@@ -246,14 +268,14 @@ export function Marketplace() {
 
       {!hasActiveFilters && (
         <>
-          <ScrollRow title="Shop by category">
+          <ScrollRow title={t("marketplace.shopByCategory")}>
             {categories.map((c) => (
               <CategoryTile key={c.id} name={c.name} imageUrl={c.image_url} onClick={() => updateParam("category", c.id)} />
             ))}
           </ScrollRow>
 
           {featured && featured.length > 0 && (
-            <ScrollRow title="Featured products">
+            <ScrollRow title={t("marketplace.featuredProducts")}>
               {featured.map((p) => (
                 <ProductCard key={p.id} product={p} rating={ratings.get(p.merchant_id)} className="w-40 flex-shrink-0" />
               ))}
@@ -263,19 +285,19 @@ export function Marketplace() {
           <RecentlyViewedRow />
 
           {shops && shops.length > 0 && (
-            <ScrollRow title="Discover shops" seeAllTo="/stores">
+            <ScrollRow title={t("marketplace.discoverShops")} seeAllTo="/stores">
               {shops.map((s) => (
                 <ShopCard key={s.id} slug={s.slug} name={s.name} photoUrl={s.logo_url} subtitle="" className="w-40 flex-shrink-0" />
               ))}
             </ScrollRow>
           )}
 
-          <h2 className="font-semibold text-base mb-2">All products</h2>
+          <h2 className="font-semibold text-base mb-2">{t("marketplace.allProducts")}</h2>
         </>
       )}
 
       {hasActiveFilters && shopMatches.length > 0 && (
-        <ScrollRow title="Shops">
+        <ScrollRow title={t("nav.shops")}>
           {shopMatches.map((s) => (
             <ShopCard key={s.id} slug={s.slug} name={s.name} photoUrl={s.logo_url} subtitle="" className="w-40 flex-shrink-0" />
           ))}
@@ -285,7 +307,11 @@ export function Marketplace() {
       {loading ? (
         <SkeletonRows count={4} />
       ) : products.length === 0 ? (
-        <EmptyState icon={hasActiveFilters ? PackageSearch : StoreIcon} title="No products found" description="Try adjusting your search or filters." />
+        <EmptyState
+          icon={hasActiveFilters ? PackageSearch : StoreIcon}
+          title={t("marketplace.noProductsTitle")}
+          description={t("marketplace.noProductsDescription")}
+        />
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -302,36 +328,42 @@ export function Marketplace() {
       <Sheet
         open={filterSheetOpen}
         onClose={() => setFilterSheetOpen(false)}
-        title="Filters & sort"
+        title={t("marketplace.filtersAndSort")}
         footer={
           <Button className="w-full" onClick={() => setFilterSheetOpen(false)}>
-            Show results
+            {t("marketplace.showResults")}
           </Button>
         }
       >
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Sort by</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("marketplace.sortBy")}</label>
             <select
               value={sort}
               onChange={(e) => updateParam("sort", e.target.value)}
               className="w-full border rounded-md px-3 py-2 text-sm"
             >
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
+              {SORT_OPTION_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {t(SORT_OPTION_KEYS[value])}
                 </option>
               ))}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Min price</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("marketplace.minPrice")}</label>
               <Input type="number" min={0} placeholder="0" value={minPrice} onChange={(e) => updateParam("min_price", e.target.value)} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Max price</label>
-              <Input type="number" min={0} placeholder="Any" value={maxPrice} onChange={(e) => updateParam("max_price", e.target.value)} />
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("marketplace.maxPrice")}</label>
+              <Input
+                type="number"
+                min={0}
+                placeholder={t("marketplace.anyPrice")}
+                value={maxPrice}
+                onChange={(e) => updateParam("max_price", e.target.value)}
+              />
             </div>
           </div>
           {(minPrice || maxPrice || sort !== "newest") && (
@@ -345,7 +377,7 @@ export function Marketplace() {
               }}
               className="text-xs text-navy font-medium"
             >
-              Clear filters
+              {t("marketplace.clearFilters")}
             </button>
           )}
         </div>

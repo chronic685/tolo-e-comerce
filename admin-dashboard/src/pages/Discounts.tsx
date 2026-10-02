@@ -1,6 +1,19 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, exportToCsv, fetchAllRows, Pagination, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Badge,
+  Button,
+  DataTable,
+  exportToCsv,
+  fetchAllRows,
+  Pagination,
+  toast,
+  totalPagesFor,
+  usePagination,
+  useTranslation,
+  type DataTableColumn,
+} from "@tolo/ui";
 import type { Category, DiscountRule, Merchant } from "../types";
 
 const emptyForm = {
@@ -23,6 +36,7 @@ const emptyForm = {
 };
 
 export function Discounts() {
+  const { t } = useTranslation();
   const [rules, setRules] = useState<DiscountRule[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
@@ -80,7 +94,7 @@ export function Discounts() {
   }
 
   function labelFor(r: DiscountRule) {
-    if (r.scope_type === "platform") return "Whole platform";
+    if (r.scope_type === "platform") return t("discounts.wholePlatform");
     if (r.scope_type === "category") return categories.find((c) => c.id === r.scope_id)?.name ?? r.scope_id;
     if (r.scope_type === "merchant") return merchants.find((m) => m.id === r.scope_id)?.business_name ?? r.scope_id;
     return r.scope_id;
@@ -136,11 +150,11 @@ export function Discounts() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) {
-      toast.error("Name is required.");
+      toast.error(t("discounts.nameRequired"));
       return;
     }
     if (form.scope_type !== "platform" && !form.scope_id) {
-      toast.error("Select a merchant or category for this scope.");
+      toast.error(t("discounts.scopeRequired"));
       return;
     }
     setSaving(true);
@@ -170,7 +184,7 @@ export function Discounts() {
 
     setSaving(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(t("discounts.saveError"));
       return;
     }
     if (editingId) {
@@ -211,7 +225,7 @@ export function Discounts() {
   const columns: DataTableColumn<DiscountRule>[] = [
     {
       key: "name",
-      header: "Rule",
+      header: t("discounts.ruleColumn"),
       render: (r) => (
         <div>
           <p className="text-sm font-medium">
@@ -219,9 +233,13 @@ export function Discounts() {
             {r.code && <span className="ml-2 text-xs font-mono bg-navy-50 dark:bg-navy-light/20 text-navy dark:text-navy-light px-1.5 py-0.5 rounded">{r.code}</span>}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {labelFor(r)} · {r.discount_kind === "percent" ? `${r.amount}% off` : `${r.amount} ETB off`}
-            {r.min_order_value > 0 ? ` · min ${r.min_order_value} ETB` : ""} · funded by {r.funded_by}
-            {r.usage_limit ? ` · used ${r.usage_count}/${r.usage_limit}` : ` · used ${r.usage_count}`}
+            {labelFor(r)} ·{" "}
+            {r.discount_kind === "percent" ? t("promotions.percentOffLabel", { amount: r.amount }) : t("promotions.amountOffLabel", { amount: r.amount })}
+            {r.min_order_value > 0 ? ` · ${t("discounts.minSuffix", { amount: r.min_order_value })}` : ""} ·{" "}
+            {t("discounts.fundedBySuffix", { fundedBy: r.funded_by })} ·{" "}
+            {r.usage_limit
+              ? t("discounts.usedWithLimit", { count: r.usage_count, limit: r.usage_limit })
+              : t("discounts.usedNoLimit", { count: r.usage_count })}
           </p>
         </div>
       ),
@@ -231,8 +249,8 @@ export function Discounts() {
     },
     {
       key: "status",
-      header: "Status",
-      render: (r) => <Badge variant={r.is_active ? "success" : "default"}>{r.is_active ? "Active" : "Inactive"}</Badge>,
+      header: t("common.status"),
+      render: (r) => <Badge variant={r.is_active ? "success" : "default"}>{r.is_active ? t("common.active") : t("common.inactive")}</Badge>,
       csvValue: (r) => (r.is_active ? "active" : "inactive"),
     },
     {
@@ -241,10 +259,10 @@ export function Discounts() {
       render: (r) => (
         <div className="flex items-center gap-2 justify-end">
           <Button size="sm" variant="outline" onClick={() => startEdit(r)}>
-            Edit
+            {t("common.edit")}
           </Button>
           <Button size="sm" variant="outline" onClick={() => toggleActive(r)}>
-            {r.is_active ? "Deactivate" : "Activate"}
+            {r.is_active ? t("banners.deactivate") : t("banners.activate")}
           </Button>
         </div>
       ),
@@ -254,9 +272,9 @@ export function Discounts() {
   return (
     <div className="max-w-4xl">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold dark:text-gray-100">Discounts &amp; Promotions</h1>
+        <h1 className="text-xl font-bold dark:text-gray-100">{t("discounts.title")}</h1>
         <label className="flex items-center gap-2 text-sm bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg px-3 py-2">
-          <span className="font-medium dark:text-gray-200">Discounts platform-wide</span>
+          <span className="font-medium dark:text-gray-200">{t("discounts.platformWide")}</span>
           <button
             type="button"
             onClick={toggleMasterSwitch}
@@ -266,13 +284,13 @@ export function Discounts() {
               className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${discountsEnabled ? "translate-x-4" : "translate-x-0.5"}`}
             />
           </button>
-          <span className="text-xs text-gray-500 dark:text-gray-400">{discountsEnabled ? "ON" : "OFF"}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{discountsEnabled ? t("discounts.on") : t("discounts.off")}</span>
         </label>
       </div>
 
       {!discountsEnabled && (
         <p className="text-xs bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-300 rounded-md px-3 py-2 mb-4">
-          Discounts are turned off platform-wide — no rule below will apply at checkout until this is switched back on.
+          {t("discounts.disabledNotice")}
         </p>
       )}
 
@@ -280,59 +298,59 @@ export function Discounts() {
         onClick={() => (showForm ? cancelForm() : setShowForm(true))}
         className="bg-navy dark:bg-navy-light text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark dark:hover:bg-navy mb-4"
       >
-        {showForm ? "Cancel" : "+ New discount rule"}
+        {showForm ? t("common.cancel") : t("discounts.newRule")}
       </button>
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 space-y-3">
           <input
-            placeholder="Name (e.g. First Order 10% Off)"
+            placeholder={t("discounts.namePlaceholder")}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
           <input
-            placeholder="Description (optional)"
+            placeholder={t("discounts.descriptionPlaceholder")}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
           <div>
             <input
-              placeholder="Promo code (optional — leave blank for an automatic discount)"
+              placeholder={t("discounts.promoCodePlaceholder")}
               value={form.code}
               onChange={(e) => setForm({ ...form, code: e.target.value })}
               className="w-full border rounded-md px-3 py-2 text-sm uppercase placeholder:normal-case dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
             />
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              {form.code.trim()
-                ? "Only applies when a customer types this code at checkout."
-                : "No code — applies automatically to every eligible cart, same as today."}
+              {form.code.trim() ? t("discounts.codeAppliesNote") : t("discounts.noCodeNote")}
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Applies to</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("promotions.appliesTo")}</label>
               <select
                 value={form.scope_type}
                 onChange={(e) => setForm({ ...form, scope_type: e.target.value as DiscountRule["scope_type"], scope_id: "" })}
                 className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               >
-                <option value="platform">Whole platform</option>
-                <option value="merchant">Specific merchant</option>
-                <option value="category">Specific category</option>
+                <option value="platform">{t("discounts.wholePlatform")}</option>
+                <option value="merchant">{t("discounts.specificMerchant")}</option>
+                <option value="category">{t("discounts.specificCategory")}</option>
               </select>
             </div>
             {form.scope_type !== "platform" && (
               <div>
-                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{form.scope_type === "merchant" ? "Merchant" : "Category"}</label>
+                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">
+                  {form.scope_type === "merchant" ? t("discounts.appliesToMerchant") : t("discounts.appliesToCategory")}
+                </label>
                 <select
                   value={form.scope_id}
                   onChange={(e) => setForm({ ...form, scope_id: e.target.value })}
                   className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
                 >
-                  <option value="">Select...</option>
+                  <option value="">{t("commissions.selectEllipsis")}</option>
                   {(form.scope_type === "merchant" ? merchants : categories).map((item) => (
                     <option key={item.id} value={item.id}>
                       {"business_name" in item ? item.business_name : item.name}
@@ -345,18 +363,20 @@ export function Discounts() {
 
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Type</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("discounts.type")}</label>
               <select
                 value={form.discount_kind}
                 onChange={(e) => setForm({ ...form, discount_kind: e.target.value as DiscountRule["discount_kind"] })}
                 className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               >
-                <option value="percent">Percent off</option>
-                <option value="fixed">Fixed ETB amount</option>
+                <option value="percent">{t("discounts.percentOff")}</option>
+                <option value="fixed">{t("discounts.fixedEtbAmount")}</option>
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{form.discount_kind === "percent" ? "Percent" : "Amount (ETB)"}</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">
+                {form.discount_kind === "percent" ? t("discounts.percent") : t("discounts.amountEtb")}
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -367,7 +387,7 @@ export function Discounts() {
             </div>
             {form.discount_kind === "percent" && (
               <div>
-                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Max discount (ETB, optional)</label>
+                <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("discounts.maxDiscountOptional")}</label>
                 <input
                   type="number"
                   step="0.01"
@@ -381,7 +401,7 @@ export function Discounts() {
 
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Min order value (ETB)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("discounts.minOrderValue")}</label>
               <input
                 type="number"
                 step="0.01"
@@ -391,7 +411,7 @@ export function Discounts() {
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Total usage limit (optional)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("discounts.totalUsageLimit")}</label>
               <input
                 type="number"
                 value={form.usage_limit}
@@ -400,7 +420,7 @@ export function Discounts() {
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Per-customer limit (optional)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("discounts.perCustomerLimit")}</label>
               <input
                 type="number"
                 value={form.per_customer_limit}
@@ -412,7 +432,7 @@ export function Discounts() {
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Starts (optional)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("promotions.starts")}</label>
               <input
                 type="datetime-local"
                 value={form.starts_at}
@@ -421,7 +441,7 @@ export function Discounts() {
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Ends (optional)</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("promotions.ends")}</label>
               <input
                 type="datetime-local"
                 value={form.ends_at}
@@ -437,25 +457,25 @@ export function Discounts() {
               checked={form.first_order_only}
               onChange={(e) => setForm({ ...form, first_order_only: e.target.checked })}
             />
-            First order only
+            {t("discounts.firstOrderOnly")}
           </label>
 
           <div className="pt-2 border-t dark:border-white/10">
-            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Who funds this discount?</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("discounts.whoFunds")}</label>
             <div className="grid grid-cols-3 gap-2">
               <select
                 value={form.funded_by}
                 onChange={(e) => setForm({ ...form, funded_by: e.target.value as DiscountRule["funded_by"] })}
                 className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               >
-                <option value="tolo">Tolo absorbs it</option>
-                <option value="merchant">Merchant absorbs it</option>
-                <option value="shared">Shared</option>
+                <option value="tolo">{t("discounts.toloAbsorbs")}</option>
+                <option value="merchant">{t("discounts.merchantAbsorbs")}</option>
+                <option value="shared">{t("discounts.shared")}</option>
               </select>
               {form.funded_by === "shared" && (
                 <input
                   type="number"
-                  placeholder="Tolo's share %"
+                  placeholder={t("discounts.toloSharePercent")}
                   value={form.tolo_share_percent}
                   onChange={(e) => setForm({ ...form, tolo_share_percent: e.target.value })}
                   className="w-full border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
@@ -469,7 +489,7 @@ export function Discounts() {
             disabled={saving}
             className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60"
           >
-            {saving ? "Saving..." : editingId ? "Save changes" : "Create discount"}
+            {saving ? t("discounts.saving") : editingId ? t("discounts.saveChanges") : t("discounts.createDiscount")}
           </button>
         </form>
       )}
@@ -479,11 +499,11 @@ export function Discounts() {
         columns={columns}
         rows={rules}
         getRowId={(r) => r.id}
-        emptyMessage="No discount rules yet."
+        emptyMessage={t("discounts.noRulesYet")}
         onExportAll={handleExport}
         bulkActions={[
-          { label: "Activate", onAction: (rows) => bulkToggle(rows, true) },
-          { label: "Deactivate", onAction: (rows) => bulkToggle(rows, false), variant: "outline" },
+          { label: t("banners.activate"), onAction: (rows) => bulkToggle(rows, true) },
+          { label: t("banners.deactivate"), onAction: (rows) => bulkToggle(rows, false), variant: "outline" },
         ]}
       />
       <div className="mt-4">

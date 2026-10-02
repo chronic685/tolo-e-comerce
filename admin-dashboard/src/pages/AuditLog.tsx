@@ -1,12 +1,19 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, DataTable, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, DataTable, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
 import type { AuditLogEntry } from "../types";
 
 const ENTITY_FILTERS = ["all", "system_settings", "commission_rules", "discount_rules", "financial_adjustments", "merchants", "products", "profiles"];
 
+const ACTION_SENTENCE_KEYS: Record<string, string> = {
+  insert: "auditLog.sentence.insert",
+  update: "auditLog.sentence.update",
+  delete: "auditLog.sentence.delete",
+};
+
 export function AuditLog() {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [entityFilter, setEntityFilter] = useState("all");
@@ -57,16 +64,26 @@ export function AuditLog() {
     );
   }
 
+  function entityLabel(entityType: string): string {
+    const key = `auditEntity.${entityType}`;
+    const label = t(key);
+    return label === key ? entityType.replace(/_/g, " ") : label;
+  }
+
   const columns: DataTableColumn<AuditLogEntry>[] = [
     {
       key: "summary",
-      header: "Entry",
+      header: t("auditLog.entryColumn"),
       render: (e) => (
         <button onClick={() => setExpandedId(expandedId === e.id ? null : e.id)} className="text-left w-full">
           <p className="text-sm">
-            <span className="font-medium">{e.profiles?.full_name ?? "System"}</span>{" "}
-            <span className="text-gray-500 dark:text-gray-400 capitalize">{e.action}d</span>{" "}
-            <span className="font-medium capitalize">{e.entity_type.replace(/_/g, " ")}</span>
+            <span className="font-medium">
+              {t(ACTION_SENTENCE_KEYS[e.action] ?? "auditLog.sentence.other", {
+                actor: e.profiles?.full_name ?? t("auditLog.system"),
+                action: e.action,
+                entity: entityLabel(e.entity_type),
+              })}
+            </span>
             {e.metadata?.key ? <span className="text-gray-500 dark:text-gray-400"> ({String(e.metadata.key)})</span> : null}
           </p>
           {expandedId === e.id && (
@@ -81,7 +98,7 @@ export function AuditLog() {
     },
     {
       key: "created_at",
-      header: "Date",
+      header: t("auditLog.dateColumn"),
       render: (e) => <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{new Date(e.created_at).toLocaleString()}</span>,
       sortValue: (e) => e.created_at,
       csvValue: (e) => e.created_at,
@@ -90,7 +107,7 @@ export function AuditLog() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Audit Log</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">{t("auditLog.title")}</h1>
 
       <div className="flex gap-2 mb-4 flex-wrap">
         {ENTITY_FILTERS.map((f) => (
@@ -101,7 +118,7 @@ export function AuditLog() {
               entityFilter === f ? "bg-navy text-white border-navy dark:bg-navy-light dark:border-navy-light" : "bg-white dark:bg-navy-dark dark:border-white/20 dark:text-gray-300"
             }`}
           >
-            {f.replace(/_/g, " ")}
+            {t(`auditEntity.${f}`)}
           </button>
         ))}
       </div>
@@ -109,7 +126,7 @@ export function AuditLog() {
       {loading ? (
         <SkeletonRows />
       ) : entries.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400">No matching audit entries.</p>
+        <p className="text-gray-500 dark:text-gray-400">{t("auditLog.noEntries")}</p>
       ) : (
         <>
           <DataTable storageKey="admin.auditLog" columns={columns} rows={entries} getRowId={(e) => e.id} onExportAll={handleExport} />

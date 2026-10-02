@@ -2,11 +2,29 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 import type { Merchant, MerchantDocument } from "../types";
 
 const STATUS_FILTERS = ["all", "registered", "under_review", "active", "suspended", "rejected", "closed"];
+
+const MERCHANT_STATUS_KEYS: Record<string, string> = {
+  all: "merchantStatus.all",
+  registered: "merchantStatus.registered",
+  pending_verification: "merchantStatus.pending_verification",
+  under_review: "merchantStatus.under_review",
+  active: "merchantStatus.active",
+  suspended: "merchantStatus.suspended",
+  rejected: "merchantStatus.rejected",
+  closed: "merchantStatus.closed",
+};
+
+const DOC_STATUS_KEYS: Record<string, string> = {
+  uploaded: "docStatus.uploaded",
+  under_review: "docStatus.under_review",
+  verified: "docStatus.verified",
+  rejected: "docStatus.rejected",
+};
 
 const statusVariant: Record<string, "warning" | "info" | "success" | "danger" | "default"> = {
   registered: "warning",
@@ -27,6 +45,7 @@ const docStatusVariant: Record<string, "default" | "info" | "success" | "danger"
 };
 
 export function Merchants() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get("status") ?? "all";
@@ -162,7 +181,7 @@ export function Merchants() {
   const columns: DataTableColumn<Merchant>[] = [
     {
       key: "business",
-      header: "Merchant",
+      header: t("merchants.column"),
       render: (m) => (
         <div>
           <button className="text-left" onClick={() => toggleExpand(m)}>
@@ -171,60 +190,64 @@ export function Merchants() {
               {[m.business_category, m.business_subcategory].filter(Boolean).join(" · ") || "—"} ·{" "}
               {[m.city, m.sub_city].filter(Boolean).join(", ") || m.location || "—"}
             </p>
-            {m.status === "rejected" && m.rejection_reason && <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">Rejected: {m.rejection_reason}</p>}
-            {m.status === "suspended" && m.suspension_reason && <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">Suspended: {m.suspension_reason}</p>}
+            {m.status === "rejected" && m.rejection_reason && (
+              <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">{t("merchants.rejectedPrefix", { reason: m.rejection_reason })}</p>
+            )}
+            {m.status === "suspended" && m.suspension_reason && (
+              <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">{t("merchants.suspendedPrefix", { reason: m.suspension_reason })}</p>
+            )}
           </button>
 
           {reasonPromptId === m.id && reasonPromptKind && (
             <div className="pt-2 flex gap-2">
               <input
-                placeholder={`Reason for ${reasonPromptKind === "rejected" ? "rejection" : "suspension"}`}
+                placeholder={reasonPromptKind === "rejected" ? t("merchants.reasonForRejection") : t("merchants.reasonForSuspension")}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 className="flex-1 border rounded-md px-3 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
               <Button size="sm" variant="destructive" onClick={() => updateStatus(m, reasonPromptKind, reason || undefined)}>
-                Confirm {reasonPromptKind === "rejected" ? "reject" : "suspend"}
+                {reasonPromptKind === "rejected" ? t("merchants.confirmReject") : t("merchants.confirmSuspend")}
               </Button>
             </div>
           )}
 
           {expandedId === m.id && (
             <div className="bg-gray-50 dark:bg-white/5 -mx-3 px-3 mt-3 py-3 text-sm border-t dark:border-white/10">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Owner</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("merchants.owner")}</p>
               <p className="mb-3">
                 {m.owner_full_name ?? "—"} · {m.owner_phone ?? "—"} · {m.owner_email ?? m.email ?? "—"}
               </p>
 
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Performance</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("merchants.performance")}</p>
               {performance ? (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                   <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-md px-3 py-2">
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">Acceptance Rate</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{t("merchants.acceptanceRate")}</p>
                     <p className="text-sm font-semibold">{performance.acceptance_rate != null ? `${performance.acceptance_rate}%` : "—"}</p>
                   </div>
                   <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-md px-3 py-2">
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">Cancellation Rate</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{t("merchants.cancellationRate")}</p>
                     <p className="text-sm font-semibold">{performance.cancellation_rate != null ? `${performance.cancellation_rate}%` : "—"}</p>
                   </div>
                   <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-md px-3 py-2">
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">Avg. Prep Time</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{t("merchants.avgPrepTime")}</p>
                     <p className="text-sm font-semibold">{performance.avg_prep_minutes != null ? `${performance.avg_prep_minutes} min` : "—"}</p>
                   </div>
                   <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-md px-3 py-2">
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">Rating</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{t("merchants.rating")}</p>
                     <p className="text-sm font-semibold">
-                      {performance.avg_rating != null ? `${performance.avg_rating} ★ (${performance.review_count})` : "No reviews"}
+                      {performance.avg_rating != null ? `${performance.avg_rating} ★ (${performance.review_count})` : t("merchants.noReviews")}
                     </p>
                   </div>
                 </div>
               ) : (
-                <p className="text-gray-500 dark:text-gray-400 text-xs mb-3">Loading...</p>
+                <p className="text-gray-500 dark:text-gray-400 text-xs mb-3">{t("merchants.loadingEllipsis")}</p>
               )}
 
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Documents</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("merchants.documents")}</p>
               {documents.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-xs">No documents uploaded yet.</p>
+                <p className="text-gray-500 dark:text-gray-400 text-xs">{t("merchants.noDocumentsUploaded")}</p>
               ) : (
                 <div className="space-y-1.5">
                   {documents.map((doc) => (
@@ -235,16 +258,16 @@ export function Merchants() {
                       </button>
                       <div className="flex items-center gap-2">
                         <Badge variant={docStatusVariant[doc.status] ?? "default"} className="capitalize">
-                          {doc.status.replace(/_/g, " ")}
+                          {DOC_STATUS_KEYS[doc.status] ? t(DOC_STATUS_KEYS[doc.status]) : doc.status}
                         </Badge>
                         {doc.status !== "verified" && (
                           <button onClick={() => setDocStatus(doc, "verified")} className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline">
-                            Verify
+                            {t("merchants.verify")}
                           </button>
                         )}
                         {doc.status !== "rejected" && (
                           <button onClick={() => setDocStatus(doc, "rejected")} className="text-xs text-red-600 dark:text-red-400 hover:underline">
-                            Reject
+                            {t("merchants.reject")}
                           </button>
                         )}
                       </div>
@@ -262,8 +285,12 @@ export function Merchants() {
     },
     {
       key: "status",
-      header: "Status",
-      render: (m) => <Badge variant={statusVariant[m.status] ?? "default"} className="capitalize">{m.status.replace(/_/g, " ")}</Badge>,
+      header: t("common.status"),
+      render: (m) => (
+        <Badge variant={statusVariant[m.status] ?? "default"} className="capitalize">
+          {MERCHANT_STATUS_KEYS[m.status] ? t(MERCHANT_STATUS_KEYS[m.status]) : m.status}
+        </Badge>
+      ),
       csvValue: (m) => m.status,
     },
     {
@@ -274,7 +301,7 @@ export function Merchants() {
           {(m.status === "registered" || m.status === "pending_verification" || m.status === "under_review") && (
             <>
               <Button size="sm" onClick={() => updateStatus(m, "active")}>
-                Approve
+                {t("merchants.approve")}
               </Button>
               <Button
                 size="sm"
@@ -284,7 +311,7 @@ export function Merchants() {
                   setReasonPromptKind("rejected");
                 }}
               >
-                Reject
+                {t("merchants.reject")}
               </Button>
             </>
           )}
@@ -297,12 +324,12 @@ export function Merchants() {
                 setReasonPromptKind("suspended");
               }}
             >
-              Suspend
+              {t("customers.suspend")}
             </Button>
           )}
           {m.status === "suspended" && (
             <Button size="sm" onClick={() => updateStatus(m, "active")}>
-              Reactivate
+              {t("customers.reactivate")}
             </Button>
           )}
         </div>
@@ -313,7 +340,7 @@ export function Merchants() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold dark:text-gray-100">Merchants</h1>
+        <h1 className="text-xl font-bold dark:text-gray-100">{t("merchants.title")}</h1>
         <ExportCsvButton onExport={handleExport} disabled={merchants.length === 0} />
       </div>
 
@@ -326,7 +353,7 @@ export function Merchants() {
               statusFilter === s ? "bg-navy text-white border-navy dark:bg-navy-light dark:border-navy-light" : "bg-white dark:bg-navy-dark dark:border-white/20 dark:text-gray-300"
             }`}
           >
-            {s.replace(/_/g, " ")}
+            {t(MERCHANT_STATUS_KEYS[s] ?? "merchantStatus.all")}
           </button>
         ))}
       </div>
@@ -334,7 +361,7 @@ export function Merchants() {
       {loading ? (
         <SkeletonRows />
       ) : merchants.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400">No merchants in this view.</p>
+        <p className="text-gray-500 dark:text-gray-400">{t("merchants.noMerchantsInView")}</p>
       ) : (
         <>
           <DataTable storageKey="admin.merchants" columns={columns} rows={merchants} getRowId={(m) => m.id} />

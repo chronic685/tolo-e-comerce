@@ -1,6 +1,6 @@
 ﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { toast } from "@tolo/ui";
+import { toast, translateAuthError, useTranslation } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 
 // Standard multi-color Google "G" mark — inline rather than a new icon
@@ -26,6 +26,7 @@ function GoogleIcon() {
 }
 
 export function Login() {
+  const { t } = useTranslation();
   const { signIn, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
@@ -40,7 +41,7 @@ export function Login() {
     const { error } = await signIn(email, password);
     setLoading(false);
     if (error) {
-      toast.error(error);
+      toast.error(translateAuthError(error, t));
       return;
     }
     navigate("/");
@@ -52,13 +53,13 @@ export function Login() {
     // Only reached if the redirect to Google never happened at all — on
     // success the browser navigates away before this line matters.
     setGoogleLoading(false);
-    if (error) toast.error(error);
+    if (error) toast.error(translateAuthError(error, t));
   }
 
   return (
     <div className="max-w-sm mx-auto mt-16">
-      <h1 className="text-xl font-bold mb-1">Tolo Merchant Portal</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Sign in to manage your store.</p>
+      <h1 className="text-xl font-bold mb-1">{t("merchantLogin.title")}</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t("merchantLogin.subtitle")}</p>
 
       <button
         type="button"
@@ -67,19 +68,19 @@ export function Login() {
         className="w-full border rounded-md py-2.5 font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:bg-white/5 disabled:opacity-60 flex items-center justify-center gap-2"
       >
         <GoogleIcon />
-        {googleLoading ? "Redirecting..." : "Continue with Google"}
+        {googleLoading ? t("merchantLogin.redirecting") : t("merchantLogin.continueWithGoogle")}
       </button>
 
       <div className="flex items-center gap-3 my-4">
         <div className="flex-1 h-px bg-gray-200" />
-        <span className="text-xs text-gray-400 dark:text-gray-500">or</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">{t("merchantLogin.or")}</span>
         <div className="flex-1 h-px bg-gray-200" />
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
           type="email"
-          placeholder="Email"
+          placeholder={t("auth.email")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -87,7 +88,7 @@ export function Login() {
         />
         <input
           type="password"
-          placeholder="Password"
+          placeholder={t("auth.password")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -95,7 +96,7 @@ export function Login() {
         />
         <div className="text-right">
           <Link to="/forgot-password" className="text-xs text-navy font-medium">
-            Forgot password?
+            {t("auth.forgotPassword")}
           </Link>
         </div>
         <button
@@ -103,13 +104,13 @@ export function Login() {
           disabled={loading || googleLoading}
           className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
         >
-          {loading ? "Signing in..." : "Sign in"}
+          {loading ? t("auth.signingIn") : t("nav.signIn")}
         </button>
       </form>
       <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
-        New merchant?{" "}
+        {t("merchantLogin.newMerchant")}{" "}
         <Link to="/signup" className="text-navy font-medium underline">
-          Apply here
+          {t("merchantLogin.applyHere")}
         </Link>
       </p>
     </div>

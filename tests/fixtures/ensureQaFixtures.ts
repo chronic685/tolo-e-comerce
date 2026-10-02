@@ -6,6 +6,15 @@
 // customer/merchant. The suite only ever performs read-only or
 // rejected/negative-path actions against these fixtures, so a single seed
 // is reused indefinitely without drifting or needing cleanup between runs.
+//
+// Both fixture merchants are created with is_test = true (migration 0079).
+// Labeling the name alone was not enough -- it kept the fixture out of the
+// *admin* dashboard's confusion, but every customer-facing discovery query
+// (BrowseShops/Storefront/Marketplace) only ever filtered on `status`,
+// which this fixture deliberately sets to 'active' so it behaves like a
+// real approved merchant for authorization tests. That made "QA TEST Store
+// — DO NOT USE" publicly visible/listable to real customers. is_test is
+// the flag those queries now exclude on, independent of status.
 import { serviceClient } from "../env.ts";
 
 const QA_MERCHANT_A_EMAIL = process.env.QA_MERCHANT_A_EMAIL!;
@@ -90,6 +99,7 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
         email: QA_MERCHANT_A_EMAIL,
         location: "QA Fixture",
         status: "active",
+        is_test: true,
         agreement_accepted: true,
         approved_at: new Date().toISOString(),
       })
@@ -112,6 +122,7 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
         email: QA_MERCHANT_B_EMAIL,
         location: "QA Fixture",
         status: "active",
+        is_test: true,
         agreement_accepted: true,
         approved_at: new Date().toISOString(),
       })

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, Pagination, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, Pagination, toast, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
 import type { Driver } from "../types";
 
 export function Drivers() {
+  const { t } = useTranslation();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
@@ -25,7 +26,7 @@ export function Drivers() {
     if (!form.full_name.trim() || !form.phone.trim()) return;
     const { error } = await supabase.from("drivers").insert(form);
     if (error) {
-      toast.error(error.message);
+      toast.error(t("drivers.saveError"));
       return;
     }
     // Sorted by name, not newest-first, so a new driver doesn't
@@ -51,7 +52,7 @@ export function Drivers() {
   const columns: DataTableColumn<Driver>[] = [
     {
       key: "name",
-      header: "Driver",
+      header: t("drivers.driverColumn"),
       render: (d) => (
         <div>
           <p className="text-sm font-medium">{d.full_name}</p>
@@ -66,8 +67,8 @@ export function Drivers() {
     },
     {
       key: "status",
-      header: "Status",
-      render: (d) => <Badge variant={d.is_active ? "success" : "default"}>{d.is_active ? "Active" : "Inactive"}</Badge>,
+      header: t("common.status"),
+      render: (d) => <Badge variant={d.is_active ? "success" : "default"}>{d.is_active ? t("common.active") : t("common.inactive")}</Badge>,
       csvValue: (d) => (d.is_active ? "active" : "inactive"),
     },
     {
@@ -75,7 +76,7 @@ export function Drivers() {
       header: "",
       render: (d) => (
         <Button size="sm" variant="outline" onClick={() => toggleActive(d)}>
-          {d.is_active ? "Deactivate" : "Activate"}
+          {d.is_active ? t("banners.deactivate") : t("banners.activate")}
         </Button>
       ),
     },
@@ -83,35 +84,35 @@ export function Drivers() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Drivers</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">{t("drivers.title")}</h1>
 
       <form onSubmit={handleAdd} className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 flex gap-2 items-end flex-wrap">
         <input
-          placeholder="Full name"
+          placeholder={t("drivers.fullNamePlaceholder")}
           value={form.full_name}
           onChange={(e) => setForm({ ...form, full_name: e.target.value })}
           className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
         />
         <input
-          placeholder="Phone"
+          placeholder={t("drivers.phonePlaceholder")}
           value={form.phone}
           onChange={(e) => setForm({ ...form, phone: e.target.value })}
           className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
         />
         <input
-          placeholder="Vehicle type"
+          placeholder={t("drivers.vehicleTypePlaceholder")}
           value={form.vehicle_type}
           onChange={(e) => setForm({ ...form, vehicle_type: e.target.value })}
           className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
         />
         <input
-          placeholder="Plate number"
+          placeholder={t("drivers.platePlaceholder")}
           value={form.vehicle_plate}
           onChange={(e) => setForm({ ...form, vehicle_plate: e.target.value })}
           className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
         />
         <button type="submit" className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy">
-          Add driver
+          {t("drivers.addDriver")}
         </button>
       </form>
 
@@ -121,8 +122,8 @@ export function Drivers() {
         rows={drivers}
         getRowId={(d) => d.id}
         bulkActions={[
-          { label: "Activate", onAction: (rows) => bulkToggle(rows, true) },
-          { label: "Deactivate", onAction: (rows) => bulkToggle(rows, false), variant: "outline" },
+          { label: t("banners.activate"), onAction: (rows) => bulkToggle(rows, true) },
+          { label: t("banners.deactivate"), onAction: (rows) => bulkToggle(rows, false), variant: "outline" },
         ]}
       />
       <div className="mt-4">

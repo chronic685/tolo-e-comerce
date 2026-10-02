@@ -72,7 +72,7 @@ export function Cart() {
           <div key={merchantId}>
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">
               <Store className="w-4 h-4" />
-              {storeNames.get(merchantId) ?? "Shop"}
+              {storeNames.get(merchantId) ?? t("cart.shopFallback")}
             </h2>
             <div className="space-y-3">
               {groupItems.map((item) => {
@@ -102,7 +102,7 @@ export function Cart() {
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          aria-label="Decrease quantity"
+                          aria-label={t("cart.decreaseQuantity")}
                           className="w-8 h-8 rounded-md border flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:bg-white/5"
                         >
                           <Minus className="w-3.5 h-3.5" />
@@ -111,7 +111,7 @@ export function Cart() {
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          aria-label="Increase quantity"
+                          aria-label={t("cart.increaseQuantity")}
                           className="w-8 h-8 rounded-md border flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:bg-white/5"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -120,7 +120,7 @@ export function Cart() {
                       <button
                         type="button"
                         onClick={() => removeItem(item.id)}
-                        aria-label="Remove item"
+                        aria-label={t("cart.removeItem")}
                         className="text-gray-400 dark:text-gray-500 hover:text-red-600 flex-shrink-0"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -153,7 +153,7 @@ export function Cart() {
             <span>{t("cart.subtotal")}</span>
             <span>{formatCurrency(total)}</span>
           </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">Delivery fee isn't included yet — it's calculated at checkout.</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">{t("cart.deliveryFeeNotIncluded")}</p>
           <Button onClick={() => navigate("/checkout")} className="w-full">
             {t("cart.proceedToCheckout")}
           </Button>

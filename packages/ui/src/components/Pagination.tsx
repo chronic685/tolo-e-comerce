@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "./Button";
 import { cn } from "../lib/cn";
+import { useTranslation } from "../i18n/useTranslation";
 
 export interface PaginationProps {
   page: number;
@@ -27,15 +28,16 @@ function pageNumbers(page: number, totalPages: number): (number | "ellipsis")[] 
 }
 
 export function Pagination({ page, totalPages, onPageChange, className }: PaginationProps) {
+  const { t } = useTranslation();
   if (totalPages <= 1) return null;
 
   return (
-    <nav aria-label="Pagination" className={cn("flex items-center justify-center gap-1", className)}>
+    <nav aria-label={t("pagination.label")} className={cn("flex items-center justify-center gap-1", className)}>
       <Button
         type="button"
         variant="outline"
         size="icon"
-        aria-label="Previous page"
+        aria-label={t("pagination.previousPage")}
         disabled={page <= 1}
         onClick={() => onPageChange(page - 1)}
         className="h-8 w-8"
@@ -58,7 +60,7 @@ export function Pagination({ page, totalPages, onPageChange, className }: Pagina
             type="button"
             variant={p === page ? "default" : "outline"}
             size="icon"
-            aria-label={`Page ${p}`}
+            aria-label={t("pagination.goToPage", { page: p })}
             aria-current={p === page ? "page" : undefined}
             onClick={() => onPageChange(p)}
             className="hidden sm:inline-flex h-8 w-8 text-sm"
@@ -69,14 +71,14 @@ export function Pagination({ page, totalPages, onPageChange, className }: Pagina
       )}
 
       <span className="sm:hidden text-sm text-gray-500 dark:text-gray-400 px-2" aria-live="polite">
-        Page {page} of {totalPages}
+        {t("pagination.pageOf", { page, total: totalPages })}
       </span>
 
       <Button
         type="button"
         variant="outline"
         size="icon"
-        aria-label="Next page"
+        aria-label={t("pagination.nextPage")}
         disabled={page >= totalPages}
         onClick={() => onPageChange(page + 1)}
         className="h-8 w-8"

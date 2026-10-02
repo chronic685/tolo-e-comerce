@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart } from "lucide-react";
-import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { ProductCard } from "../components/ProductCard";
@@ -16,6 +16,7 @@ const PRODUCT_SELECT = `
 `;
 
 export function Favorites() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
@@ -40,18 +41,18 @@ export function Favorites() {
       });
   }, [user, from, to]);
 
-  if (!user) return <p className="text-gray-500 dark:text-gray-400">Sign in to see your favorites.</p>;
+  if (!user) return <p className="text-gray-500 dark:text-gray-400">{t("favorites.signInPrompt")}</p>;
   if (loading) return <SkeletonRows count={4} />;
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4">Favorites</h1>
+      <h1 className="text-xl font-bold mb-4">{t("account.favorites")}</h1>
       {products.length === 0 ? (
         <EmptyState
           icon={Heart}
-          title="No favorites yet"
-          description="Tap the heart icon on any product to save it here."
-          action={<Button onClick={() => navigate("/")}>Browse the marketplace</Button>}
+          title={t("emptyState.noFavorites")}
+          description={t("favorites.description")}
+          action={<Button onClick={() => navigate("/")}>{t("cart.browseMarketplace")}</Button>}
         />
       ) : (
         <>

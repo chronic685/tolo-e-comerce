@@ -1,6 +1,19 @@
 import { useEffect, useState } from "react";
 import { Tag } from "lucide-react";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, EmptyState, Pagination, SkeletonRows, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Badge,
+  Button,
+  DataTable,
+  EmptyState,
+  Pagination,
+  SkeletonRows,
+  toast,
+  totalPagesFor,
+  usePagination,
+  useTranslation,
+  type DataTableColumn,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
@@ -28,6 +41,7 @@ const emptyForm = {
 // 'merchant'/'product' -- discount_rules_manage RLS (migration 0062)
 // enforces both server-side regardless of what this form sends.
 export function Promotions() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { merchant } = useMerchant();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -107,15 +121,15 @@ export function Promotions() {
   async function handleSave() {
     if (!merchant || !user) return;
     if (!form.name.trim() || !form.amount.trim()) {
-      toast.error("Name and amount are required.");
+      toast.error(t("promotions.nameAmountRequired"));
       return;
     }
     if (form.scope === "product" && !form.product_id) {
-      toast.error("Choose which product this promotion applies to.");
+      toast.error(t("promotions.chooseProduct"));
       return;
     }
     if (form.discount_kind === "percent" && Number(form.amount) > 100) {
-      toast.error("A percentage discount can't be more than 100%.");
+      toast.error(t("promotions.percentTooHigh"));
       return;
     }
 
@@ -140,10 +154,10 @@ export function Promotions() {
 
     setSaving(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(t("promotions.saveError"));
       return;
     }
-    toast.success("Saved.");
+    toast.success(t("promotions.saved"));
     setShowForm(false);
     load();
   }
@@ -151,20 +165,20 @@ export function Promotions() {
   async function toggleActive(p: Promotion) {
     const { error } = await supabase.from("discount_rules").update({ is_active: !p.is_active }).eq("id", p.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(t("promotions.saveError"));
       return;
     }
     setPromotions((prev) => prev.map((x) => (x.id === p.id ? { ...x, is_active: !x.is_active } : x)));
   }
 
   async function handleDelete(p: Promotion) {
-    if (!confirm(`Delete "${p.name}"? This can't be undone.`)) return;
+    if (!confirm(t("promotions.deleteConfirm", { name: p.name }))) return;
     const { error } = await supabase.from("discount_rules").delete().eq("id", p.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(t("promotions.saveError"));
       return;
     }
-    toast.success("Deleted.");
+    toast.success(t("promotions.deleted"));
     load();
   }
 
@@ -177,18 +191,18 @@ export function Promotions() {
 
   function describe(p: Promotion): string {
     return (
-      (p.discount_kind === "percent" ? `${p.amount}% off` : `${p.amount} ETB off`) +
+      (p.discount_kind === "percent" ? t("promotions.percentOffLabel", { amount: p.amount }) : t("promotions.amountOffLabel", { amount: p.amount })) +
       " · " +
-      (p.scope_type === "merchant" ? "Whole shop" : "One product") +
-      (p.starts_at ? ` · from ${new Date(p.starts_at).toLocaleDateString()}` : "") +
-      (p.ends_at ? ` · until ${new Date(p.ends_at).toLocaleDateString()}` : "")
+      (p.scope_type === "merchant" ? t("promotions.wholeShop") : t("promotions.oneProduct")) +
+      (p.starts_at ? ` ${t("promotions.fromDate", { date: new Date(p.starts_at).toLocaleDateString() })}` : "") +
+      (p.ends_at ? ` ${t("promotions.untilDate", { date: new Date(p.ends_at).toLocaleDateString() })}` : "")
     );
   }
 
   const columns: DataTableColumn<Promotion>[] = [
     {
       key: "name",
-      header: "Promotion",
+      header: t("promotions.column"),
       render: (p) => (
         <div>
           <p className="text-sm font-medium">{p.name}</p>
@@ -201,8 +215,8 @@ export function Promotions() {
     },
     {
       key: "status",
-      header: "Status",
-      render: (p) => <Badge variant={p.is_active ? "success" : "default"}>{p.is_active ? "Active" : "Paused"}</Badge>,
+      header: t("common.status"),
+      render: (p) => <Badge variant={p.is_active ? "success" : "default"}>{p.is_active ? t("promotions.active") : t("promotions.paused")}</Badge>,
       csvValue: (p) => (p.is_active ? "active" : "paused"),
     },
     {
@@ -211,13 +225,13 @@ export function Promotions() {
       render: (p) => (
         <div className="flex items-center gap-2 justify-end">
           <Button size="sm" variant="outline" onClick={() => toggleActive(p)}>
-            {p.is_active ? "Pause" : "Activate"}
+            {p.is_active ? t("promotions.pause") : t("promotions.activate")}
           </Button>
           <Button size="sm" variant="outline" onClick={() => startEdit(p)}>
-            Edit
+            {t("common.edit")}
           </Button>
           <Button size="sm" variant="destructive" onClick={() => handleDelete(p)}>
-            Delete
+            {t("common.delete")}
           </Button>
         </div>
       ),
@@ -227,38 +241,38 @@ export function Promotions() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold dark:text-gray-100">Promotions</h1>
+        <h1 className="text-xl font-bold dark:text-gray-100">{t("promotions.title")}</h1>
         <button onClick={startNew} className="text-sm bg-navy dark:bg-navy-light text-white px-3 py-1.5 rounded-md hover:bg-navy-dark dark:hover:bg-navy">
-          + New promotion
+          {t("promotions.newPromotion")}
         </button>
       </div>
 
       {showForm && (
         <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 space-y-3">
-          <h2 className="font-medium text-sm dark:text-gray-100">{editingId ? "Edit promotion" : "New promotion"}</h2>
+          <h2 className="font-medium text-sm dark:text-gray-100">{editingId ? t("promotions.editPromotionTitle") : t("promotions.newPromotionTitle")}</h2>
           <input
-            placeholder="Name (e.g. Weekend 10% off)"
+            placeholder={t("promotions.namePlaceholder")}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
           <textarea
-            placeholder="Description (optional)"
+            placeholder={`${t("common.description")} (${t("common.optional")})`}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             rows={2}
             className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
           <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Applies to</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">{t("promotions.appliesTo")}</label>
             <div className="flex gap-3 text-sm mb-2 dark:text-gray-200">
               <label className="flex items-center gap-1.5">
                 <input type="radio" checked={form.scope === "shop"} onChange={() => setForm({ ...form, scope: "shop" })} />
-                My whole shop
+                {t("promotions.myWholeShop")}
               </label>
               <label className="flex items-center gap-1.5">
                 <input type="radio" checked={form.scope === "product"} onChange={() => setForm({ ...form, scope: "product" })} />
-                One product
+                {t("promotions.oneProduct")}
               </label>
             </div>
             {form.scope === "product" && (
@@ -267,7 +281,7 @@ export function Promotions() {
                 onChange={(e) => setForm({ ...form, product_id: e.target.value })}
                 className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               >
-                <option value="">Select a product</option>
+                <option value="">{t("promotions.selectProduct")}</option>
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -278,18 +292,18 @@ export function Promotions() {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Discount type</label>
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">{t("promotions.discountType")}</label>
               <select
                 value={form.discount_kind}
                 onChange={(e) => setForm({ ...form, discount_kind: e.target.value as Promotion["discount_kind"] })}
                 className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               >
-                <option value="percent">Percentage off</option>
-                <option value="fixed">Fixed amount off (ETB)</option>
+                <option value="percent">{t("promotions.percentageOff")}</option>
+                <option value="fixed">{t("promotions.fixedAmountOff")}</option>
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Amount</label>
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">{t("common.amount")}</label>
               <input
                 type="number"
                 value={form.amount}
@@ -300,7 +314,7 @@ export function Promotions() {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Starts (optional)</label>
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">{t("promotions.starts")}</label>
               <input
                 type="datetime-local"
                 value={form.starts_at}
@@ -309,7 +323,7 @@ export function Promotions() {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Ends (optional)</label>
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">{t("promotions.ends")}</label>
               <input
                 type="datetime-local"
                 value={form.ends_at}
@@ -324,10 +338,10 @@ export function Promotions() {
               disabled={saving}
               className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60"
             >
-              {saving ? "Saving..." : "Save"}
+              {saving ? t("common.saving") : t("common.save")}
             </button>
             <button onClick={() => setShowForm(false)} className="border dark:border-white/20 dark:text-gray-200 px-4 py-2 rounded-md text-sm hover:bg-gray-50 dark:hover:bg-white/5">
-              Cancel
+              {t("common.cancel")}
             </button>
           </div>
         </div>
@@ -336,7 +350,7 @@ export function Promotions() {
       {loading ? (
         <SkeletonRows />
       ) : promotions.length === 0 ? (
-        <EmptyState icon={Tag} title="No promotions yet" description="Create a promotion to offer a discount on your shop or a product." />
+        <EmptyState icon={Tag} title={t("promotions.noPromotionsTitle")} description={t("promotions.noPromotionsDescription")} />
       ) : (
         <>
           <DataTable
@@ -344,7 +358,7 @@ export function Promotions() {
             columns={columns}
             rows={promotions}
             getRowId={(p) => p.id}
-            bulkActions={[{ label: "Pause", onAction: bulkPause }]}
+            bulkActions={[{ label: t("promotions.pause"), onAction: bulkPause }]}
           />
           <div className="mt-4">
             <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />

@@ -1,4 +1,5 @@
 ﻿import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "@tolo/ui";
 import { Deliveries } from "./Deliveries";
 import { Drivers } from "./Drivers";
 import { DeliveryZones } from "./DeliveryZones";
@@ -9,9 +10,9 @@ import { DeliveryZones } from "./DeliveryZones";
 // layout merge, not a rewrite, so each tab keeps every filter, action
 // button, and data view exactly as it worked as a standalone page.
 const TABS = [
-  { key: "deliveries", label: "Deliveries" },
-  { key: "drivers", label: "Drivers" },
-  { key: "zones", label: "Zones" },
+  { key: "deliveries", labelKey: "deliveryOps.deliveriesTab" },
+  { key: "drivers", labelKey: "deliveryOps.driversTab" },
+  { key: "zones", labelKey: "deliveryOps.zonesTab" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -21,6 +22,7 @@ function isTabKey(value: string | null): value is TabKey {
 }
 
 export function DeliveryOps() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   // Deliveries is the default/landing tab — it's the operationally active
@@ -34,17 +36,17 @@ export function DeliveryOps() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4">Delivery Ops</h1>
+      <h1 className="text-xl font-bold mb-4">{t("deliveryOps.title")}</h1>
       <div className="flex items-center gap-1 border-b mb-4">
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
+            key={tab.key}
+            onClick={() => setTab(tab.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
-              activeTab === t.key ? "border-navy text-navy" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:text-gray-300"
+              activeTab === tab.key ? "border-navy text-navy" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:text-gray-300"
             }`}
           >
-            {t.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>

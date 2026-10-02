@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { toast, useTranslation } from "@tolo/ui";
+import { toast, translateAuthError, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 
@@ -39,7 +39,7 @@ export function Signup() {
     const { error } = await signUp(email, password, fullName, referralsEnabled ? referralCode.trim() : undefined);
     setLoading(false);
     if (error) {
-      toast.error(error);
+      toast.error(translateAuthError(error, t));
       return;
     }
     setDone(true);

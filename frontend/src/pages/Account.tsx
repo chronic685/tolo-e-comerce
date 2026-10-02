@@ -107,17 +107,17 @@ export function Account() {
     setSaving(true);
     const { error } = await supabase.from("profiles").update({ full_name: fullName, phone }).eq("id", user.id);
     setSaving(false);
-    if (error) toast.error(error.message);
-    else toast.success("Saved. This phone number will be used automatically at checkout.");
+    if (error) toast.error(t("account.saveError"));
+    else toast.success(t("account.saveSuccess"));
   }
 
   return (
     <div className="max-w-sm">
-      <h1 className="text-xl font-bold mb-1">Account</h1>
+      <h1 className="text-xl font-bold mb-1">{t("nav.account")}</h1>
       <p className="text-sm text-gray-500 mb-4">{user?.email}</p>
       <form onSubmit={handleSave} className="bg-white border rounded-lg p-4 space-y-3">
         <div>
-          <label className="text-xs font-medium text-gray-500">Full name</label>
+          <label className="text-xs font-medium text-gray-500">{t("auth.fullName")}</label>
           <input
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
@@ -125,30 +125,28 @@ export function Account() {
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-500">Phone number</label>
+          <label className="text-xs font-medium text-gray-500">{t("account.phoneNumber")}</label>
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+2519..."
             className="w-full border rounded-md px-3 py-2 text-sm mt-1"
           />
-          <p className="text-xs text-gray-400 mt-1">Used automatically for delivery — you won't be asked again at checkout.</p>
+          <p className="text-xs text-gray-400 mt-1">{t("account.phoneHint")}</p>
         </div>
         <button
           type="submit"
           disabled={saving}
           className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? t("common.saving") : t("common.save")}
         </button>
       </form>
 
       {referralsEnabled && (
         <div className="bg-white border rounded-lg mt-4 p-4">
-          <h2 className="font-medium mb-1">Refer a friend</h2>
-          <p className="text-xs text-gray-500 mb-3">
-            Share your link — when a friend signs up and places their first order, you'll get a one-time discount code.
-          </p>
+          <h2 className="font-medium mb-1">{t("account.referFriend")}</h2>
+          <p className="text-xs text-gray-500 mb-3">{t("account.referDescription")}</p>
 
           {referralCode ? (
             <>
@@ -164,17 +162,17 @@ export function Account() {
                   onClick={handleCopyLink}
                   className="border-2 border-navy text-navy px-3 py-2 rounded-md text-sm font-medium hover:bg-navy-50 flex-shrink-0"
                 >
-                  {copied ? "Copied!" : "Copy"}
+                  {copied ? t("account.copied") : t("account.copy")}
                 </button>
               </div>
               <p className="text-xs text-gray-400 mt-1">
-                Or share your code: <span className="font-mono font-medium text-gray-600">{referralCode}</span>
+                {t("account.orShareCode")} <span className="font-mono font-medium text-gray-600">{referralCode}</span>
               </p>
 
               <p className="text-sm mt-3">
-                <span className="font-semibold">{successfulReferrals}</span> successful referral{successfulReferrals === 1 ? "" : "s"}
+                <span className="font-semibold">{t("account.successfulReferrals", { count: successfulReferrals })}</span>
                 {referredSignups > successfulReferrals && (
-                  <span className="text-gray-500"> ({referredSignups} signed up so far)</span>
+                  <span className="text-gray-500"> {t("account.signedUpSoFar", { count: referredSignups })}</span>
                 )}
               </p>
 
@@ -184,8 +182,10 @@ export function Account() {
                     <p key={r.code} className="text-sm text-emerald-700 flex items-start gap-1.5">
                       <PartyPopper className="w-4 h-4 flex-shrink-0 mt-0.5" />
                       <span>
-                        You earned {r.discount_kind === "percent" ? `${r.amount}% off` : `${r.amount} ETB off`} — use code{" "}
-                        <span className="font-mono font-medium">{r.code}</span> at checkout.
+                        {t("account.rewardEarned", {
+                          amountText: r.discount_kind === "percent" ? `${r.amount}%` : `${r.amount} ETB`,
+                          code: r.code ?? "",
+                        })}
                       </span>
                     </p>
                   ))}

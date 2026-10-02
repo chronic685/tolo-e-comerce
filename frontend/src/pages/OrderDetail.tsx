@@ -275,7 +275,7 @@ export function OrderDetail() {
   }
 
   if (loading) return <SkeletonPage />;
-  if (!order) return <p className="text-gray-500 dark:text-gray-400">Order not found.</p>;
+  if (!order) return <p className="text-gray-500 dark:text-gray-400">{t("orderConfirmation.orderNotFound")}</p>;
 
   return (
     <div className="max-w-2xl">

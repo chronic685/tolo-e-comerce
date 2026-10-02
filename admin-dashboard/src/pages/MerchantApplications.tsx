@@ -14,6 +14,7 @@ import {
   toast,
   totalPagesFor,
   usePagination,
+  useTranslation,
   type DataTableColumn,
   type FetchPageResult,
 } from "@tolo/ui";
@@ -43,7 +44,15 @@ const SELECT =
 
 const statusVariant = { pending: "warning", approved: "success", rejected: "danger" } as const;
 
+const APPLICATION_STATUS_KEYS: Record<string, string> = {
+  pending: "applicationStatus.pending",
+  approved: "applicationStatus.approved",
+  rejected: "applicationStatus.rejected",
+  all: "applicationStatus.all",
+};
+
 export function MerchantApplications() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get("status") ?? "pending";
   const [applications, setApplications] = useState<MerchantApplication[]>([]);
@@ -78,7 +87,7 @@ export function MerchantApplications() {
   async function viewLicense(a: MerchantApplication) {
     const { data, error } = await supabase.storage.from(LICENSE_BUCKET).createSignedUrl(a.license_photo_url, 300);
     if (error || !data) {
-      toast.error("Couldn't open the license photo.");
+      toast.error(t("merchantApplications.licenseOpenError"));
       return;
     }
     window.open(data.signedUrl, "_blank", "noopener");
@@ -101,7 +110,11 @@ export function MerchantApplications() {
       toast.error(await edgeFunctionError(error));
       return;
     }
-    toast.success(review.action === "approve" ? `${a.business_name} approved — merchant account created.` : `${a.business_name} rejected.`);
+    toast.success(
+      review.action === "approve"
+        ? t("merchantApplications.approvedToast", { name: a.business_name })
+        : t("merchantApplications.rejectedToast", { name: a.business_name }),
+    );
     setReview(null);
     setNote("");
     const status = data?.status as MerchantApplication["status"];
@@ -143,7 +156,7 @@ export function MerchantApplications() {
   const columns: DataTableColumn<MerchantApplication>[] = [
     {
       key: "business",
-      header: "Business",
+      header: t("merchantApplications.businessColumn"),
       render: (a) => (
         <div>
           <p className="font-medium dark:text-gray-100">{a.business_name}</p>
@@ -154,10 +167,10 @@ export function MerchantApplications() {
       sortValue: (a) => a.business_name,
       csvValue: (a) => a.business_name,
     },
-    { key: "phone", header: "Phone", render: (a) => a.applicant_phone, filterValue: (a) => a.applicant_phone, csvValue: (a) => a.applicant_phone },
+    { key: "phone", header: t("common.phone"), render: (a) => a.applicant_phone, filterValue: (a) => a.applicant_phone, csvValue: (a) => a.applicant_phone },
     {
       key: "address",
-      header: "Address",
+      header: t("merchantApplications.addressColumn"),
       render: (a) => <span className="text-sm">{a.address}</span>,
       filterValue: (a) => a.address,
       csvValue: (a) => a.address,
@@ -165,27 +178,27 @@ export function MerchantApplications() {
     },
     {
       key: "submitted",
-      header: "Submitted",
+      header: t("merchantApplications.submittedColumn"),
       render: (a) => new Date(a.created_at).toLocaleString(),
       sortValue: (a) => a.created_at,
       csvValue: (a) => a.created_at,
     },
     {
       key: "license",
-      header: "License",
+      header: t("merchantApplications.licenseColumn"),
       render: (a) => (
         <Button size="sm" variant="outline" onClick={() => viewLicense(a)}>
-          View photo
+          {t("merchantApplications.viewPhoto")}
         </Button>
       ),
     },
     {
       key: "status",
-      header: "Status",
+      header: t("common.status"),
       render: (a) => (
         <div>
           <Badge variant={statusVariant[a.status]} className="capitalize">
-            {a.status}
+            {t(APPLICATION_STATUS_KEYS[a.status] ?? "applicationStatus.pending")}
           </Badge>
           {a.reviewed_at && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -208,16 +221,16 @@ export function MerchantApplications() {
           <div>
             <div className="flex gap-2">
               <Button size="sm" onClick={() => startReview(a, "approve")} disabled={busyId === a.id}>
-                Approve
+                {t("merchants.approve")}
               </Button>
               <Button size="sm" variant="destructive" onClick={() => startReview(a, "reject")} disabled={busyId === a.id}>
-                Reject
+                {t("merchants.reject")}
               </Button>
             </div>
             {review?.id === a.id && (
               <div className="flex gap-2 mt-2">
                 <input
-                  placeholder={review.action === "approve" ? "Note (optional)" : "Reason shown to the applicant (optional)"}
+                  placeholder={review.action === "approve" ? t("merchantApplications.notePlaceholder") : t("merchantApplications.rejectReasonPlaceholder")}
                   value={note}
                   maxLength={1000}
                   onChange={(e) => setNote(e.target.value)}
@@ -229,7 +242,7 @@ export function MerchantApplications() {
                   onClick={() => confirmReview(a)}
                   disabled={busyId === a.id}
                 >
-                  {review.action === "approve" ? "Confirm approve" : "Confirm reject"}
+                  {review.action === "approve" ? t("merchantApplications.confirmApprove") : t("merchants.confirmReject")}
                 </Button>
               </div>
             )}
@@ -241,11 +254,9 @@ export function MerchantApplications() {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <h1 className="text-xl font-bold dark:text-gray-100">Merchant Applications</h1>
+        <h1 className="text-xl font-bold dark:text-gray-100">{t("merchantApplications.title")}</h1>
       </div>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        Submitted from the Tolo app. Approving creates the merchant account on the applicant's verified phone.
-      </p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t("merchantApplications.description")}</p>
 
       <div className="flex gap-2 mb-4">
         {STATUS_FILTERS.map((s) => (
@@ -258,7 +269,7 @@ export function MerchantApplications() {
                 : "bg-white border text-gray-700 dark:bg-navy-dark dark:border-white/20 dark:text-gray-300"
             }`}
           >
-            {s}
+            {t(APPLICATION_STATUS_KEYS[s])}
           </button>
         ))}
       </div>
@@ -273,7 +284,7 @@ export function MerchantApplications() {
             rows={applications}
             getRowId={(a) => a.id}
             onExportAll={handleExportAll}
-            emptyMessage={statusFilter === "pending" ? "No applications waiting for review." : "No applications found."}
+            emptyMessage={statusFilter === "pending" ? t("merchantApplications.noneWaiting") : t("merchantApplications.noneFound")}
           />
           <div className="mt-4">
             <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />

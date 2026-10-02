@@ -1,6 +1,19 @@
 import { useEffect, useState } from "react";
 import { Users } from "lucide-react";
-import { ADMIN_PAGE_SIZE, Button, DataTable, EmptyState, Pagination, SkeletonPage, SkeletonRows, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Button,
+  DataTable,
+  EmptyState,
+  Pagination,
+  SkeletonPage,
+  SkeletonRows,
+  toast,
+  totalPagesFor,
+  usePagination,
+  useTranslation,
+  type DataTableColumn,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
@@ -14,12 +27,12 @@ import type { MerchantStaffRow } from "../types";
 // their row can't be edited or removed from here.
 const ASSIGNABLE_ROLES = ["store_manager", "product_manager", "order_manager", "inventory_manager"] as const;
 
-const ROLE_LABELS: Record<string, string> = {
-  owner: "Owner",
-  store_manager: "Store manager",
-  product_manager: "Product manager",
-  order_manager: "Order manager",
-  inventory_manager: "Inventory manager",
+const ROLE_KEYS: Record<string, string> = {
+  owner: "merchantStaff.role.owner",
+  store_manager: "merchantStaff.role.store_manager",
+  product_manager: "merchantStaff.role.product_manager",
+  order_manager: "merchantStaff.role.order_manager",
+  inventory_manager: "merchantStaff.role.inventory_manager",
 };
 
 interface FoundProfile {
@@ -29,6 +42,7 @@ interface FoundProfile {
 }
 
 export function Staff() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { merchant } = useMerchant();
   const isOwner = Boolean(merchant && user && merchant.owner_id === user.id);
@@ -89,7 +103,7 @@ export function Staff() {
     const { data, error } = await supabase.functions.invoke("merchant-staff-lookup", { body: { phone: phone.trim() } });
     setSearching(false);
     if (error || !data) {
-      toast.error("Could not search for that phone number. Please try again.");
+      toast.error(t("merchantStaff.searchError"));
       return;
     }
     setFound(data.profile ?? null);
@@ -106,7 +120,7 @@ export function Staff() {
       .single();
     setAdding(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(t("merchantStaff.addError"));
       return;
     }
     // Reloads rather than patching the array in place, now that the list
@@ -134,21 +148,26 @@ export function Staff() {
   const columns: DataTableColumn<MerchantStaffRow>[] = [
     {
       key: "name",
-      header: "Name",
-      render: (s) => s.profiles?.full_name ?? "Unnamed",
+      header: t("common.name"),
+      render: (s) => s.profiles?.full_name ?? t("merchantStaff.unnamed"),
       filterValue: (s) => s.profiles?.full_name ?? "",
       sortValue: (s) => s.profiles?.full_name ?? "",
       csvValue: (s) => s.profiles?.full_name ?? "",
     },
-    { key: "phone", header: "Phone", render: (s) => s.profiles?.phone ?? "—", csvValue: (s) => s.profiles?.phone ?? "" },
-    { key: "role", header: "Role", render: (s) => <span className="capitalize">{ROLE_LABELS[s.role] ?? s.role}</span>, csvValue: (s) => s.role },
+    { key: "phone", header: t("common.phone"), render: (s) => s.profiles?.phone ?? "—", csvValue: (s) => s.profiles?.phone ?? "" },
+    {
+      key: "role",
+      header: t("common.role"),
+      render: (s) => <span className="capitalize">{ROLE_KEYS[s.role] ? t(ROLE_KEYS[s.role]) : s.role}</span>,
+      csvValue: (s) => s.role,
+    },
     {
       key: "actions",
       header: "",
       render: (s) =>
         isOwner && s.role !== "owner" ? (
           <Button size="sm" variant="destructive" onClick={() => handleRemove(s.id)}>
-            Remove
+            {t("merchantStaff.remove")}
           </Button>
         ) : null,
     },
@@ -159,30 +178,26 @@ export function Staff() {
   if (!featureEnabled) {
     return (
       <div className="max-w-lg">
-        <h1 className="text-xl font-bold mb-2 dark:text-gray-100">Staff</h1>
-        <p className="text-gray-600 dark:text-gray-400 text-sm">Staff accounts aren't available on your account yet. Contact Tolo support if you'd like it enabled.</p>
+        <h1 className="text-xl font-bold mb-2 dark:text-gray-100">{t("merchantStaff.title")}</h1>
+        <p className="text-gray-600 dark:text-gray-400 text-sm">{t("merchantStaff.notEnabled")}</p>
       </div>
     );
   }
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-xl font-bold mb-1 dark:text-gray-100">Staff</h1>
+      <h1 className="text-xl font-bold mb-1 dark:text-gray-100">{t("merchantStaff.title")}</h1>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        {isOwner
-          ? "Add or remove people who can help run your store."
-          : "Only the store owner can add or remove staff — you can see who else has access below."}
+        {isOwner ? t("merchantStaff.ownerSubtitle") : t("merchantStaff.nonOwnerSubtitle")}
       </p>
 
       {isOwner && (
         <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4">
-          <h2 className="font-medium text-sm mb-2 dark:text-gray-100">Add staff</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-            The person must already have a Tolo account (e.g. as a customer) — search by the phone number they registered with.
-          </p>
+          <h2 className="font-medium text-sm mb-2 dark:text-gray-100">{t("merchantStaff.addStaff")}</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{t("merchantStaff.searchHint")}</p>
           <div className="flex gap-2 mb-2">
             <input
-              placeholder="Phone number"
+              placeholder={t("merchantStaff.phonePlaceholder")}
               value={phone}
               onChange={(e) => {
                 setPhone(e.target.value);
@@ -196,17 +211,17 @@ export function Staff() {
               disabled={searching || !phone.trim()}
               className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60"
             >
-              {searching ? "Searching..." : "Search"}
+              {searching ? t("merchantStaff.searching") : t("merchantStaff.search")}
             </button>
           </div>
-          {found === null && <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">No Tolo account found with that phone number.</p>}
+          {found === null && <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{t("merchantStaff.noAccountFound")}</p>}
 
           {found && (
             <div className="border dark:border-white/20 rounded-md p-3 flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium dark:text-gray-100">{found.full_name ?? "Unnamed"}</p>
+                <p className="text-sm font-medium dark:text-gray-100">{found.full_name ?? t("merchantStaff.unnamed")}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{found.phone}</p>
-                {alreadyStaff && <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">Already staff at your store.</p>}
+                {alreadyStaff && <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">{t("merchantStaff.alreadyStaff")}</p>}
               </div>
               {!alreadyStaff && (
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -217,7 +232,7 @@ export function Staff() {
                   >
                     {ASSIGNABLE_ROLES.map((r) => (
                       <option key={r} value={r}>
-                        {ROLE_LABELS[r]}
+                        {t(ROLE_KEYS[r])}
                       </option>
                     ))}
                   </select>
@@ -226,7 +241,7 @@ export function Staff() {
                     disabled={adding}
                     className="text-xs bg-navy dark:bg-navy-light text-white px-3 py-1.5 rounded-md hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60"
                   >
-                    {adding ? "Adding..." : "Add"}
+                    {adding ? t("merchantStaff.adding") : t("merchantStaff.add")}
                   </button>
                 </div>
               )}
@@ -238,7 +253,7 @@ export function Staff() {
       {loading ? (
         <SkeletonRows count={3} />
       ) : staff.length === 0 ? (
-        <EmptyState icon={Users} title="No staff yet" description="People you add will show up here." />
+        <EmptyState icon={Users} title={t("merchantStaff.noStaffTitle")} description={t("merchantStaff.noStaffDescription")} />
       ) : (
         <>
           <DataTable
@@ -246,7 +261,7 @@ export function Staff() {
             columns={columns}
             rows={staff}
             getRowId={(s) => s.id}
-            bulkActions={isOwner ? [{ label: "Remove", onAction: bulkRemove, variant: "destructive" }] : undefined}
+            bulkActions={isOwner ? [{ label: t("merchantStaff.remove"), onAction: bulkRemove, variant: "destructive" }] : undefined}
           />
           <div className="mt-4">
             <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />

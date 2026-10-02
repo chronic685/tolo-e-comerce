@@ -1,16 +1,19 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
-import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import type { Notification } from "../types";
 
 export function Notifications() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [items, setItems] = useState<Notification[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Never shown as text -- just gates the retry state below -- so only a
+  // flag is kept, never the raw backend message itself.
+  const [hasError, setHasError] = useState(false);
   const { page, from, to, setPage } = usePagination({ pageSize: CUSTOMER_PAGE_SIZE });
 
   useEffect(() => {
@@ -19,13 +22,13 @@ export function Notifications() {
 
   async function load() {
     setLoading(true);
-    setError(null);
+    setHasError(false);
     const { data, error, count } = await supabase
       .from("notifications")
       .select("id, type, title, body, is_read, created_at", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
-    if (error) setError(error.message);
+    if (error) setHasError(true);
     setItems(data ?? []);
     setTotalCount(count ?? 0);
     setLoading(false);
@@ -48,25 +51,25 @@ export function Notifications() {
   return (
     <div className="max-w-lg">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Notifications</h1>
+        <h1 className="text-xl font-bold">{t("account.notifications")}</h1>
         {items.some((n) => !n.is_read) && (
           <button onClick={markAllRead} className="text-sm text-navy font-medium">
-            Mark all read
+            {t("notifications.markAllRead")}
           </button>
         )}
       </div>
 
       {loading ? (
         <SkeletonRows count={4} />
-      ) : error ? (
+      ) : hasError ? (
         <div className="text-sm">
-          <p className="text-red-600 mb-2">We couldn't load your notifications.</p>
+          <p className="text-red-600 mb-2">{t("notifications.loadError")}</p>
           <button onClick={load} className="text-navy font-medium">
-            Retry
+            {t("common.retry")}
           </button>
         </div>
       ) : items.length === 0 ? (
-        <EmptyState icon={Bell} title="No notifications yet" />
+        <EmptyState icon={Bell} title={t("emptyState.noNotifications")} />
       ) : (
         <>
           <div className="space-y-2">
@@ -80,7 +83,7 @@ export function Notifications() {
               >
                 <div className="flex justify-between items-start gap-2">
                   <p className="font-medium text-sm">{n.title}</p>
-                  {!n.is_read && <span className="w-2 h-2 rounded-full bg-orange-500 mt-1.5 shrink-0" aria-label="Unread" />}
+                  {!n.is_read && <span className="w-2 h-2 rounded-full bg-orange-500 mt-1.5 shrink-0" aria-label={t("notifications.unread")} />}
                 </div>
                 {n.body && <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">{n.body}</p>}
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{new Date(n.created_at).toLocaleString()}</p>

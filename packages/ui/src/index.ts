@@ -49,3 +49,4 @@ export { useTranslation } from "./i18n/useTranslation";
 export { LOCALES, LOCALE_LABELS, LOCALE_STORAGE_KEY, type Locale } from "./i18n/types";
 export { getCurrentLocale } from "./i18n/locale";
 export { getEnglishStrings, getAmharicStrings } from "./i18n/loadTranslations";
+export { translateAuthError } from "./i18n/authError";

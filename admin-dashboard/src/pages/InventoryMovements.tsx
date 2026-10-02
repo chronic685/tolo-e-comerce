@@ -1,10 +1,20 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, Badge, DataTable, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, DataTable, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
 import type { InventoryMovement } from "../types";
 
 const TYPE_FILTERS = ["all", "restock", "sale", "return", "adjustment", "reserve", "release"];
+
+const MOVEMENT_TYPE_KEYS: Record<string, string> = {
+  all: "movementType.all",
+  restock: "movementType.restock",
+  sale: "movementType.sale",
+  return: "movementType.return",
+  adjustment: "movementType.adjustment",
+  reserve: "movementType.reserve",
+  release: "movementType.release",
+};
 
 const typeVariant: Record<string, "success" | "info" | "warning" | "default"> = {
   restock: "success",
@@ -16,6 +26,7 @@ const typeVariant: Record<string, "success" | "info" | "warning" | "default"> = 
 };
 
 export function InventoryMovements() {
+  const { t } = useTranslation();
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [typeFilter, setTypeFilter] = useState("all");
@@ -70,10 +81,10 @@ export function InventoryMovements() {
   const columns: DataTableColumn<InventoryMovement>[] = [
     {
       key: "product",
-      header: "Product",
+      header: t("inventoryMovements.productColumn"),
       render: (m) => (
         <div>
-          <p className="text-sm font-medium">{m.product_variants?.products?.name ?? "Unknown product"}</p>
+          <p className="text-sm font-medium">{m.product_variants?.products?.name ?? t("inventoryMovements.unknownProduct")}</p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {m.product_variants?.sku ?? "—"} · {new Date(m.created_at).toLocaleString()}
           </p>
@@ -85,7 +96,7 @@ export function InventoryMovements() {
     },
     {
       key: "quantity",
-      header: "Qty",
+      header: t("inventoryMovements.qtyColumn"),
       render: (m) => <span className="text-sm font-semibold">{m.quantity > 0 ? "+" : ""}{m.quantity}</span>,
       sortValue: (m) => m.quantity,
       csvValue: (m) => m.quantity,
@@ -93,26 +104,30 @@ export function InventoryMovements() {
     },
     {
       key: "type",
-      header: "Type",
-      render: (m) => <Badge variant={typeVariant[m.movement_type] ?? "default"} className="capitalize">{m.movement_type}</Badge>,
+      header: t("inventoryMovements.typeColumn"),
+      render: (m) => (
+        <Badge variant={typeVariant[m.movement_type] ?? "default"} className="capitalize">
+          {MOVEMENT_TYPE_KEYS[m.movement_type] ? t(MOVEMENT_TYPE_KEYS[m.movement_type]) : m.movement_type}
+        </Badge>
+      ),
       csvValue: (m) => m.movement_type,
     },
   ];
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Inventory Movements</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">{t("inventoryMovements.title")}</h1>
 
       <div className="flex gap-2 mb-4 flex-wrap">
-        {TYPE_FILTERS.map((t) => (
+        {TYPE_FILTERS.map((type) => (
           <button
-            key={t}
-            onClick={() => setTypeFilter(t)}
+            key={type}
+            onClick={() => setTypeFilter(type)}
             className={`px-3 py-1.5 rounded-full text-xs border capitalize ${
-              typeFilter === t ? "bg-navy text-white border-navy dark:bg-navy-light dark:border-navy-light" : "bg-white dark:bg-navy-dark dark:border-white/20 dark:text-gray-300"
+              typeFilter === type ? "bg-navy text-white border-navy dark:bg-navy-light dark:border-navy-light" : "bg-white dark:bg-navy-dark dark:border-white/20 dark:text-gray-300"
             }`}
           >
-            {t}
+            {t(MOVEMENT_TYPE_KEYS[type])}
           </button>
         ))}
       </div>
@@ -120,7 +135,7 @@ export function InventoryMovements() {
       {loading ? (
         <SkeletonRows />
       ) : movements.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400">No movements in this view.</p>
+        <p className="text-gray-500 dark:text-gray-400">{t("inventoryMovements.noneInView")}</p>
       ) : (
         <>
           <DataTable storageKey="admin.inventoryMovements" columns={columns} rows={movements} getRowId={(m) => m.id} onExportAll={handleExport} />

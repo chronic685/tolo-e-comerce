@@ -1,9 +1,10 @@
 ﻿import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { SkeletonPage, toast } from "@tolo/ui";
+import { SkeletonPage, toast, useTranslation } from "@tolo/ui";
 import type { NotificationTemplate } from "../types";
 
 export function NotificationTemplates() {
+  const { t: translate } = useTranslation();
   const [templates, setTemplates] = useState<NotificationTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Record<string, { title: string; body: string }>>({});
@@ -30,10 +31,10 @@ export function NotificationTemplates() {
       .update({ title_template: d.title, body_template: d.body })
       .eq("id", t.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(translate("notificationTemplates.saveError"));
       return;
     }
-    toast.success(`Saved "${t.event_type}".`);
+    toast.success(translate("notificationTemplates.saved", { eventType: t.event_type }));
     setTemplates((prev) => prev.map((tpl) => (tpl.id === t.id ? { ...tpl, title_template: d.title, body_template: d.body } : tpl)));
     // Clears this row's draft now that it matches the saved value, so
     // `dirty` goes back to false and the Save button disappears again --
@@ -56,10 +57,9 @@ export function NotificationTemplates() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-xl font-bold mb-1">Notification Templates</h1>
+      <h1 className="text-xl font-bold mb-1">{translate("notificationTemplates.title")}</h1>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        Edit the in-app copy for each event. Use <code>{"{{variable}}"}</code> placeholders — e.g. order_number (readable order number, "TL-1234" — prefer this
-        over order_id_short), merchant_name, amount.
+        {translate("notificationTemplates.descriptionBefore")} <code>{"{{variable}}"}</code> {translate("notificationTemplates.descriptionAfter")}
       </p>
 
       <div className="space-y-3">
@@ -76,7 +76,7 @@ export function NotificationTemplates() {
                     t.enabled ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300"
                   }`}
                 >
-                  {t.enabled ? "Enabled" : "Disabled"}
+                  {t.enabled ? translate("notificationTemplates.enabled") : translate("notificationTemplates.disabled")}
                 </button>
               </div>
               <input
@@ -92,7 +92,7 @@ export function NotificationTemplates() {
               />
               {dirty && (
                 <button onClick={() => save(t)} className="mt-2 text-xs bg-navy text-white px-3 py-1.5 rounded-md hover:bg-navy-dark">
-                  Save changes
+                  {translate("notificationTemplates.saveChanges")}
                 </button>
               )}
             </div>

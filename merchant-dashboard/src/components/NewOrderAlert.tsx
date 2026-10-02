@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { formatOrderNumber } from "@tolo/ui";
+import { formatOrderNumber, useTranslation } from "@tolo/ui";
 import { useNewOrderQueue } from "../lib/NewOrderQueueContext";
 
 /** Full-screen modal for the newest order in the queue (NewOrderQueueContext
  * owns the actual fetch/realtime/sound logic now, shared with the header
  * badge -- see Layout.tsx). */
 export function NewOrderAlert() {
+  const { t } = useTranslation();
   const { queue, acknowledge } = useNewOrderQueue();
   const [acknowledging, setAcknowledging] = useState(false);
   const current = queue[0];
@@ -22,9 +23,11 @@ export function NewOrderAlert() {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-navy-dark rounded-lg max-w-sm w-full p-6 shadow-2xl border-2 border-red-500">
-        <p className="text-xs font-bold text-red-600 tracking-wide mb-1">NEW ORDER</p>
+        <p className="text-xs font-bold text-red-600 tracking-wide mb-1">{t("newOrderAlert.newOrder")}</p>
         <h2 className="text-xl font-bold mb-1 dark:text-gray-100">
-          Order {current.orders?.order_number ? formatOrderNumber(current.orders.order_number) : `#${current.id.slice(0, 8)}`}
+          {t("orders.orderLabel", {
+            orderNumber: current.orders?.order_number ? formatOrderNumber(current.orders.order_number) : `#${current.id.slice(0, 8)}`,
+          })}
         </h2>
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{new Date(current.created_at).toLocaleTimeString()}</p>
 
@@ -42,7 +45,7 @@ export function NewOrderAlert() {
         </div>
 
         <div className="flex justify-between font-semibold mb-5 dark:text-gray-100">
-          <span>You'll receive</span>
+          <span>{t("newOrderAlert.youllReceive")}</span>
           <span>{current.merchant_payable.toFixed(2)} ETB</span>
         </div>
 
@@ -51,9 +54,13 @@ export function NewOrderAlert() {
           disabled={acknowledging}
           className="w-full bg-navy dark:bg-navy-light text-white py-3 rounded-md font-bold text-lg hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60"
         >
-          {acknowledging ? "..." : "ORDER RECEIVED"}
+          {acknowledging ? "..." : t("merchant.orderReceived")}
         </button>
-        {queue.length > 1 && <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-2">+{queue.length - 1} more new order(s)</p>}
+        {queue.length > 1 && (
+          <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-2">
+            {t("newOrderAlert.moreNewOrders", { count: queue.length - 1 })}
+          </p>
+        )}
       </div>
     </div>
   );

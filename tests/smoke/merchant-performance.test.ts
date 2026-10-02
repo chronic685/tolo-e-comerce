@@ -111,22 +111,32 @@ describe("merchant performance scores (migration 0063)", () => {
   it("acceptance_rate is null for a merchant with no decided orders yet", async () => {
     // A merchant with zero merchant_orders at all -- created fresh so this
     // is guaranteed true, unlike reusing a shared fixture merchant.
+    //
+    // Cleanup lives in `finally`, not after the assertions, on purpose: it
+    // used to run after them, so a failed assertion skipped it and left an
+    // orphaned "QA perf test merchant" row (and its auth user) behind in
+    // the live project every time -- nine of them accumulated this way
+    // before it was caught (see migration 0079's commit). is_test: true
+    // for the same reason the shared QA fixtures carry it now, in case
+    // this one is ever found still live despite the fix below.
     const email = `qa-perftest-${Date.now()}@example.test`;
     const { data: user, error: userError } = await db.auth.admin.createUser({ email, password: "qa-test-password-123", email_confirm: true });
     expect(userError).toBeNull();
     const { data: merchant, error: merchantError } = await db
       .from("merchants")
-      .insert({ owner_id: user.user!.id, business_name: "QA perf test merchant", status: "active" })
+      .insert({ owner_id: user.user!.id, business_name: "QA perf test merchant", status: "active", is_test: true })
       .select("id")
       .single();
     expect(merchantError).toBeNull();
 
-    const actual = await performanceFor(merchant!.id);
-    expect(actual.acceptance_rate).toBeNull();
-    expect(actual.cancellation_rate).toBeNull();
-    expect(actual.avg_prep_minutes).toBeNull();
-
-    await db.from("merchants").delete().eq("id", merchant!.id);
-    await db.auth.admin.deleteUser(user.user!.id);
+    try {
+      const actual = await performanceFor(merchant!.id);
+      expect(actual.acceptance_rate).toBeNull();
+      expect(actual.cancellation_rate).toBeNull();
+      expect(actual.avg_prep_minutes).toBeNull();
+    } finally {
+      await db.from("merchants").delete().eq("id", merchant!.id);
+      await db.auth.admin.deleteUser(user.user!.id);
+    }
   });
 });

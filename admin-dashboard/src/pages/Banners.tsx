@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Image as ImageIcon } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { Badge, Button, DataTable, EmptyState, toast, type DataTableColumn } from "@tolo/ui";
+import { Badge, Button, DataTable, EmptyState, toast, useTranslation, type DataTableColumn } from "@tolo/ui";
 
 interface Banner {
   id: string;
@@ -18,6 +18,7 @@ interface Banner {
 // RLS means Marketplace.tsx can query homepage_banners directly with no
 // dedicated public endpoint.
 export function Banners() {
+  const { t } = useTranslation();
   const [banners, setBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
@@ -40,7 +41,7 @@ export function Banners() {
     const path = `${Date.now()}-${file.name}`;
     const { error: uploadError } = await supabase.storage.from("homepage-banners").upload(path, file);
     if (uploadError) {
-      toast.error(uploadError.message);
+      toast.error(t("banners.saveError"));
       setUploading(false);
       return;
     }
@@ -55,7 +56,7 @@ export function Banners() {
     });
     setUploading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(t("banners.saveError"));
       return;
     }
     setTitle("");
@@ -76,10 +77,10 @@ export function Banners() {
   }
 
   async function handleDelete(b: Banner) {
-    if (!confirm("Delete this banner?")) return;
+    if (!confirm(t("banners.deleteConfirm"))) return;
     const { error } = await supabase.from("homepage_banners").delete().eq("id", b.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(t("banners.saveError"));
       return;
     }
     setBanners((prev) => prev.filter((x) => x.id !== b.id));
@@ -88,12 +89,12 @@ export function Banners() {
   const columns: DataTableColumn<Banner>[] = [
     {
       key: "banner",
-      header: "Banner",
+      header: t("banners.column"),
       render: (b) => (
         <div className="flex items-center gap-3">
           <img src={b.image_url} alt={b.title ?? ""} className="w-24 h-14 object-cover rounded-md flex-shrink-0 bg-gray-100 dark:bg-white/5" />
           <div className="min-w-0">
-            <p className="text-sm font-medium truncate">{b.title || "(untitled)"}</p>
+            <p className="text-sm font-medium truncate">{b.title || t("banners.untitled")}</p>
             {b.link_url && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{b.link_url}</p>}
           </div>
         </div>
@@ -103,14 +104,14 @@ export function Banners() {
     },
     {
       key: "sort_order",
-      header: "Order",
+      header: t("banners.orderColumn"),
       render: (b) => (
         <input
           type="number"
           value={b.sort_order}
           onChange={(e) => updateSortOrder(b, Number(e.target.value))}
           className="w-16 border rounded-md px-2 py-1 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
-          title="Display order"
+          title={t("banners.displayOrderTooltip")}
         />
       ),
       sortValue: (b) => b.sort_order,
@@ -118,8 +119,8 @@ export function Banners() {
     },
     {
       key: "status",
-      header: "Status",
-      render: (b) => <Badge variant={b.is_active ? "success" : "default"}>{b.is_active ? "Active" : "Inactive"}</Badge>,
+      header: t("common.status"),
+      render: (b) => <Badge variant={b.is_active ? "success" : "default"}>{b.is_active ? t("common.active") : t("common.inactive")}</Badge>,
       csvValue: (b) => (b.is_active ? "active" : "inactive"),
     },
     {
@@ -128,10 +129,10 @@ export function Banners() {
       render: (b) => (
         <div className="flex items-center gap-2 justify-end">
           <Button size="sm" variant="outline" onClick={() => toggleActive(b)}>
-            {b.is_active ? "Deactivate" : "Activate"}
+            {b.is_active ? t("banners.deactivate") : t("banners.activate")}
           </Button>
           <Button size="sm" variant="destructive" onClick={() => handleDelete(b)}>
-            Delete
+            {t("common.delete")}
           </Button>
         </div>
       ),
@@ -140,18 +141,18 @@ export function Banners() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Homepage Banners</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">{t("nav.banners")}</h1>
 
       <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 space-y-2">
-        <p className="font-medium text-sm dark:text-gray-100">Add a banner</p>
+        <p className="font-medium text-sm dark:text-gray-100">{t("banners.addBanner")}</p>
         <input
-          placeholder="Title (optional)"
+          placeholder={t("banners.titlePlaceholder")}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
         />
         <input
-          placeholder="Link URL (optional — e.g. /shops/some-shop)"
+          placeholder={t("banners.linkUrlPlaceholder")}
           value={linkUrl}
           onChange={(e) => setLinkUrl(e.target.value)}
           className="w-full border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
@@ -167,11 +168,11 @@ export function Banners() {
           }}
           className="text-sm dark:text-gray-300"
         />
-        {uploading && <p className="text-xs text-gray-400 dark:text-gray-500">Uploading...</p>}
+        {uploading && <p className="text-xs text-gray-400 dark:text-gray-500">{t("common.uploading")}</p>}
       </div>
 
       {loading ? null : banners.length === 0 ? (
-        <EmptyState icon={ImageIcon} title="No banners yet" description="Add an image above to show it on the homepage." />
+        <EmptyState icon={ImageIcon} title={t("emptyState.noBanners")} description={t("emptyState.noBannersDescription")} />
       ) : (
         <DataTable storageKey="admin.banners" columns={columns} rows={banners} getRowId={(b) => b.id} />
       )}
