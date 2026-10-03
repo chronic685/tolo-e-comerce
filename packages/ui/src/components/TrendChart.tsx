@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "../i18n/useTranslation";
 import { cn } from "../lib/cn";
 
@@ -21,6 +21,9 @@ export interface TrendChartProps {
 
 const BAR_MAX_WIDTH = 24;
 const BAR_GAP = 2;
+const FALLBACK_WIDTH = 320; // before the first measurement, and where layout isn't available (jsdom)
+const LABEL_ROW_HEIGHT = 24;
+const EMPTY_HEIGHT = 80;
 
 /** A single-series bar chart: <=24px bars, 4px rounded tops squared at the
  * baseline, a 2px surface gap between bars, hairline recessive gridlines,
@@ -33,26 +36,45 @@ export function TrendChart({ data, ariaLabel, formatValue = (v) => String(v), cl
   const { t } = useTranslation();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const titleId = useId();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [measuredWidth, setMeasuredWidth] = useState(0);
+  const isEmpty = data.every((d) => d.value === 0);
+
+  // The SVG is drawn at the container's real pixel width (viewBox == rendered
+  // size), so nothing is ever scaled: bars keep their proportions and rounded
+  // corners, and the chart spans the card at every viewport width and date range.
+  // (preserveAspectRatio="none" would stretch the 4px corner radii.)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => setMeasuredWidth(Math.round(el.getBoundingClientRect().width));
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isEmpty]);
 
   const max = Math.max(1, ...data.map((d) => d.value));
-  const width = Math.max(data.length * (BAR_MAX_WIDTH + BAR_GAP), 240);
-  const barWidth = Math.min(BAR_MAX_WIDTH, width / data.length - BAR_GAP);
-  const chartHeight = height - 24; // leaves room for the x-axis label row
+  const width = measuredWidth > 0 ? measuredWidth : FALLBACK_WIDTH;
+  const slot = width / data.length; // each point's share of the width
+  const barWidth = Math.max(1, Math.min(BAR_MAX_WIDTH, slot - BAR_GAP));
+  const chartHeight = height - LABEL_ROW_HEIGHT; // the x-axis label row sits below the svg, not inside it
   const active = activeIndex != null ? data[activeIndex] : null;
 
   // Nothing to plot (no points, or every point is 0): a row of 1px stubs and
   // gridlines with no axis reads as a rendering glitch, so say so instead.
-  if (data.every((d) => d.value === 0)) {
+  if (isEmpty) {
     return (
-      <div role="status" className={cn("flex items-center justify-center text-center text-sm text-gray-400 dark:text-gray-500 px-4", className)} style={{ height }}>
+      <div role="status" className={cn("flex items-center justify-center text-center text-sm text-gray-400 dark:text-gray-500 px-4", className)} style={{ height: EMPTY_HEIGHT }}>
         {emptyMessage ?? t("trendChart.noData")}
       </div>
     );
   }
 
   return (
-    <div className={cn("relative", className)}>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby={titleId} className="w-full h-auto" style={{ height }}>
+    <div ref={containerRef} className={cn("relative", className)}>
+      <svg viewBox={`0 0 ${width} ${chartHeight}`} width={width} height={chartHeight} role="img" aria-labelledby={titleId} className="block max-w-full">
         <title id={titleId}>{ariaLabel}</title>
         {/* Gridlines: 0%, 50%, 100% of the max -- hairline, recessive. */}
         {[0, 0.5, 1].map((fraction) => (
@@ -69,7 +91,7 @@ export function TrendChart({ data, ariaLabel, formatValue = (v) => String(v), cl
 
         {data.map((point, i) => {
           const barHeight = Math.max(1, (point.value / max) * chartHeight);
-          const x = i * (barWidth + BAR_GAP) + BAR_GAP / 2;
+          const x = i * slot + (slot - barWidth) / 2; // bar centred in its slot
           const y = chartHeight - barHeight;
           const isActive = activeIndex === i;
           return (
@@ -78,9 +100,9 @@ export function TrendChart({ data, ariaLabel, formatValue = (v) => String(v), cl
                   bar so a short/zero-value bar is still easy to hover/tap,
                   per the dataviz skill's "hit targets bigger than the mark". */}
               <rect
-                x={x - BAR_GAP / 2}
+                x={i * slot}
                 y={0}
-                width={barWidth + BAR_GAP}
+                width={slot}
                 height={chartHeight}
                 fill="transparent"
                 tabIndex={0}
