@@ -34,9 +34,30 @@ acknowledged is never sent twice.
 
 **One job per merchant order**, not per checkout: a checkout with items from
 two merchants has two pickups, so two jobs. Each carries its own `job_id` and
-items. The checkout's single delivery fee and rider tip are attached to the
-*first* merchant order (earliest created) and are `0` on the others, so no
-driver is told to collect them twice.
+items, and **its own share of the checkout's single delivery fee and rider
+tip**: split in proportion to each merchant order's item subtotal (before
+discount). Leftover cents from rounding go one each to the earliest merchant
+orders, so the jobs' shares always add up to exactly what the customer was
+charged, and `amounts.delivery_fee` / `amounts.rider_tip` are per job, never
+the whole checkout's. If no subtotal is known the split is even. A merchant
+order that was rejected or cancelled before the handoff sends no driver, so
+it takes no share and the others split the whole amount. (A sibling rejected
+*after* another job was already sent is not re-split; its share goes
+uncollected, and the existing refund flow leaves the delivery fee to manual
+admin handling anyway.)
+
+**No Tolo-verified phone, no automatic handoff.** If the customer has no
+phone linked to a Tolo session (they signed up by email), the marketplace does
+not send the job, and never substitutes the phone typed into the address.
+The job is created with `handoff_error = no_verified_phone` and
+`needs_manual_handling = true`, and the admin Orders page shows a red
+"Delivery not sent: customer has no Tolo-verified phone. Arrange it manually"
+badge on that merchant order. Other jobs the marketplace can't build
+(`payment_not_settled`, `no_items`, `missing_pickup_location`,
+`missing_dropoff_location`) are flagged the same way. A Tolo Delivery outage is
+*not* flagged: it keeps `handoff_error` only and retries. Re-running
+`delivery-handoff` for a flagged order once it can be sent (for example the
+customer has since signed in through the Tolo app) sends it and clears the flag.
 
 ## Job payload (marketplace → Tolo Delivery app)
 
@@ -64,8 +85,7 @@ Content-Type: application/json
     "address": "Piassa, Addis Ababa",
     "latitude": 9.03,
     "longitude": 38.75,
-    "phone": "+251911000002",
-    "phone_verified": true
+    "phone": "+251911000002"
   },
   "items": [
     { "name": "Doro Wat", "quantity": 2 },
@@ -90,11 +110,9 @@ Content-Type: application/json
   `latitude`/`longitude`/`address` come from the store record; any may be
   `null`, but the marketplace won't send a job with no pickup (or dropoff)
   location at all.
-- `dropoff`: the delivery address chosen at checkout. **`phone` is the
-  phone the customer signed in to Tolo with** (`phone_verified: true`), the
-  same verified phone `tolo-app-login` links to their account. Only when the
-  customer has no Tolo session phone (they signed up with email) does it fall
-  back to the phone typed into the address, with `phone_verified: false`.
+- `dropoff`: the delivery address chosen at checkout. **`phone` is always
+  the phone the customer signed in to Tolo with**, the same verified phone
+  `tolo-app-login` links to their account. A job is never sent without one.
 - `items`: active items only (items the merchant removed are excluded).
   Item prices are not included.
 
@@ -113,8 +131,8 @@ A job is not sent while an online payment is still unsettled
 ### The marketplace does not compute the amount the driver sees
 
 `amounts` hands over **components only**: this merchant's `item_subtotal`
-(before discount), the `discount` that applies to it, the checkout's
-`delivery_fee` and the customer's `rider_tip`. There is deliberately **no
+(before discount), the `discount` that applies to it, and this job's share of
+the checkout's `delivery_fee` and `rider_tip` (see above). There is deliberately **no
 total** field. **The Tolo Delivery app computes and displays what the driver
 sees and collects from these components, the way that app already works.**
 The marketplace doesn't decide it.
@@ -202,12 +220,12 @@ A late callback never moves a cancelled or rejected order.
 One row per merchant order (`merchant_order_id`, unique). Columns: `status`
 (`invoked`/`accepted`/`picked_up`/`delivered`/`failed`), `driver_ref`,
 `eta_at`, `failure_reason`, `dispatched_at`, `handoff_attempts`,
-`handoff_error`, and an `invoked_at`/`accepted_at`/`picked_up_at`/
+`handoff_error`, `needs_manual_handling`, and an `invoked_at`/`accepted_at`/`picked_up_at`/
 `delivered_at`/`failed_at` timestamp for each status.
 
 Read access (RLS): the customer who owns the order, the merchant (owner or
-staff) it belongs to, and admins (`has_admin_page(['delivery_ops'])`, i.e.
-admin tier or Delivery Ops staff). **Nobody can write it** except the service
+staff) it belongs to, and admins and staff with the Delivery Ops or Orders page
+(`has_admin_page(['delivery_ops', 'orders'])`). **Nobody can write it** except the service
 role, which only the two functions above use.
 
 ## Secrets
@@ -237,7 +255,7 @@ When the Tolo Delivery backend implements both endpoints above:
 
 ```
 npx supabase secrets set TOLO_DELIVERY_HANDOFF_ENABLED=true
-npx supabase db push        # migration 0080
+npx supabase db push        # migrations 0080, 0081
 npx supabase functions deploy delivery-handoff delivery-status-callback order-status
 ```
 

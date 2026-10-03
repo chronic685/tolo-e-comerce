@@ -11,13 +11,14 @@ import { callFunction } from "../helpers.ts";
 // tolo-app-functions.test.ts it runs only where the workflow sets these.
 const INBOUND_KEY = process.env.TOLO_CI_INBOUND_KEY;
 const SHARED_KEY = process.env.TOLO_CI_SHARED_KEY;
+const CUSTOMER_TOLO_PHONE = "+251911000003";
 const STUB_URL = process.env.TOLO_CI_STUB_URL ?? "http://127.0.0.1:54399";
 
 interface Payload {
   job_id: string;
   order_number: string;
   pickup: { phone: string | null; address: string | null };
-  dropoff: { phone: string | null; phone_verified: boolean };
+  dropoff: { phone: string | null };
   items: { name: string; quantity: number }[];
   amounts: { item_subtotal: number; delivery_fee: number };
   payment: { method: string; driver_collects_cash: boolean };
@@ -47,7 +48,15 @@ describe.skipIf(!INBOUND_KEY || !SHARED_KEY)("delivery handoff under the Deno ru
     // The QA store has no pickup location; a job can't be sent without one.
     const updated = await db.from("stores").update({ pickup_address: "QA Pickup Street, Addis Ababa" }).like("name", "QA TEST Store%");
     expect(updated.error).toBeNull();
+    await linkCustomerPhone();
   });
+
+  // The QA customer signs in by password, so it has no Tolo session phone
+  // unless one is linked here, exactly as tolo-app-login's first login would.
+  async function linkCustomerPhone() {
+    const { error } = await db.from("tolo_phone_links").upsert({ user_id: customerUserId, phone: CUSTOMER_TOLO_PHONE }, { onConflict: "user_id" });
+    expect(error).toBeNull();
+  }
 
   /** A real order through checkout's create_order(), with the payment checkout would have recorded. */
   async function order(paid: boolean) {
@@ -96,8 +105,29 @@ describe.skipIf(!INBOUND_KEY || !SHARED_KEY)("delivery handoff under the Deno ru
     expect(sent!.amounts.item_subtotal).toBeGreaterThan(0);
     expect(sent!.pickup.address).toBe("QA Pickup Street, Addis Ababa");
     expect(sent!.payment).toEqual({ method: "cash_on_delivery", driver_collects_cash: true });
-    // The QA customer signed in by password, so has no Tolo session phone.
-    expect(sent!.dropoff).toMatchObject({ phone: "+251900000003", phone_verified: false });
+    // The Tolo-verified phone, never the one typed into the address (+251900000003).
+    expect(sent!.dropoff.phone).toBe(CUSTOMER_TOLO_PHONE);
+    expect(sent!.dropoff).not.toHaveProperty("phone_verified");
+  });
+
+  it("an order whose customer has no Tolo-verified phone is flagged for an admin and sent nothing, until it has one", async () => {
+    await db.from("tolo_phone_links").delete().eq("user_id", customerUserId);
+    try {
+      const { merchantOrderId } = await order(false);
+      await moveToReady(merchantOrderId);
+      const job = await jobFor(merchantOrderId);
+      expect(job).toMatchObject({ status: "invoked", dispatched_at: null, handoff_error: "no_verified_phone", needs_manual_handling: true });
+      expect((await stubReceived()).some((p) => p.job_id === job!.id)).toBe(false);
+
+      // The merchant's order stayed ready_for_pickup; once the phone is linked a retry goes through.
+      await linkCustomerPhone();
+      const retry = await callFunction("delivery-handoff", { token: env.serviceRoleKey, body: { merchant_order_id: merchantOrderId } });
+      expect(retry.status).toBe(200);
+      expect(await jobFor(merchantOrderId)).toMatchObject({ handoff_error: null, needs_manual_handling: false });
+      expect((await stubReceived()).some((p) => p.job_id === job!.id)).toBe(true);
+    } finally {
+      await linkCustomerPhone();
+    }
   });
 
   it("a prepaid order is sent as already_paid and the driver collects nothing", async () => {
