@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { DateRangePicker, SkeletonRows, TrendChart, formatCurrency, lastNDays, toDateInputValue, useTranslation, type DateRange } from "@tolo/ui";
+import { DateRangePicker, SkeletonRows, fetchAllRows, fetchAllRowsForIds, TrendChart, formatCurrency, lastNDays, toDateInputValue, useTranslation, type DateRange } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 
 interface DayBucket {
@@ -46,15 +46,20 @@ export function RevenueChart({ merchantId }: { merchantId: string }) {
     const rangeStartIso = range.start.toISOString();
     const rangeEndIso = range.end.toISOString();
 
-    supabase
-      .from("merchant_orders")
-      .select("id, created_at, merchant_payable")
-      .eq("merchant_id", merchantId)
-      .eq("status", "completed")
-      .gte("created_at", rangeStartIso)
-      .lte("created_at", rangeEndIso)
-      .then(async ({ data }) => {
-        const rows = (data ?? []) as { id: string; created_at: string; merchant_payable: number }[];
+    // Paged: a single query is capped at 1,000 rows (PostgREST max_rows), which
+    // a busy merchant over a 90-day range can pass -- silently under-reporting.
+    fetchAllRows<{ id: string; created_at: string; merchant_payable: number }>((from, to) =>
+      supabase
+        .from("merchant_orders")
+        .select("id, created_at, merchant_payable")
+        .eq("merchant_id", merchantId)
+        .eq("status", "completed")
+        .gte("created_at", rangeStartIso)
+        .lte("created_at", rangeEndIso)
+        .order("id")
+        .range(from, to),
+    )
+      .then(async (rows) => {
         const byDay = new Map<string, { revenue: number; orderCount: number }>();
         for (const row of rows) {
           const key = dateKey(new Date(row.created_at));
@@ -78,12 +83,18 @@ export function RevenueChart({ merchantId }: { merchantId: string }) {
           setTopProducts([]);
           return;
         }
-        const { data: items } = await supabase
-          .from("order_items")
-          .select("product_name_snapshot, quantity")
-          .in("merchant_order_id", rows.map((r) => r.id));
+        const items = await fetchAllRowsForIds<{ product_name_snapshot: string; quantity: number }>(
+          rows.map((r) => r.id),
+          (idChunk, from, to) =>
+            supabase
+              .from("order_items")
+              .select("product_name_snapshot, quantity")
+              .in("merchant_order_id", idChunk)
+              .order("id")
+              .range(from, to),
+        );
         const byProduct = new Map<string, number>();
-        for (const item of (items ?? []) as { product_name_snapshot: string; quantity: number }[]) {
+        for (const item of items) {
           byProduct.set(item.product_name_snapshot, (byProduct.get(item.product_name_snapshot) ?? 0) + item.quantity);
         }
         const top = [...byProduct.entries()]
@@ -91,6 +102,10 @@ export function RevenueChart({ merchantId }: { merchantId: string }) {
           .sort((a, b) => b.quantity - a.quantity)
           .slice(0, 5);
         setTopProducts(top);
+      })
+      .catch(() => {
+        setBuckets(buildEmptyBuckets(range));
+        setTopProducts([]);
       });
   }, [merchantId, rangeStartTime, rangeEndTime]);
 

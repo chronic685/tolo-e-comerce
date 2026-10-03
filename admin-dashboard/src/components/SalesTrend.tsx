@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { DateRangePicker, SkeletonRows, TrendChart, formatCurrency, lastNDays, useTranslation, type DateRange } from "@tolo/ui";
+import { DateRangePicker, SkeletonRows, fetchAllRows, fetchAllRowsForIds, TrendChart, formatCurrency, lastNDays, useTranslation, type DateRange } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 
 interface DayBucket {
@@ -52,14 +52,18 @@ export function SalesTrend() {
     const startIso = range.start.toISOString();
     const endIso = range.end.toISOString();
 
-    supabase
-      .from("orders")
-      .select("created_at, total")
-      .eq("payment_status", "paid")
-      .gte("created_at", startIso)
-      .lte("created_at", endIso)
-      .then(({ data }) => {
-        const rows = (data ?? []) as { created_at: string; total: number }[];
+    // Paged: one query is capped at 1,000 rows (PostgREST max_rows).
+    fetchAllRows<{ created_at: string; total: number }>((from, to) =>
+      supabase
+        .from("orders")
+        .select("created_at, total")
+        .eq("payment_status", "paid")
+        .gte("created_at", startIso)
+        .lte("created_at", endIso)
+        .order("id")
+        .range(from, to),
+    )
+      .then((rows) => {
         const byDay = new Map<string, { gmv: number; orderCount: number }>();
         for (const row of rows) {
           const key = dateKey(new Date(row.created_at));
@@ -69,23 +73,30 @@ export function SalesTrend() {
           byDay.set(key, existing);
         }
         setBuckets(buildEmptyBuckets(range).map((b) => ({ ...b, ...(byDay.get(b.dateKey) ?? {}) })));
-      });
+      })
+      .catch(() => setBuckets(buildEmptyBuckets(range)));
 
-    supabase
-      .from("merchant_orders")
-      .select("id")
-      .eq("status", "completed")
-      .gte("created_at", startIso)
-      .lte("created_at", endIso)
-      .then(async ({ data }) => {
-        const ids = (data ?? []).map((r) => r.id as string);
+    fetchAllRows<{ id: string }>((from, to) =>
+      supabase
+        .from("merchant_orders")
+        .select("id")
+        .eq("status", "completed")
+        .gte("created_at", startIso)
+        .lte("created_at", endIso)
+        .order("id")
+        .range(from, to),
+    )
+      .then(async (idRows) => {
+        const ids = idRows.map((r) => r.id);
         if (ids.length === 0) {
           setTopProducts([]);
           return;
         }
-        const { data: items } = await supabase.from("order_items").select("product_name_snapshot, quantity").in("merchant_order_id", ids);
+        const items = await fetchAllRowsForIds<{ product_name_snapshot: string; quantity: number }>(ids, (idChunk, from, to) =>
+          supabase.from("order_items").select("product_name_snapshot, quantity").in("merchant_order_id", idChunk).order("id").range(from, to),
+        );
         const byProduct = new Map<string, number>();
-        for (const item of (items ?? []) as { product_name_snapshot: string; quantity: number }[]) {
+        for (const item of items) {
           byProduct.set(item.product_name_snapshot, (byProduct.get(item.product_name_snapshot) ?? 0) + item.quantity);
         }
         setTopProducts(
@@ -94,7 +105,8 @@ export function SalesTrend() {
             .sort((a, b) => b.quantity - a.quantity)
             .slice(0, 5),
         );
-      });
+      })
+      .catch(() => setTopProducts([]));
   }, [rangeStartTime, rangeEndTime]);
 
   return (
