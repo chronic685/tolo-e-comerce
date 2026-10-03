@@ -41,7 +41,7 @@ let h: Harness;
 const variant = randomUUID();
 
 beforeAll(async () => {
-  h = await createHarness(["0082_delete_qa_orders.sql", "0083_delete_qa_orders_bulk.sql"], { prelude: PRELUDE });
+  h = await createHarness(["0082_delete_qa_orders.sql", "0083_delete_qa_orders_bulk.sql", "0084_delete_qa_orders_release_clamp.sql"], { prelude: PRELUDE });
   await h.db.query("insert into inventory (variant_id, stock_quantity, reserved_quantity) values ($1, 100, 0)", [variant]);
 });
 
@@ -228,5 +228,30 @@ describe("delete_qa_orders", () => {
     expect((await q(randomUUID())).rows[0].b).toBe("order_not_found");
     const user = await h.createAuthUser();
     await expect(h.asUser(user.id, (tx) => tx.query("select qa_order_blocker($1)", [ok.orderId]))).rejects.toThrow(/permission denied/);
+  });
+
+  it("releases no more than is actually reserved when the movements ledger says more is held", async () => {
+    const a = await order();
+    // Someone released stock for this order without a movement: the counter is now below the ledger.
+    await h.db.query("update inventory set reserved_quantity = reserved_quantity - 1 where variant_id = $1", [variant]);
+    const before = await reserved();
+    const { rows } = await del([a.orderId]);
+    expect(rows[0].orders_deleted).toBe(1);
+    expect(await reserved()).toBeGreaterThanOrEqual(0);
+    expect(rows[0].reservations_released).toBeLessThanOrEqual(2);
+    expect(before - (await reserved())).toBe(rows[0].reservations_released);
+  });
+
+  it("does not fail when the ledger says more is held than the counter", async () => {
+    await h.db.query("update inventory set reserved_quantity = 0 where variant_id = $1", [variant]);
+    await h.db.query(
+      "insert into inventory_movements (variant_id, movement_type, quantity, reference_type, reference_id) select $1, 'reserve', 5, 'order', id from orders limit 1",
+      [variant],
+    );
+    const a = await order();
+    await h.db.query("update inventory set reserved_quantity = 0 where variant_id = $1", [variant]);
+    const { rows } = await del([a.orderId]);
+    expect(rows[0]).toMatchObject({ orders_deleted: 1, reservations_released: 0 });
+    expect(await reserved()).toBe(0);
   });
 });
