@@ -11,6 +11,13 @@ While building this suite, the same authentication-bypass bug class was found a 
 
 This suite exists to make that specific class of bug — missing auth, missing CORS handling, trusting client-supplied payment state — fail CI instead of waiting for a human to notice.
 
+> **Before changing tests, migrations, uploads or list queries, read
+> [docs/development-guidelines.md](../docs/development-guidelines.md).** In
+> particular: the suite signs the QA accounts in once per run
+> (`globalSetup.ts`), removes the orders it creates in teardown
+> (`delete_qa_orders()`), and tests must delete the auth users they create
+> (`deleteDisposableUser()` in `helpers.ts`).
+
 ## What is and isn't covered
 
 Run `npm test` from the repo root. Copy `tests/.env.test.example` to `tests/.env.test` and fill it in for local runs; CI uses repository secrets instead.

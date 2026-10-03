@@ -9,6 +9,7 @@ import {
   SkeletonRows,
   exportToCsv,
   fetchAllRows,
+  fetchAllRowsForIds,
   totalPagesFor,
   usePagination,
   useTranslation,
@@ -28,6 +29,14 @@ export function Customers() {
   const [reason, setReason] = useState("");
   const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE, resetKey: committedSearch });
 
+  // One page of customers is small, but the CSV export covers every customer, and
+  // `.in()` ids go in the URL while a response is capped at 1,000 rows.
+  function fetchOrdersOf(customerIds: string[]) {
+    return fetchAllRowsForIds<{ customer_id: string }>(customerIds, (idChunk, rangeFrom, rangeTo) =>
+      supabase.from("orders").select("customer_id").in("customer_id", idChunk).order("id").range(rangeFrom, rangeTo),
+    );
+  }
+
   async function load() {
     setLoading(true);
     let query = supabase
@@ -43,12 +52,9 @@ export function Customers() {
     setLoading(false);
 
     if (rows.length > 0) {
-      const { data: orders } = await supabase
-        .from("orders")
-        .select("customer_id")
-        .in("customer_id", rows.map((r) => r.id));
+      const orders = await fetchOrdersOf(rows.map((r) => r.id));
       const counts: Record<string, number> = {};
-      for (const o of orders ?? []) counts[o.customer_id] = (counts[o.customer_id] ?? 0) + 1;
+      for (const o of orders) counts[o.customer_id] = (counts[o.customer_id] ?? 0) + 1;
       setOrderCounts(counts);
     }
   }
@@ -114,12 +120,9 @@ export function Customers() {
       if (committedSearch.trim()) query = query.or(`full_name.ilike.%${committedSearch.trim()}%,phone.ilike.%${committedSearch.trim()}%`);
       return query.range(rangeFrom, rangeTo);
     });
-    const { data: orders } = await supabase
-      .from("orders")
-      .select("customer_id")
-      .in("customer_id", rows.map((r) => r.id));
+    const orders = await fetchOrdersOf(rows.map((r) => r.id));
     const counts: Record<string, number> = {};
-    for (const o of orders ?? []) counts[o.customer_id] = (counts[o.customer_id] ?? 0) + 1;
+    for (const o of orders) counts[o.customer_id] = (counts[o.customer_id] ?? 0) + 1;
 
     exportToCsv(
       `customers-${new Date().toISOString().slice(0, 10)}.csv`,

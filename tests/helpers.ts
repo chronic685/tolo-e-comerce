@@ -1,4 +1,4 @@
-import { env, functionUrl } from "./env.ts";
+import { env, functionUrl, serviceClient } from "./env.ts";
 
 interface CallOptions {
   method?: string;
@@ -52,4 +52,22 @@ export async function preflight(name: string, origin = "http://localhost:5173"):
     },
   });
   return { status: res.status, headers: res.headers, json: null };
+}
+
+/**
+ * Deletes an auth user a test created, and fails loudly if it can't. Deleting
+ * the auth user cascades to the profile, but orders reference their customer
+ * with ON DELETE RESTRICT, so a user who placed an order used to survive its
+ * test silently (48 "qa-codfraud-*" accounts had piled up on the live project).
+ * Their orders (always on QA merchants) go first, through delete_qa_orders().
+ */
+export async function deleteDisposableUser(userId: string): Promise<void> {
+  const db = serviceClient();
+  const { data: orders } = await db.from("orders").select("id").eq("customer_id", userId);
+  if (orders && orders.length > 0) {
+    const { error } = await db.rpc("delete_qa_orders", { p_order_ids: orders.map((o) => o.id), p_skip_ineligible: true });
+    if (error) throw error;
+  }
+  const { error } = await db.auth.admin.deleteUser(userId);
+  if (error) throw new Error(`Could not delete test user ${userId}: ${error.message}`);
 }

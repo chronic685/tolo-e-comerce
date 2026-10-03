@@ -16,6 +16,7 @@ import {
   translateServerError,
   usePagination,
   useTranslation,
+  fetchAllRowsForIds,
 } from "@tolo/ui";
 import type { FinancialAdjustment, Merchant, Settlement } from "../types";
 
@@ -90,13 +91,17 @@ export function Settlements() {
   async function downloadStatement(s: Settlement) {
     setDownloadingStatementId(s.id);
     try {
-      const { data: rawItems, error: itemsError } = await supabase
-        .from("settlement_items")
-        .select(
-          "amount, merchant_orders ( id, subtotal, commission_amount, discount_amount, merchant_payable, orders ( order_number ) )",
-        )
-        .eq("settlement_id", s.id);
-      if (itemsError) throw itemsError;
+      // Paged: a settlement can hold more than the 1,000 rows one response is capped at.
+      const rawItems = await fetchAllRows((rangeFrom, rangeTo) =>
+        supabase
+          .from("settlement_items")
+          .select(
+            "amount, merchant_orders ( id, subtotal, commission_amount, discount_amount, merchant_payable, orders ( order_number ) )",
+          )
+          .eq("settlement_id", s.id)
+          .order("id")
+          .range(rangeFrom, rangeTo),
+      );
 
       const items = (rawItems ?? []) as unknown as {
         merchant_orders: {
@@ -112,10 +117,14 @@ export function Settlements() {
       const merchantOrderIds = items.map((i) => i.merchant_orders?.id).filter(Boolean) as string[];
       const refundByMerchantOrder = new Map<string, number>();
       if (merchantOrderIds.length > 0) {
-        const { data: returnsRows } = await supabase
-          .from("returns")
-          .select("merchant_order_id, refunds ( amount, status )")
-          .in("merchant_order_id", merchantOrderIds);
+        const returnsRows = await fetchAllRowsForIds(merchantOrderIds, (idChunk, rangeFrom, rangeTo) =>
+          supabase
+            .from("returns")
+            .select("merchant_order_id, refunds ( amount, status )")
+            .in("merchant_order_id", idChunk)
+            .order("id")
+            .range(rangeFrom, rangeTo),
+        );
         for (const r of (returnsRows as unknown as { merchant_order_id: string; refunds: { amount: number; status: string }[] }[]) ?? []) {
           const refunded = r.refunds.filter((f) => f.status === "completed").reduce((sum, f) => sum + Number(f.amount), 0);
           if (refunded > 0) refundByMerchantOrder.set(r.merchant_order_id, (refundByMerchantOrder.get(r.merchant_order_id) ?? 0) + refunded);

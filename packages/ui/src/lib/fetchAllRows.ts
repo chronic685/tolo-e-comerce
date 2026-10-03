@@ -31,3 +31,25 @@ export async function fetchAllRows<T>(
     from += pageSize;
   }
 }
+
+// `.in("col", ids)` goes into the request URL, so a few hundred ids already
+// risks an over-long URL (the request fails outright), and the rows that come
+// back are still capped at max_rows. This walks `ids` in small chunks and pages
+// each chunk, for the dashboards' "rows belonging to this list of orders"
+// lookups (top products for a date range, a settlement's refunds, ...).
+// `fetchPage` must build a fresh query per call and ORDER BY a unique column,
+// or pages can overlap or skip rows.
+export const IDS_PER_REQUEST = 100;
+
+export async function fetchAllRowsForIds<T>(
+  ids: readonly string[],
+  fetchPage: (idChunk: string[], from: number, to: number) => PromiseLike<FetchPageResult<T>>,
+  chunkSize: number = IDS_PER_REQUEST,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    rows.push(...(await fetchAllRows<T>((from, to) => fetchPage(chunk, from, to))));
+  }
+  return rows;
+}

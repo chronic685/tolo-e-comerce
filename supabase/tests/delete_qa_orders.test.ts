@@ -1,4 +1,4 @@
-// Migration 0082 (delete_qa_orders) run for real against in-process PGlite --
+// Migrations 0082-0083 (delete_qa_orders) run for real against in-process PGlite --
 // see tests/pglite/harness.ts. Never touches any Supabase project.
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -15,6 +15,7 @@ create type inventory_movement_type as enum ('restock','sale','return','adjustme
 create sequence order_number_seq start 4300;
 create table orders (id uuid primary key default gen_random_uuid(), customer_id uuid not null references profiles(id), order_number int not null default nextval('order_number_seq'));
 create table merchant_orders (id uuid primary key default gen_random_uuid(), order_id uuid not null references orders(id) on delete cascade, merchant_id uuid not null references merchants(id), status merchant_order_status not null default 'new');
+create table order_status_history (id uuid primary key default gen_random_uuid(), merchant_order_id uuid not null references merchant_orders(id) on delete cascade, note text);
 create table order_items (id uuid primary key default gen_random_uuid(), merchant_order_id uuid not null references merchant_orders(id) on delete cascade);
 create table payments (id uuid primary key default gen_random_uuid(), order_id uuid not null references orders(id) on delete cascade, status payment_status not null default 'pending');
 create table payment_transactions (id uuid primary key default gen_random_uuid(), payment_id uuid not null references payments(id) on delete cascade);
@@ -41,7 +42,7 @@ let h: Harness;
 const variant = randomUUID();
 
 beforeAll(async () => {
-  h = await createHarness(["0082_delete_qa_orders.sql"], { prelude: PRELUDE });
+  h = await createHarness(["0082_delete_qa_orders.sql", "0083_delete_qa_orders_bulk.sql", "0084_delete_qa_orders_release_clamp.sql", "0087_protect_qa_fixture_order.sql"], { prelude: PRELUDE });
   await h.db.query("insert into inventory (variant_id, stock_quantity, reserved_quantity) values ($1, 100, 0)", [variant]);
 });
 
@@ -74,9 +75,12 @@ async function order(opts: { isTest?: boolean } = {}): Promise<Order> {
   return { orderId, moId, number, customerId: customer.id };
 }
 
-const del = (ids: string[]) =>
+const del = (ids: string[], skipIneligible = false) =>
   h.asService((tx) =>
-    tx.query<{ orders_deleted: number; notifications_deleted: number; reservations_released: number }>("select * from delete_qa_orders($1)", [ids]),
+    tx.query<{ orders_deleted: number; notifications_deleted: number; reservations_released: number; orders_skipped: number }>(
+      "select * from delete_qa_orders($1, $2)",
+      [ids, skipIneligible],
+    ),
   );
 const count = async (sql: string, ...args: unknown[]) => Number((await h.db.query<{ n: string }>(sql, args)).rows[0].n);
 const reserved = async () =>
@@ -90,7 +94,7 @@ describe("delete_qa_orders", () => {
     const before = await reserved();
 
     const { rows } = await del([a.orderId, b.orderId]);
-    expect(rows[0]).toEqual({ orders_deleted: 2, notifications_deleted: 4, reservations_released: 4 });
+    expect(rows[0]).toEqual({ orders_deleted: 2, notifications_deleted: 4, reservations_released: 4, orders_skipped: 0 });
 
     for (const o of [a, b]) {
       expect(await count("select count(*) n from orders where id = $1", o.orderId)).toBe(0);
@@ -120,8 +124,8 @@ describe("delete_qa_orders", () => {
   it("is not callable by users or anon", async () => {
     const a = await order();
     const user = await h.createAuthUser();
-    await expect(h.asUser(user.id, (tx) => tx.query("select * from delete_qa_orders($1)", [[a.orderId]]))).rejects.toThrow(/permission denied/);
-    await expect(h.asAnon((tx) => tx.query("select * from delete_qa_orders($1)", [[a.orderId]]))).rejects.toThrow(/permission denied/);
+    await expect(h.asUser(user.id, (tx) => tx.query("select * from delete_qa_orders($1, false)", [[a.orderId]]))).rejects.toThrow(/permission denied/);
+    await expect(h.asAnon((tx) => tx.query("select * from delete_qa_orders($1, false)", [[a.orderId]]))).rejects.toThrow(/permission denied/);
     expect(await count("select count(*) n from orders where id = $1", a.orderId)).toBe(1);
   });
 
@@ -175,5 +179,92 @@ describe("delete_qa_orders", () => {
     const before = await reserved();
     await expect(del([a.orderId])).rejects.toThrow("stock_already_sold");
     expect(await reserved()).toBe(before);
+  });
+
+  describe("bulk mode (p_skip_ineligible)", () => {
+    it("checks every order individually, deleting the eligible ones and skipping each ineligible one", async () => {
+      const ok1 = await order();
+      const ok2 = await order();
+      const real = await order({ isTest: false });
+      const withWallet = await order();
+      await h.db.query("insert into wallet_transactions (merchant_order_id) values ($1)", [withWallet.moId]);
+      const settled = await order();
+      await h.db.query("update payments set status = 'verified' where order_id = $1", [settled.orderId]);
+      const sold = await order();
+      await h.db.query(
+        "insert into inventory_movements (variant_id, movement_type, quantity, reference_type, reference_id) values ($1, 'sale', 2, 'order', $2)",
+        [variant, sold.orderId],
+      );
+      const before = await reserved();
+
+      const { rows } = await del([ok1.orderId, ok2.orderId, real.orderId, withWallet.orderId, settled.orderId, sold.orderId, randomUUID()], true);
+      expect(rows[0]).toEqual({ orders_deleted: 2, notifications_deleted: 4, reservations_released: 4, orders_skipped: 5 });
+
+      for (const gone of [ok1, ok2]) expect(await count("select count(*) n from orders where id = $1", gone.orderId)).toBe(0);
+      for (const kept of [real, withWallet, settled, sold]) {
+        expect(await count("select count(*) n from orders where id = $1", kept.orderId)).toBe(1);
+        expect(await count("select count(*) n from notifications where user_id = $1", kept.customerId)).toBe(2);
+      }
+      expect(await reserved()).toBe(before - 4);
+    });
+
+    it("deletes nothing and reports the skips when no order is eligible", async () => {
+      const real = await order({ isTest: false });
+      const { rows } = await del([real.orderId], true);
+      expect(rows[0]).toEqual({ orders_deleted: 0, notifications_deleted: 0, reservations_released: 0, orders_skipped: 1 });
+      expect(await count("select count(*) n from orders where id = $1", real.orderId)).toBe(1);
+    });
+
+    it("still refuses an empty request", async () => {
+      await expect(del([], true)).rejects.toThrow("no_orders");
+    });
+  });
+
+  it("qa_order_blocker names why an order can't be deleted, and is not callable by users", async () => {
+    const ok = await order();
+    const real = await order({ isTest: false });
+    const q = (id: string) => h.asService((tx) => tx.query<{ b: string | null }>("select qa_order_blocker($1) b", [id]));
+    expect((await q(ok.orderId)).rows[0].b).toBeNull();
+    expect((await q(real.orderId)).rows[0].b).toBe("not_a_test_order");
+    expect((await q(randomUUID())).rows[0].b).toBe("order_not_found");
+    const user = await h.createAuthUser();
+    await expect(h.asUser(user.id, (tx) => tx.query("select qa_order_blocker($1)", [ok.orderId]))).rejects.toThrow(/permission denied/);
+  });
+
+  it("releases no more than is actually reserved when the movements ledger says more is held", async () => {
+    const a = await order();
+    // Someone released stock for this order without a movement: the counter is now below the ledger.
+    await h.db.query("update inventory set reserved_quantity = reserved_quantity - 1 where variant_id = $1", [variant]);
+    const before = await reserved();
+    const { rows } = await del([a.orderId]);
+    expect(rows[0].orders_deleted).toBe(1);
+    expect(await reserved()).toBeGreaterThanOrEqual(0);
+    expect(rows[0].reservations_released).toBeLessThanOrEqual(2);
+    expect(before - (await reserved())).toBe(rows[0].reservations_released);
+  });
+
+  it("does not fail when the ledger says more is held than the counter", async () => {
+    await h.db.query("update inventory set reserved_quantity = 0 where variant_id = $1", [variant]);
+    await h.db.query(
+      "insert into inventory_movements (variant_id, movement_type, quantity, reference_type, reference_id) select $1, 'reserve', 5, 'order', id from orders limit 1",
+      [variant],
+    );
+    const a = await order();
+    await h.db.query("update inventory set reserved_quantity = 0 where variant_id = $1", [variant]);
+    const { rows } = await del([a.orderId]);
+    expect(rows[0]).toMatchObject({ orders_deleted: 1, reservations_released: 0 });
+    expect(await reserved()).toBe(0);
+  });
+
+  it("never deletes the permanent QA fixture order, in strict or bulk mode", async () => {
+    const fixture = await order();
+    await h.db.query("insert into order_status_history (merchant_order_id, note) values ($1, 'QA FIXTURE: permanent order, never advance or delete')", [fixture.moId]);
+    const other = await order();
+
+    await expect(del([fixture.orderId])).rejects.toThrow("protected_fixture");
+    const { rows } = await del([fixture.orderId, other.orderId], true);
+    expect(rows[0]).toMatchObject({ orders_deleted: 1, orders_skipped: 1 });
+    expect(await count("select count(*) n from orders where id = $1", fixture.orderId)).toBe(1);
+    expect(await count("select count(*) n from orders where id = $1", other.orderId)).toBe(0);
   });
 });

@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, inject, it } from "vitest";
+import { fetchAllRows } from "../../packages/ui/src/lib/fetchAllRows";
 import { env, serviceClient, signIn } from "../env.ts";
 import { callFunction } from "../helpers.ts";
 
@@ -54,9 +55,13 @@ describe("readable order numbers (orders.order_number, migration 0056)", () => {
   });
 
   it("every order_number in the table is unique (the constraint actually holds)", async () => {
-    const { data, error } = await db.from("orders").select("order_number");
-    expect(error).toBeNull();
-    const numbers = (data ?? []).map((o) => o.order_number);
+    // Every page: one request is capped at 1,000 rows (PostgREST max_rows), and
+    // this used to check only the first 1,000 of thousands of orders.
+    const rows = await fetchAllRows<{ order_number: number }>((from, to) =>
+      db.from("orders").select("order_number").order("id").range(from, to),
+    );
+    const numbers = rows.map((o) => o.order_number);
+    expect(numbers.length).toBeGreaterThan(0);
     expect(new Set(numbers).size).toBe(numbers.length);
   });
 
