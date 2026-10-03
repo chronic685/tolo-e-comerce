@@ -1221,6 +1221,8 @@ export const am: AmharicStrings = {
   "adminOrders.unacknowledged": mt("ምላሽ አልተሰጠም"),
   "adminOrders.escalatedSuffix": mt(" — ተባብሷል"),
   "adminOrders.unacknowledgedSuffix": mt(" — ምላሽ አልተሰጠም"),
+  "adminOrders.deliveryNoVerifiedPhone": mt("ማድረስ አልተላከም፦ ደንበኛው የተረጋገጠ የቶሎ ስልክ የለውም። በእጅ ያመቻቹ"),
+  "adminOrders.deliveryNeedsManual": mt("ማድረስ በራስ-ሰር አልተላከም። በእጅ ያመቻቹ"),
   "adminOrders.fromSupportTicket": mt("ትዕዛዝ (ከድጋፍ ጥያቄ)"),
   "adminOrders.unacknowledgedOrdersTitle": mt("ምላሽ ያልተሰጠባቸው ትዕዛዞች"),
   "adminOrders.allOrdersTitle": mt("ሁሉም ትዕዛዞች"),

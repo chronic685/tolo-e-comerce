@@ -65,6 +65,8 @@ export interface OrderRow {
     order_received_at: string | null;
     escalated_at: string | null;
     merchants: { business_name: string } | null;
+    // PostgREST embeds the one-to-one delivery_jobs row as an object, null when none.
+    delivery_jobs: { needs_manual_handling: boolean; handoff_error: string | null } | null;
   }[];
 }
 

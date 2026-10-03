@@ -1169,6 +1169,8 @@ export const en: EnglishStrings = {
   "adminOrders.unacknowledged": "UNACKNOWLEDGED",
   "adminOrders.escalatedSuffix": " — ESCALATED",
   "adminOrders.unacknowledgedSuffix": " — UNACKNOWLEDGED",
+  "adminOrders.deliveryNoVerifiedPhone": "Delivery not sent: customer has no Tolo-verified phone. Arrange it manually",
+  "adminOrders.deliveryNeedsManual": "Delivery not sent automatically. Arrange it manually",
   "adminOrders.fromSupportTicket": "Order (from support ticket)",
   "adminOrders.unacknowledgedOrdersTitle": "Unacknowledged Orders",
   "adminOrders.allOrdersTitle": "All Orders",
