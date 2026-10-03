@@ -271,13 +271,33 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
   const reviewableA = await ensureReviewableProduct("QA TEST Reviewable Product A — DO NOT USE", "QA-TEST-REVIEW-A");
   const reviewableB = await ensureReviewableProduct("QA TEST Reviewable Product B — DO NOT USE", "QA-TEST-REVIEW-B");
 
-  let { data: reviewableMerchantOrder } = await db
-    .from("merchant_orders")
-    .select("id, order_id")
-    .eq("merchant_id", merchantA.id)
-    .eq("status", "completed")
-    .limit(1)
-    .maybeSingle();
+  // Must be the completed order that actually carries reviewable products A
+  // and B. This used to take ANY completed order of merchant A (limit(1), no
+  // ordering), which stopped being the fixture's own order once other tests
+  // left unrelated completed orders behind -- so tests that assume this order
+  // contains exactly products A and B (return-restock, reviews) hit the wrong
+  // variants.
+  let reviewableMerchantOrder: { id: string; order_id: string } | null = null;
+  {
+    const { data: candidates } = await db
+      .from("order_items")
+      .select("merchant_order_id, merchant_orders!inner ( id, order_id, status, merchant_id )")
+      .eq("variant_id", reviewableA.variantId)
+      .eq("merchant_orders.status", "completed")
+      .eq("merchant_orders.merchant_id", merchantA.id);
+    for (const candidate of (candidates ?? []) as unknown as { merchant_order_id: string; merchant_orders: { id: string; order_id: string } }[]) {
+      const { data: hasB } = await db
+        .from("order_items")
+        .select("id")
+        .eq("merchant_order_id", candidate.merchant_order_id)
+        .eq("variant_id", reviewableB.variantId)
+        .limit(1);
+      if (hasB && hasB.length > 0) {
+        reviewableMerchantOrder = { id: candidate.merchant_orders.id, order_id: candidate.merchant_orders.order_id };
+        break;
+      }
+    }
+  }
 
   let reviewableMerchantOrderId: string;
   if (!reviewableMerchantOrder) {
