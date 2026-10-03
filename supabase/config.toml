@@ -49,3 +49,9 @@ verify_jwt = false
 # docs/integration/delivery-handoff.md.
 [functions.delivery-handoff]
 verify_jwt = false
+
+# Called server-to-server by the Tolo Delivery app with status updates for a
+# delivery job; its own key (TOLO_BACKEND_INBOUND_KEY) is the only gate. See
+# docs/integration/delivery-handoff.md.
+[functions.delivery-status-callback]
+verify_jwt = false

@@ -154,4 +154,71 @@ describe.skipIf(!INBOUND_KEY || !SHARED_KEY)("delivery handoff under the Deno ru
     expect((await asUser(merchantAToken)).data).toHaveLength(1); // the order's own merchant
     expect((await asUser(merchantBToken)).data).toEqual([]); // another merchant
   });
+
+  describe("inbound status callback", () => {
+    const callback = (body: unknown, key: string | null = INBOUND_KEY!) =>
+      callFunction("delivery-status-callback", { token: key ?? undefined, body });
+
+    async function readyJob() {
+      const { merchantOrderId } = await order(false);
+      await moveToReady(merchantOrderId);
+      const job = await jobFor(merchantOrderId);
+      return { merchantOrderId, jobId: job!.id as string };
+    }
+
+    async function orderStatus(merchantOrderId: string) {
+      const { data } = await db.from("merchant_orders").select("status").eq("id", merchantOrderId).single();
+      return data!.status as string;
+    }
+
+    it("walks a job through assigned, picked up and delivered, and the order follows", async () => {
+      const { merchantOrderId, jobId } = await readyJob();
+
+      const accepted = await callback({ job_id: jobId, status: "accepted", driver_ref: "drv-ci-1", eta_minutes: 25 });
+      expect(accepted.status, JSON.stringify(accepted.json)).toBe(200);
+      expect(await jobFor(merchantOrderId)).toMatchObject({ status: "accepted", driver_ref: "drv-ci-1" });
+      expect((await jobFor(merchantOrderId))!.eta_at).not.toBeNull();
+      expect(await orderStatus(merchantOrderId)).toBe("ready_for_pickup");
+
+      expect((await callback({ job_id: jobId, status: "picked_up" })).status).toBe(200);
+      expect(await orderStatus(merchantOrderId)).toBe("picked_up");
+
+      expect((await callback({ job_id: jobId, status: "delivered" })).status).toBe(200);
+      expect(await jobFor(merchantOrderId)).toMatchObject({ status: "delivered", eta_at: null });
+      expect(await orderStatus(merchantOrderId)).toBe("completed");
+
+      // The customer's own view of it.
+      const { createClient } = await import("@supabase/supabase-js");
+      const client = createClient(env.supabaseUrl, env.anonKey, { global: { headers: { Authorization: `Bearer ${customerToken}` } } });
+      const { data } = await client.from("delivery_jobs").select("status, driver_ref").eq("id", jobId);
+      expect(data).toEqual([{ status: "delivered", driver_ref: "drv-ci-1" }]);
+    });
+
+    it("rejects a missing, wrong or user-token key, and changes nothing", async () => {
+      const { merchantOrderId, jobId } = await readyJob();
+      const body = { job_id: jobId, status: "accepted", driver_ref: "drv-evil" };
+      expect((await callback(body, null)).status).toBe(401); // sends the anon key as bearer
+      expect((await callback(body, "wrong-key")).status).toBe(401);
+      expect((await callback(body, customerToken)).status).toBe(401);
+      expect((await callback(body, merchantAToken)).status).toBe(401);
+      expect(await jobFor(merchantOrderId)).toMatchObject({ status: "invoked", driver_ref: null });
+    });
+
+    it("refuses an unknown job, a bad status and a status that can't follow", async () => {
+      const { jobId } = await readyJob();
+      expect((await callback({ job_id: "00000000-0000-4000-8000-000000000000", status: "accepted", driver_ref: "d" })).status).toBe(404);
+      expect((await callback({ job_id: jobId, status: "teleported" })).status).toBe(400);
+      expect((await callback({ job_id: jobId, status: "accepted" })).status).toBe(422); // no driver_ref
+      await callback({ job_id: jobId, status: "accepted", driver_ref: "d" });
+      await callback({ job_id: jobId, status: "picked_up" });
+      expect((await callback({ job_id: jobId, status: "accepted" })).status).toBe(409);
+    });
+
+    it("a failed delivery is recorded and leaves the order for ops", async () => {
+      const { merchantOrderId, jobId } = await readyJob();
+      expect((await callback({ job_id: jobId, status: "failed", failure_reason: "customer unreachable" })).status).toBe(200);
+      expect(await jobFor(merchantOrderId)).toMatchObject({ status: "failed", failure_reason: "customer unreachable" });
+      expect(await orderStatus(merchantOrderId)).toBe("ready_for_pickup");
+    });
+  });
 });
