@@ -13,6 +13,7 @@ import {
   fetchAllRows,
   toast,
   totalPagesFor,
+  translateServerError,
   usePagination,
   useTranslation,
   type DataTableColumn,
@@ -107,7 +108,7 @@ export function MerchantApplications() {
     });
     setBusyId(null);
     if (error) {
-      toast.error(await edgeFunctionError(error));
+      toast.error(translateServerError(await edgeFunctionError(error), t));
       return;
     }
     toast.success(

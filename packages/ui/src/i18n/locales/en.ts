@@ -412,6 +412,11 @@ export const en: EnglishStrings = {
   "support.status.in_progress": "In progress",
   "support.status.resolved": "Resolved",
   "support.status.closed": "Closed",
+  "support.submitError": "Could not submit your ticket. Please try again.",
+
+  // saved locations (frontend/src/pages/SavedLocations.tsx) ----------------
+  "savedLocations.saveError": "Could not save this location. Please try again.",
+  "savedLocations.deleteInUseError": "This location is used by a past order and can't be deleted.",
 
   // legal -----------------------------------------------------------
   "legal.termsTitle": "Terms of Service",
@@ -493,6 +498,9 @@ export const en: EnglishStrings = {
   "emptyState.noBanners": "No banners yet",
   "emptyState.noBannersDescription": "Add an image above to show it on the homepage.",
 
+  // notifications (frontend/src/pages/Notifications.tsx) -------------------
+  "notifications.loadError": "We couldn't load your notifications.",
+
   // toasts / generic feedback -------------------------------------------
   "toast.savedSuccessfully": "Saved successfully.",
   "toast.somethingWentWrong": "Something went wrong. Please try again.",
@@ -528,6 +536,28 @@ export const en: EnglishStrings = {
   "errors.paymentMethodUnavailable": "This payment method is not currently available. Please choose another.",
   "errors.tooManyRequests": "Too many requests. Please try again shortly.",
   "errors.genericCheckoutFailure": "Could not place your order. Please check your cart and try again.",
+  "errors.tooFarFromStore": "Your delivery address is too far from one of the stores in your cart for delivery.",
+  "errors.belowMinimumOrderValue": "Your order subtotal ({{subtotal}} ETB) is below the minimum order value of {{minimum}} ETB.",
+  "errors.scheduledOrdersUnavailable": "Scheduled orders are not currently available.",
+  "errors.deliveryTimeTooSoon": "Please choose a delivery time at least {{minutes}} minutes from now.",
+  "errors.deliveryTimeTooFar": "Please choose a delivery time within the next {{days}} days.",
+  "errors.codFraudLimit": "New accounts are limited to {{maxOrders}} cash-on-delivery order(s) totaling up to {{maxAmount}} ETB while your account is being verified. Please choose another payment method, or try again once your account is more established.",
+  "errors.orderAlreadyPaid": "This order is already paid.",
+  "errors.orderCancelledCannotPay": "This order was cancelled and can no longer be paid.",
+  "errors.cannotPayPaymentStatus": "This payment can't be completed right now (status: {{status}}).",
+  "errors.orderCancellationDisabled": "Order cancellation is currently disabled.",
+  "errors.invalidLoginCredentials": "Incorrect email or password.",
+  "errors.userAlreadyRegistered": "An account with this email already exists.",
+  "errors.emailNotConfirmed": "Please confirm your email address before signing in.",
+  "errors.samePasswordAsOld": "Your new password must be different from your current password.",
+  "errors.missingSignInCode": "Missing sign-in code.",
+  "errors.toloSignInFailed": "Sign-in failed. Please try again from the app.",
+  "errors.toloMerchantSignInFailed": "Merchant sign-in failed. Please try again from the Tolo app.",
+  "errors.notToloStaff": "This account does not have Tolo staff access.",
+  "errors.staffAccountSuspended": "This staff account has been suspended.",
+  "errors.staffAccountNoEmailReset": "Username accounts can't reset by email. Ask an admin to reset your account.",
+  "errors.deleteAccountFailed": "Could not delete this account: {{reason}}",
+  "authHandoff.signingIn": "Signing you in...",
 
   // theme toggle (Advanced UI pass, item 2) -------------------------------
   "theme.switchToDark": "Switch to dark mode",
@@ -1529,7 +1559,6 @@ export const en: EnglishStrings = {
 
   // notifications (frontend/src/pages/Notifications.tsx) -------------------
   "notifications.markAllRead": "Mark all read",
-  "notifications.loadError": "We couldn't load your notifications.",
   "notifications.unread": "Unread",
 
   // saved locations (frontend/src/pages/SavedLocations.tsx) ----------------
@@ -1544,8 +1573,6 @@ export const en: EnglishStrings = {
   "savedLocations.labelHome": "Home",
   "savedLocations.labelWork": "Work",
   "savedLocations.labelOther": "Other",
-  "savedLocations.saveError": "Could not save this location. Please try again.",
-  "savedLocations.deleteInUseError": "This location is used by a past order and can't be deleted.",
 
   // customer support (frontend/src/pages/Support.tsx) ----------------------
   "customerSupport.newTicket": "New ticket",
@@ -1561,10 +1588,10 @@ export const en: EnglishStrings = {
   // Tolo-app auth handoff (frontend/src/pages/AuthHandoff.tsx) -------------
   "authHandoff.missingCode": "Missing sign-in code.",
   "authHandoff.failed": "Sign-in failed. Please try again from the app.",
-  "authHandoff.signingIn": "Signing you in...",
 
   // cart (frontend/src/pages/Cart.tsx) --------------------------------------
   "cart.decreaseQuantity": "Decrease quantity",
   "cart.increaseQuantity": "Increase quantity",
   "cart.removeItem": "Remove item",
+  // merchant-dashboard's own (legacy) merchant signup form --------------
 };

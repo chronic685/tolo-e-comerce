@@ -1,7 +1,12 @@
 ﻿import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { SkeletonPage, toast, useTranslation } from "@tolo/ui";
+import {
+  SkeletonPage,
+  toast,
+  translateServerError,
+  useTranslation,
+} from "@tolo/ui";
 import { SmsOutboxPanel } from "../components/SmsOutboxPanel";
 
 interface PaymentMethods {
@@ -179,7 +184,7 @@ export function Settings() {
     const { error } = await supabase.from("system_settings").update({ value }).eq("key", key);
     setSavingKey(null);
     if (error) {
-      toast.error(t("settings.saveError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     toast.success(t("settings.savedToast", { key }));

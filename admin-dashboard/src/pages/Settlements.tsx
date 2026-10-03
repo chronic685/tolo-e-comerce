@@ -1,7 +1,22 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, Button, DataTable, ExportCsvButton, fetchAllRows, formatCurrency, Pagination, toast, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Button,
+  DataTable,
+  type DataTableColumn,
+  ExportCsvButton,
+  extractServerErrorText,
+  fetchAllRows,
+  formatCurrency,
+  Pagination,
+  toast,
+  totalPagesFor,
+  translateServerError,
+  usePagination,
+  useTranslation,
+} from "@tolo/ui";
 import type { FinancialAdjustment, Merchant, Settlement } from "../types";
 
 const ADJUSTMENT_TYPES = ["correction", "bonus", "penalty", "goodwill", "other"];
@@ -60,7 +75,7 @@ export function Settlements() {
     if (!confirm(t("settlements.markPaidConfirm", { amount: s.total_amount.toFixed(2), merchant: s.merchants?.business_name ?? "" }))) return;
     const { error } = await supabase.from("settlements").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", s.id);
     if (error) {
-      toast.error(t("settlements.saveError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     setSettlements((prev) => prev.map((x) => (x.id === s.id ? { ...x, status: "paid", paid_at: new Date().toISOString() } : x)));
@@ -196,7 +211,7 @@ export function Settlements() {
 
     setRunning(false);
     if (error) {
-      toast.error(t("settlements.saveError"));
+      toast.error(translateServerError(await extractServerErrorText(error), t));
       return;
     }
     toast.success(data?.message ?? t("settlements.settledToast", { amount: data?.total_amount ?? 0, count: data?.item_count ?? 0 }));

@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import { Image as ImageIcon } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { Badge, Button, DataTable, EmptyState, toast, useTranslation, type DataTableColumn } from "@tolo/ui";
+import {
+  Badge,
+  Button,
+  DataTable,
+  type DataTableColumn,
+  EmptyState,
+  toast,
+  translateServerError,
+  useTranslation,
+} from "@tolo/ui";
 
 interface Banner {
   id: string;
@@ -41,7 +50,7 @@ export function Banners() {
     const path = `${Date.now()}-${file.name}`;
     const { error: uploadError } = await supabase.storage.from("homepage-banners").upload(path, file);
     if (uploadError) {
-      toast.error(t("banners.saveError"));
+      toast.error(translateServerError(uploadError.message, t));
       setUploading(false);
       return;
     }
@@ -56,7 +65,7 @@ export function Banners() {
     });
     setUploading(false);
     if (error) {
-      toast.error(t("banners.saveError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     setTitle("");
@@ -80,7 +89,7 @@ export function Banners() {
     if (!confirm(t("banners.deleteConfirm"))) return;
     const { error } = await supabase.from("homepage_banners").delete().eq("id", b.id);
     if (error) {
-      toast.error(t("banners.saveError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     setBanners((prev) => prev.filter((x) => x.id !== b.id));

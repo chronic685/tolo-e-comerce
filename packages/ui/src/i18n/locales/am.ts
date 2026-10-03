@@ -414,6 +414,11 @@ export const am: AmharicStrings = {
   "support.status.in_progress": mt("በሂደት ላይ"),
   "support.status.resolved": mt("ተፈትቷል"),
   "support.status.closed": mt("ተዘግቷል"),
+  "support.submitError": mt("ቲኬትዎን ማስገባት አልተቻለም። እባክዎ እንደገና ይሞክሩ።"),
+
+  // saved locations (frontend/src/pages/SavedLocations.tsx) ----------------
+  "savedLocations.saveError": mt("ይህን አካባቢ ማስቀመጥ አልተቻለም። እባክዎ እንደገና ይሞክሩ።"),
+  "savedLocations.deleteInUseError": mt("ይህ አካባቢ ባለፈ ትዕዛዝ ውስጥ ጥቅም ላይ ውሏል እና ሊሰረዝ አይችልም።"),
 
   // legal -----------------------------------------------------------
   "legal.termsTitle": mt("የአገልግሎት ውል"),
@@ -542,6 +547,9 @@ export const am: AmharicStrings = {
   "emptyState.noBanners": mt("እስካሁን ምንም ባነር የለም"),
   "emptyState.noBannersDescription": mt("በመነሻ ገጹ ላይ ለማሳየት ከላይ ምስል ይጨምሩ።"),
 
+  // notifications (frontend/src/pages/Notifications.tsx) -------------------
+  "notifications.loadError": mt("ማሳወቂያዎችዎን መጫን አልተቻለም።"),
+
   // toasts / generic feedback ---------------------------------------------
   "toast.savedSuccessfully": mt("በተሳካ ሁኔታ ተቀምጧል።"),
   "toast.somethingWentWrong": mt("የሆነ ችግር ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።"),
@@ -578,6 +586,30 @@ export const am: AmharicStrings = {
   "errors.paymentMethodUnavailable": mt("ይህ የክፍያ ዘዴ በአሁኑ ጊዜ አይገኝም። እባክዎ ሌላ ይምረጡ።"),
   "errors.tooManyRequests": mt("በጣም ብዙ ጥያቄዎች ቀርበዋል። እባክዎ በቅርቡ እንደገና ይሞክሩ።"),
   "errors.genericCheckoutFailure": mt("ትዕዛዝዎን ማስገባት አልተቻለም። እባክዎ ጋሪዎን ያረጋግጡ እና እንደገና ይሞክሩ።"),
+  "errors.tooFarFromStore": mt("የመላኪያ አድራሻዎ በጋሪዎ ውስጥ ካሉት መደብሮች ለአንዱ ለማድረስ በጣም ሩቅ ነው።"),
+  "errors.belowMinimumOrderValue": mt("የትዕዛዝዎ ድምር ({{subtotal}} ብር) ከዝቅተኛው የትዕዛዝ ዋጋ {{minimum}} ብር በታች ነው።"),
+  "errors.scheduledOrdersUnavailable": mt("የታቀዱ ትዕዛዞች በአሁኑ ጊዜ አይገኙም።"),
+  "errors.deliveryTimeTooSoon": mt("እባክዎ ከአሁን ጀምሮ ቢያንስ {{minutes}} ደቂቃዎች የሚርቅ የመላኪያ ሰዓት ይምረጡ።"),
+  "errors.deliveryTimeTooFar": mt("እባክዎ በሚቀጥሉት {{days}} ቀናት ውስጥ የመላኪያ ሰዓት ይምረጡ።"),
+  "errors.codFraudLimit": mt(
+    "አዲስ መለያዎች መለያዎ በሚረጋገጥበት ጊዜ እስከ {{maxOrders}} የገንዘብ-በመላኪያ ትዕዛዝ(ዎች) በድምሩ እስከ {{maxAmount}} ብር ብቻ ይፈቀድላቸዋል። እባክዎ ሌላ የክፍያ ዘዴ ይምረጡ ወይም መለያዎ ይበልጥ እስኪመሰረት ድረስ እንደገና ይሞክሩ።",
+  ),
+  "errors.orderAlreadyPaid": mt("ይህ ትዕዛዝ አስቀድሞ ተከፍሏል።"),
+  "errors.orderCancelledCannotPay": mt("ይህ ትዕዛዝ ተሰርዟል እና ከዚህ በኋላ መከፈል አይችልም።"),
+  "errors.cannotPayPaymentStatus": mt("ይህ ክፍያ አሁን ሊጠናቀቅ አይችልም (ሁኔታ፦ {{status}})።"),
+  "errors.orderCancellationDisabled": mt("የትዕዛዝ መሰረዝ በአሁኑ ጊዜ ተሰናክሏል።"),
+  "errors.invalidLoginCredentials": mt("ትክክል ያልሆነ ኢሜይል ወይም የይለፍ ቃል።"),
+  "errors.userAlreadyRegistered": mt("በዚህ ኢሜይል የተመዘገበ መለያ አስቀድሞ አለ።"),
+  "errors.emailNotConfirmed": mt("እባክዎ ከመግባትዎ በፊት የኢሜይል አድራሻዎን ያረጋግጡ።"),
+  "errors.samePasswordAsOld": mt("አዲሱ የይለፍ ቃልዎ ከአሁኑ የይለፍ ቃልዎ የተለየ መሆን አለበት።"),
+  "errors.missingSignInCode": mt("የመግቢያ ኮድ ይጎድላል።"),
+  "errors.toloSignInFailed": mt("መግባት አልተሳካም። እባክዎ ከመተግበሪያው እንደገና ይሞክሩ።"),
+  "errors.toloMerchantSignInFailed": mt("የነጋዴ መግባት አልተሳካም። እባክዎ ከቶሎ መተግበሪያው እንደገና ይሞክሩ።"),
+  "errors.notToloStaff": mt("ይህ መለያ የቶሎ ሰራተኛ መዳረሻ የለውም።"),
+  "errors.staffAccountSuspended": mt("ይህ የሰራተኛ መለያ ታግዷል።"),
+  "errors.staffAccountNoEmailReset": mt("የተጠቃሚ ስም መለያዎች በኢሜይል ሊደለዙ አይችሉም። መለያዎን ለማደስ አስተዳዳሪ ይጠይቁ።"),
+  "errors.deleteAccountFailed": mt("ይህን መለያ መሰረዝ አልተቻለም፦ {{reason}}"),
+  "authHandoff.signingIn": mt("በመግባት ላይ..."),
 
   // theme toggle -------------------------------------------------------
   "theme.switchToDark": mt("ወደ ጨለማ ገጽታ ቀይር"),
@@ -1579,7 +1611,6 @@ export const am: AmharicStrings = {
 
   // notifications (frontend/src/pages/Notifications.tsx) -------------------
   "notifications.markAllRead": mt("ሁሉንም እንደተነበበ ምልክት አድርግ"),
-  "notifications.loadError": mt("ማሳወቂያዎችዎን መጫን አልተቻለም።"),
   "notifications.unread": mt("ያልተነበበ"),
 
   // saved locations (frontend/src/pages/SavedLocations.tsx) ----------------
@@ -1594,8 +1625,6 @@ export const am: AmharicStrings = {
   "savedLocations.labelHome": mt("ቤት"),
   "savedLocations.labelWork": mt("ስራ"),
   "savedLocations.labelOther": mt("ሌላ"),
-  "savedLocations.saveError": mt("ይህን አካባቢ ማስቀመጥ አልተቻለም። እባክዎ እንደገና ይሞክሩ።"),
-  "savedLocations.deleteInUseError": mt("ይህ አካባቢ ባለፈ ትዕዛዝ ውስጥ ጥቅም ላይ ውሏል እና ሊሰረዝ አይችልም።"),
 
   // customer support (frontend/src/pages/Support.tsx) ----------------------
   "customerSupport.newTicket": mt("አዲስ ቲኬት"),
@@ -1611,10 +1640,10 @@ export const am: AmharicStrings = {
   // Tolo-app auth handoff (frontend/src/pages/AuthHandoff.tsx) -------------
   "authHandoff.missingCode": mt("የመግቢያ ኮድ ይጎድላል።"),
   "authHandoff.failed": mt("መግባት አልተሳካም። እባክዎ ከመተግበሪያው እንደገና ይሞክሩ።"),
-  "authHandoff.signingIn": mt("በመግባት ላይ..."),
 
   // cart (frontend/src/pages/Cart.tsx) --------------------------------------
   "cart.decreaseQuantity": mt("ብዛት ቀንስ"),
   "cart.increaseQuantity": mt("ብዛት ጨምር"),
   "cart.removeItem": mt("ዕቃ አስወግድ"),
+  // merchant-dashboard's own (legacy) merchant signup form --------------
 };

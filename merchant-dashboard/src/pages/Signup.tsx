@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { toast, translateAuthError, useTranslation } from "@tolo/ui";
+import {
+  toast,
+  translateServerError,
+  useTranslation,
+} from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 
 export function Signup() {
@@ -20,7 +24,7 @@ export function Signup() {
     const { error } = await signUp(email, password, fullName);
     setLoading(false);
     if (error) {
-      toast.error(translateAuthError(error, t));
+      toast.error(translateServerError(error, t));
       return;
     }
     setDone(true);

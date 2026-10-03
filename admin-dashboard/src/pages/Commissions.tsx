@@ -8,6 +8,7 @@ import {
   Pagination,
   toast,
   totalPagesFor,
+  translateServerError,
   usePagination,
   useTranslation,
   type DataTableColumn,
@@ -61,7 +62,7 @@ export function Commissions() {
       ? await supabase.from("commission_rules").update(payload).eq("id", editingId).select().single()
       : await supabase.from("commission_rules").insert(payload).select().single();
     if (error) {
-      toast.error(t("commissions.saveError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     if (editingId) setRules((prev) => prev.map((r) => (r.id === editingId ? data : r)));

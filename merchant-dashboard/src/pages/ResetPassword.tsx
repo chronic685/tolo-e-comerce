@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast, useTranslation } from "@tolo/ui";
+import {
+  toast,
+  translateServerError,
+  useTranslation,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 
@@ -52,7 +56,7 @@ export function ResetPassword() {
     const { error } = await updatePassword(password);
     setSubmitting(false);
     if (error) {
-      toast.error(t("auth.resetRequestFailed"));
+      toast.error(translateServerError(error, t));
       return;
     }
     setDone(true);

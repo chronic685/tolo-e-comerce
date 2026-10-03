@@ -1,7 +1,22 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, fetchAllRows, formatCurrency, formatOrderNumber, SkeletonRows, Pagination, toast, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Badge,
+  Button,
+  DataTable,
+  type DataTableColumn,
+  fetchAllRows,
+  formatCurrency,
+  formatOrderNumber,
+  Pagination,
+  SkeletonRows,
+  toast,
+  totalPagesFor,
+  usePagination,
+  useTranslation,
+} from "@tolo/ui";
 import type { Payment } from "../types";
 
 const STATUS_VARIANT: Record<string, "warning" | "success" | "danger" | "default"> = {
@@ -73,7 +88,7 @@ export function Payments() {
     const { error } = await supabase.functions.invoke("confirm-payment", { body: { payment_id: payment.id } });
     setConfirmingId(null);
     if (error) {
-      toast.error(t("payments.confirmError"));
+      toast.error(t("merchant.confirmCashFailed"));
       return;
     }
     // The status filter is now a real server-side query param, so a

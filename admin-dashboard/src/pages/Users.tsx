@@ -2,7 +2,19 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { GRANTABLE_ADMIN_PAGES } from "../lib/adminPages";
-import { ADMIN_PAGE_SIZE, Badge, DataTable, Pagination, SkeletonRows, toast, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Badge,
+  DataTable,
+  type DataTableColumn,
+  Pagination,
+  SkeletonRows,
+  toast,
+  totalPagesFor,
+  translateServerError,
+  usePagination,
+  useTranslation,
+} from "@tolo/ui";
 import { edgeFunctionError } from "../lib/edgeFunctionError";
 import type { StaffProfile } from "../types";
 
@@ -175,7 +187,7 @@ export function Users() {
   async function changeRole(p: StaffProfile, role: string) {
     const { error } = await supabase.from("profiles").update({ role }).eq("id", p.id);
     if (error) {
-      toast.error(t("users.updateError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     toast.success(t("users.roleChanged", { name: p.full_name ?? t("users.userFallback"), role: t(`staffRole.${role}`) }));
@@ -196,7 +208,7 @@ export function Users() {
       body: { user_id: p.id, status: "active" },
     });
     if (error) {
-      toast.error(await edgeFunctionError(error));
+      toast.error(translateServerError(await edgeFunctionError(error), t));
       return;
     }
     toast.success(t("users.nowActive", { name: p.full_name ?? t("users.userFallback") }));
@@ -213,7 +225,7 @@ export function Users() {
     setReasonPromptId(null);
     setReason("");
     if (error) {
-      toast.error(await edgeFunctionError(error));
+      toast.error(translateServerError(await edgeFunctionError(error), t));
       return;
     }
     toast.success(t("users.nowSuspended", { name: p.full_name ?? t("users.userFallback") }));
@@ -230,7 +242,7 @@ export function Users() {
     const next = checked ? [...p.permissions, pageKey] : p.permissions.filter((k) => k !== pageKey);
     const { error } = await supabase.from("profiles").update({ permissions: next }).eq("id", p.id);
     if (error) {
-      toast.error(t("users.updateError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     applyProfileChange(p, { permissions: next });
@@ -245,7 +257,7 @@ export function Users() {
     const admin_tier = grant ? "admin" : null;
     const { error } = await supabase.from("profiles").update({ admin_tier }).eq("id", p.id);
     if (error) {
-      toast.error(t("users.updateError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     applyProfileChange(p, { admin_tier });
@@ -257,7 +269,7 @@ export function Users() {
     setDeleting(false);
     setDeleteConfirmId(null);
     if (error) {
-      toast.error(t("users.deleteFailed", { reason: await edgeFunctionError(error) }));
+      toast.error(t("errors.deleteAccountFailed", { reason: translateServerError(await edgeFunctionError(error), t) }));
       return;
     }
     await load();
@@ -293,7 +305,7 @@ export function Users() {
     });
     setCreating(false);
     if (error || !data?.id) {
-      toast.error(error ? await edgeFunctionError(error) : t("users.createFailed"));
+      toast.error(error ? translateServerError(await edgeFunctionError(error), t) : t("toast.somethingWentWrong"));
       return;
     }
     // Newest-first ordering means a brand-new account always belongs on

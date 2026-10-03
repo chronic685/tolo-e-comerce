@@ -1,9 +1,11 @@
 ﻿import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { SkeletonPage, toast, useTranslation } from "@tolo/ui";
+import { SkeletonPage, toast, translateServerError, useTranslation } from "@tolo/ui";
 import type { NotificationTemplate } from "../types";
 
 export function NotificationTemplates() {
+  // Aliased: this file already uses `t` for a NotificationTemplate
+  // parameter throughout (draft(t), save(t), below).
   const { t: translate } = useTranslation();
   const [templates, setTemplates] = useState<NotificationTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,7 +33,7 @@ export function NotificationTemplates() {
       .update({ title_template: d.title, body_template: d.body })
       .eq("id", t.id);
     if (error) {
-      toast.error(translate("notificationTemplates.saveError"));
+      toast.error(translateServerError(error.message, translate));
       return;
     }
     toast.success(translate("notificationTemplates.saved", { eventType: t.event_type }));

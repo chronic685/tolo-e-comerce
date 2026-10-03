@@ -31,14 +31,14 @@ export function AuthHandoff() {
     const next = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
 
     if (!code) {
-      setError(t("merchantAuthHandoff.missingCode"));
+      setError(t("errors.missingSignInCode"));
       return;
     }
 
     (async () => {
       const { data, error: invokeError } = await supabase.functions.invoke("tolo-merchant-login", { body: { code } });
       if (invokeError || !data?.session) {
-        setError(t("merchantAuthHandoff.failed"));
+        setError(t("errors.toloMerchantSignInFailed"));
         return;
       }
 
@@ -47,7 +47,7 @@ export function AuthHandoff() {
         refresh_token: data.session.refresh_token,
       });
       if (sessionError) {
-        setError(t("merchantAuthHandoff.failed"));
+        setError(t("errors.toloMerchantSignInFailed"));
         return;
       }
 
@@ -61,5 +61,5 @@ export function AuthHandoff() {
   if (error) {
     return <p className="text-red-600 dark:text-red-400 text-center mt-10">{error}</p>;
   }
-  return <p className="text-gray-500 dark:text-gray-400 text-center mt-10">{t("merchantAuthHandoff.signingIn")}</p>;
+  return <p className="text-gray-500 dark:text-gray-400 text-center mt-10">{t("authHandoff.signingIn")}</p>;
 }

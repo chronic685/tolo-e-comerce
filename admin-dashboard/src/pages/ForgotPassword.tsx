@@ -32,7 +32,7 @@ export function ForgotPassword() {
     // Someone who types their synthetic address directly would otherwise get
     // "check your email" for an inbox that doesn't exist.
     if (email.trim().toLowerCase().endsWith("@staff.internal")) {
-      toast.error(t("adminForgotPassword.staffNoEmailReset"));
+      toast.error(t("errors.staffAccountNoEmailReset"));
       return;
     }
     setLoading(true);

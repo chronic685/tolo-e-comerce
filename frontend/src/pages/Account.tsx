@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MapPin, Heart, Bell, LifeBuoy, LogOut, PartyPopper, ScrollText } from "lucide-react";
-import { LanguageSwitcher, Skeleton, ThemeToggle, toast, useTranslation } from "@tolo/ui";
+import { LanguageSwitcher, Skeleton, ThemeToggle, toast, translateServerError, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 
@@ -107,7 +107,7 @@ export function Account() {
     setSaving(true);
     const { error } = await supabase.from("profiles").update({ full_name: fullName, phone }).eq("id", user.id);
     setSaving(false);
-    if (error) toast.error(t("account.saveError"));
+    if (error) toast.error(translateServerError(error.message, t));
     else toast.success(t("account.saveSuccess"));
   }
 

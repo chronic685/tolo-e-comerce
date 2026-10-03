@@ -10,6 +10,7 @@ import {
   SkeletonRows,
   toast,
   totalPagesFor,
+  translateServerError,
   usePagination,
   useTranslation,
   type DataTableColumn,
@@ -154,7 +155,7 @@ export function Promotions() {
 
     setSaving(false);
     if (error) {
-      toast.error(t("promotions.saveError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     toast.success(t("promotions.saved"));
@@ -165,7 +166,7 @@ export function Promotions() {
   async function toggleActive(p: Promotion) {
     const { error } = await supabase.from("discount_rules").update({ is_active: !p.is_active }).eq("id", p.id);
     if (error) {
-      toast.error(t("promotions.saveError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     setPromotions((prev) => prev.map((x) => (x.id === p.id ? { ...x, is_active: !x.is_active } : x)));
@@ -175,7 +176,7 @@ export function Promotions() {
     if (!confirm(t("promotions.deleteConfirm", { name: p.name }))) return;
     const { error } = await supabase.from("discount_rules").delete().eq("id", p.id);
     if (error) {
-      toast.error(t("promotions.saveError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     toast.success(t("promotions.deleted"));

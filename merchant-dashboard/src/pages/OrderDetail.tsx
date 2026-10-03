@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Calendar } from "lucide-react";
-import { formatOrderNumber, SkeletonPage, toast, useTranslation } from "@tolo/ui";
+import { extractServerErrorText, formatOrderNumber, SkeletonPage, toast, translateServerError, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 
@@ -118,7 +118,7 @@ export function OrderDetail() {
     });
     setBusy(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(await extractServerErrorText(error), t));
       return;
     }
     toast.success(action === "remove" ? t("merchant.itemRemovedToast") : t("merchant.substituteAppliedToast"));
@@ -140,7 +140,7 @@ export function OrderDetail() {
     });
     setBusy(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(await extractServerErrorText(error), t));
       return;
     }
     setOrder((prev) =>

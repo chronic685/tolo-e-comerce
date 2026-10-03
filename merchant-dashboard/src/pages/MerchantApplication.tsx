@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
-import { toast, useTranslation } from "@tolo/ui";
+import {
+  toast,
+  translateServerError,
+  useTranslation,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
@@ -70,7 +74,7 @@ export function MerchantApplication() {
 
     setSubmitting(false);
     if (error) {
-      toast.error(t("merchantApplication.saveError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     setMerchantId(data.id);
@@ -85,7 +89,7 @@ export function MerchantApplication() {
 
     if (uploadError) {
       setUploadingType(null);
-      toast.error(t("merchantApplication.uploadError"));
+      toast.error(translateServerError(uploadError.message, t));
       return;
     }
 
@@ -99,7 +103,7 @@ export function MerchantApplication() {
 
     setUploadingType(null);
     if (insertError) {
-      toast.error(t("merchantApplication.uploadError"));
+      toast.error(translateServerError(insertError.message, t));
       return;
     }
     setUploadedTypes((prev) => new Set(prev).add(docType));

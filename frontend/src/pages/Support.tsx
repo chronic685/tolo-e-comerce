@@ -53,7 +53,7 @@ export function Support() {
       .single();
     setSubmitting(false);
     if (error) {
-      toast.error(t("customerSupport.submitError"));
+      toast.error(t("support.submitError"));
       return;
     }
     // A brand-new ticket never has a merchant_order_id from this form (no

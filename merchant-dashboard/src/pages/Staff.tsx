@@ -10,6 +10,7 @@ import {
   SkeletonRows,
   toast,
   totalPagesFor,
+  translateServerError,
   usePagination,
   useTranslation,
   type DataTableColumn,
@@ -120,7 +121,7 @@ export function Staff() {
       .single();
     setAdding(false);
     if (error) {
-      toast.error(t("merchantStaff.addError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     // Reloads rather than patching the array in place, now that the list

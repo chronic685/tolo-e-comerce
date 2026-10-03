@@ -8,6 +8,7 @@ import {
   Pagination,
   toast,
   totalPagesFor,
+  translateServerError,
   usePagination,
   useTranslation,
   type DataTableColumn,
@@ -52,7 +53,7 @@ export function Categories() {
     if (!newName.trim()) return;
     const { error } = await supabase.from("categories").insert({ name: newName.trim(), slug: slugify(newName) });
     if (error) {
-      toast.error(t("adminCategories.saveError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     // Reloads rather than appending locally, now that the list is
@@ -92,7 +93,7 @@ export function Categories() {
     // forward, nothing already in place.
     const { error } = await supabase.from("categories").update({ name, slug: slugify(name) }).eq("id", c.id);
     if (error) {
-      toast.error(t("adminCategories.saveError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     setCategories((prev) => prev.map((cat) => (cat.id === c.id ? { ...cat, name, slug: slugify(name) } : cat)));
@@ -114,7 +115,7 @@ export function Categories() {
     const { error } = await supabase.from("categories").delete().eq("id", deleteTarget.category.id);
     setDeleting(false);
     if (error) {
-      toast.error(t("adminCategories.saveError"));
+      toast.error(translateServerError(error.message, t));
       setDeleteTarget(null);
       return;
     }

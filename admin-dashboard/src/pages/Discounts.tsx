@@ -10,6 +10,7 @@ import {
   Pagination,
   toast,
   totalPagesFor,
+  translateServerError,
   usePagination,
   useTranslation,
   type DataTableColumn,
@@ -184,7 +185,7 @@ export function Discounts() {
 
     setSaving(false);
     if (error) {
-      toast.error(t("discounts.saveError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     if (editingId) {

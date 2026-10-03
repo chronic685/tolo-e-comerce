@@ -2,7 +2,11 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { ADMIN_PAGES } from "../lib/adminPages";
-import { toast, translateAuthError, useTranslation } from "@tolo/ui";
+import {
+  toast,
+  translateServerError,
+  useTranslation,
+} from "@tolo/ui";
 
 export function Login() {
   const { t } = useTranslation();
@@ -26,7 +30,7 @@ export function Login() {
     const { error, permissions, adminTier } = await signIn(identifier, password);
     setLoading(false);
     if (error) {
-      toast.error(translateAuthError(error, t));
+      toast.error(translateServerError(error, t));
       return;
     }
     // Landing on "/" unconditionally would hit PageGuard's "Not authorized"

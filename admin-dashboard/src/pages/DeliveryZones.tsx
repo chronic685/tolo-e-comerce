@@ -1,6 +1,18 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, Pagination, toast, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Badge,
+  Button,
+  DataTable,
+  type DataTableColumn,
+  Pagination,
+  toast,
+  totalPagesFor,
+  translateServerError,
+  usePagination,
+  useTranslation,
+} from "@tolo/ui";
 import type { DeliveryZone } from "../types";
 
 const emptyForm = {
@@ -76,7 +88,7 @@ export function DeliveryZones() {
       .single();
     setSaving(false);
     if (error) {
-      toast.error(t("deliveryZones.saveError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     if (page === 1) await load();

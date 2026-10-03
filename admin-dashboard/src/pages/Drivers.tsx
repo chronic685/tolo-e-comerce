@@ -1,6 +1,18 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, Pagination, toast, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Badge,
+  Button,
+  DataTable,
+  type DataTableColumn,
+  Pagination,
+  toast,
+  totalPagesFor,
+  translateServerError,
+  usePagination,
+  useTranslation,
+} from "@tolo/ui";
 import type { Driver } from "../types";
 
 export function Drivers() {
@@ -26,7 +38,7 @@ export function Drivers() {
     if (!form.full_name.trim() || !form.phone.trim()) return;
     const { error } = await supabase.from("drivers").insert(form);
     if (error) {
-      toast.error(t("drivers.saveError"));
+      toast.error(translateServerError(error.message, t));
       return;
     }
     // Sorted by name, not newest-first, so a new driver doesn't

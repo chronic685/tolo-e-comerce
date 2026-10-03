@@ -1,6 +1,16 @@
 ﻿import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
-import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, toast, totalPagesFor, usePagination, useTranslation } from "@tolo/ui";
+import {
+  Button,
+  CUSTOMER_PAGE_SIZE,
+  EmptyState,
+  Pagination,
+  SkeletonRows,
+  toast,
+  totalPagesFor,
+  usePagination,
+  useTranslation,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { getCurrentLocation } from "../lib/geolocation";
@@ -76,8 +86,8 @@ export function SavedLocations() {
       }));
     } catch {
       // The browser Geolocation API's own error text is always English and
-      // never translatable usefully -- never shown, just the translated
-      // fallback (same treatment as Checkout.tsx).
+      // never one of our known backend errors -- never shown, just the
+      // translated fallback (same treatment as Checkout.tsx).
       toast.error(t("checkout.couldNotGetLocation"));
     } finally {
       setLocating(false);

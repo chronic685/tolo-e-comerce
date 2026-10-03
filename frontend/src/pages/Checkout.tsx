@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MapPin } from "lucide-react";
-import { Button, Stepper, toast, useTranslation } from "@tolo/ui";
+import { Button, extractServerErrorText, Stepper, toast, translateServerError, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
@@ -181,8 +181,11 @@ export function Checkout() {
         city: loc.city || f.city,
         sub_city: loc.subCity || f.sub_city,
       }));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("checkout.couldNotGetLocation"));
+    } catch {
+      // The browser Geolocation API's own error text is always English and
+      // never one of our known backend errors -- never shown, just the
+      // translated fallback.
+      toast.error(t("checkout.couldNotGetLocation"));
     } finally {
       setLocating(false);
     }
@@ -196,7 +199,7 @@ export function Checkout() {
       .select()
       .single();
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       return;
     }
     setAddresses((prev) => [...prev, data]);
@@ -288,22 +291,12 @@ export function Checkout() {
       // supabase-js doesn't auto-parse a non-2xx function response body into
       // error.message — it has to be read from the raw response ourselves,
       // or the specific message the function returned (e.g. "out of stock",
-      // "account suspended") never reaches the user, just a generic failure.
-      let message = t("checkout.genericError");
-      const context = (checkoutError as { context?: Response })?.context;
-      if (context) {
-        try {
-          const body = await context.clone().json();
-          // The rate-limit response carries both a machine-readable "error"
-          // code and a human-readable "message" (checkout/index.ts) — every
-          // other error path only sets "error" as the display string.
-          if (body?.message) message = body.message;
-          else if (body?.error) message = body.error;
-        } catch {
-          // Non-JSON error body — fall back to the generic message above.
-        }
-      }
-      toast.error(message);
+      // "account suspended") never reaches the user. translateServerError
+      // maps the known checkout/index.ts messages (including the
+      // rate-limit response's "message") to their translated errors.*
+      // string, and falls back to checkout.genericError for anything else.
+      const rawText = await extractServerErrorText(checkoutError);
+      toast.error(rawText ? translateServerError(rawText, t) : t("checkout.genericError"));
       setPlacing(false);
       return;
     }

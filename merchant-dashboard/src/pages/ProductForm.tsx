@@ -1,6 +1,10 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast, useTranslation } from "@tolo/ui";
+import {
+  toast,
+  translateServerError,
+  useTranslation,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import { isEligibleForListing, parseAttributes, slugify } from "../lib/productRules";
@@ -50,7 +54,7 @@ export function ProductForm() {
 
     setUploadingImageIdx(null);
     if (uploadError) {
-      toast.error(t("productForm.imageUploadError"));
+      toast.error(translateServerError(uploadError.message, t));
       return;
     }
 
@@ -165,7 +169,7 @@ export function ProductForm() {
 
     setSaving(false);
     if (!result.ok) {
-      toast.error(t("productForm.saveError"));
+      toast.error(translateServerError(result.error, t));
       return;
     }
     navigate("/products");

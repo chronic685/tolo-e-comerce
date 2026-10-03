@@ -24,14 +24,14 @@ export function AuthHandoff() {
     const next = params.get("next") || "/";
 
     if (!code) {
-      setError(t("authHandoff.missingCode"));
+      setError(t("errors.missingSignInCode"));
       return;
     }
 
     (async () => {
       const { data, error: invokeError } = await supabase.functions.invoke("tolo-app-login", { body: { code } });
       if (invokeError || !data?.session) {
-        setError(t("authHandoff.failed"));
+        setError(t("errors.toloSignInFailed"));
         return;
       }
 
@@ -40,7 +40,7 @@ export function AuthHandoff() {
         refresh_token: data.session.refresh_token,
       });
       if (sessionError) {
-        setError(t("authHandoff.failed"));
+        setError(t("errors.toloSignInFailed"));
         return;
       }
 
