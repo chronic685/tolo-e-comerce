@@ -7,3 +7,7 @@ build/
 supabase/.branches
 supabase/.temp
 tests/.env.test
+
+# Database dumps/backups in the repo root (contain user data and password hashes).
+# Anchored to the root so supabase/migrations/*.sql stays tracked.
+/backup*.sql

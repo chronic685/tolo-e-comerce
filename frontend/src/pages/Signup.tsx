@@ -1,6 +1,10 @@
 ﻿import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { toast, translateServerError, useTranslation } from "@tolo/ui";
+import {
+  toast,
+  translateServerError,
+  useTranslation,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 

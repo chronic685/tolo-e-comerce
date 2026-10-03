@@ -1,21 +1,25 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
-import { toast, translateServerError, useTranslation } from "@tolo/ui";
+import {
+  toast,
+  translateServerError,
+  useTranslation,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
 
 const REQUIRED_DOCS = [
-  { type: "trade_license", label: "Trade License" },
-  { type: "vat_certificate", label: "VAT Certificate" },
-  { type: "tin_certificate", label: "TIN Certificate" },
-  { type: "identification", label: "Owner Identification" },
+  { type: "trade_license", labelKey: "merchantApplication.docs.trade_license" },
+  { type: "vat_certificate", labelKey: "merchantApplication.docs.vat_certificate" },
+  { type: "tin_certificate", labelKey: "merchantApplication.docs.tin_certificate" },
+  { type: "identification", labelKey: "merchantApplication.docs.identification" },
 ];
 
 export function MerchantApplication() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { refresh } = useMerchant();
-  const { t } = useTranslation();
 
   const [form, setForm] = useState({
     business_name: "",
@@ -108,22 +112,20 @@ export function MerchantApplication() {
   if (merchantId) {
     return (
       <div className="max-w-md mx-auto mt-12 bg-white dark:bg-navy-dark border rounded-lg p-6">
-        <h1 className="text-lg font-bold mb-1">Upload verification documents</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          Documents are stored privately — only you and Tolo staff can access them. You can also add these later.
-        </p>
+        <h1 className="text-lg font-bold mb-1">{t("merchantApplication.uploadDocsTitle")}</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t("merchantApplication.uploadDocsDescription")}</p>
         <div className="space-y-3">
           {REQUIRED_DOCS.map((doc) => (
             <div key={doc.type} className="flex items-center justify-between border rounded-md p-3">
-              <span className="text-sm">{doc.label}</span>
+              <span className="text-sm">{t(doc.labelKey)}</span>
               {uploadedTypes.has(doc.type) ? (
                 <span className="text-xs text-emerald-700 font-medium inline-flex items-center gap-1">
-                  Uploaded
+                  {t("merchantApplication.uploaded")}
                   <CheckCircle2 className="w-4 h-4" />
                 </span>
               ) : (
                 <label className="text-xs text-gray-700 dark:text-gray-300 border rounded-md px-2 py-1 cursor-pointer hover:bg-gray-50 dark:bg-white/5">
-                  {uploadingType === doc.type ? "Uploading..." : "Choose file"}
+                  {uploadingType === doc.type ? t("common.uploading") : t("merchantApplication.chooseFile")}
                   <input
                     type="file"
                     accept=".pdf,.jpg,.jpeg,.png,.webp"
@@ -143,7 +145,7 @@ export function MerchantApplication() {
           onClick={() => refresh()}
           className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark mt-4"
         >
-          Done — submit for review
+          {t("merchantApplication.doneSubmitForReview")}
         </button>
       </div>
     );
@@ -151,13 +153,11 @@ export function MerchantApplication() {
 
   return (
     <div className="max-w-md mx-auto mt-12 bg-white dark:bg-navy-dark border rounded-lg p-6">
-      <h1 className="text-lg font-bold mb-1">Become a Tolo Merchant</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        Submit your business details. Tolo will review your documents and approve your account before your store goes live.
-      </p>
+      <h1 className="text-lg font-bold mb-1">{t("merchantApplication.becomeAMerchantTitle")}</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t("merchantApplication.becomeAMerchantDescription")}</p>
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
-          placeholder="Business name"
+          placeholder={t("merchantApplication.businessName")}
           value={form.business_name}
           onChange={(e) => setForm({ ...form, business_name: e.target.value })}
           required
@@ -165,68 +165,68 @@ export function MerchantApplication() {
         />
         <div className="grid grid-cols-2 gap-2">
           <input
-            placeholder="Category (e.g. Fashion)"
+            placeholder={t("merchantApplication.categoryPlaceholder")}
             value={form.business_category}
             onChange={(e) => setForm({ ...form, business_category: e.target.value })}
             className="w-full border rounded-md px-3 py-2 text-sm"
           />
           <input
-            placeholder="Subcategory (e.g. T-Shirts)"
+            placeholder={t("merchantApplication.subcategoryPlaceholder")}
             value={form.business_subcategory}
             onChange={(e) => setForm({ ...form, business_subcategory: e.target.value })}
             className="w-full border rounded-md px-3 py-2 text-sm"
           />
         </div>
         <input
-          placeholder="Business phone"
+          placeholder={t("merchantApplication.businessPhone")}
           value={form.phone}
           onChange={(e) => setForm({ ...form, phone: e.target.value })}
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
         <div className="grid grid-cols-3 gap-2">
           <input
-            placeholder="City"
+            placeholder={t("checkout.city")}
             value={form.city}
             onChange={(e) => setForm({ ...form, city: e.target.value })}
             className="w-full border rounded-md px-3 py-2 text-sm"
           />
           <input
-            placeholder="Sub-city"
+            placeholder={t("merchantApplication.subCity")}
             value={form.sub_city}
             onChange={(e) => setForm({ ...form, sub_city: e.target.value })}
             className="w-full border rounded-md px-3 py-2 text-sm"
           />
           <input
-            placeholder="Woreda"
+            placeholder={t("merchantApplication.woreda")}
             value={form.woreda}
             onChange={(e) => setForm({ ...form, woreda: e.target.value })}
             className="w-full border rounded-md px-3 py-2 text-sm"
           />
         </div>
         <input
-          placeholder="Landmark (optional)"
+          placeholder={t("checkout.landmarkOptional")}
           value={form.landmark}
           onChange={(e) => setForm({ ...form, landmark: e.target.value })}
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
 
         <div className="pt-2 border-t">
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Owner information</p>
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t("merchantApplication.ownerInformation")}</p>
           <div className="space-y-2">
             <input
-              placeholder="Owner full name"
+              placeholder={t("merchantApplication.ownerFullName")}
               value={form.owner_full_name}
               onChange={(e) => setForm({ ...form, owner_full_name: e.target.value })}
               className="w-full border rounded-md px-3 py-2 text-sm"
             />
             <input
-              placeholder="Owner phone"
+              placeholder={t("merchantApplication.ownerPhone")}
               value={form.owner_phone}
               onChange={(e) => setForm({ ...form, owner_phone: e.target.value })}
               className="w-full border rounded-md px-3 py-2 text-sm"
             />
             <input
-              placeholder="Owner email"
+              placeholder={t("merchantApplication.ownerEmail")}
               value={form.owner_email}
               onChange={(e) => setForm({ ...form, owner_email: e.target.value })}
               className="w-full border rounded-md px-3 py-2 text-sm"
@@ -236,14 +236,14 @@ export function MerchantApplication() {
 
         <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
           <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-          I agree to the Tolo merchant terms and commission structure.
+          {t("merchantApplication.agreeToTerms")}
         </label>
         <button
           type="submit"
           disabled={submitting}
           className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
         >
-          {submitting ? "Submitting..." : "Continue to documents"}
+          {submitting ? t("support.submitting") : t("merchantApplication.continueToDocuments")}
         </button>
       </form>
     </div>

@@ -21,6 +21,12 @@ import type { Address } from "../types";
 // connected), see supabase/functions/checkout/index.ts.
 const PAYMENT_METHOD_ORDER = ["cash_on_delivery", "bank_transfer", "mobile_money", "chapa", "telebirr"] as const;
 
+const ADDRESS_LABEL_KEYS: Record<string, string> = {
+  Home: "savedLocations.labelHome",
+  Work: "savedLocations.labelWork",
+  Other: "savedLocations.labelOther",
+};
+
 export function Checkout() {
   const { user } = useAuth();
   const { items, refresh } = useCart();
@@ -328,10 +334,10 @@ export function Checkout() {
   // are off, the order is always delivered ASAP and that step is skipped
   // entirely rather than shown with nothing in it.
   const steps = [
-    { key: "address", label: "Address" },
-    ...(scheduledOrdersEnabled ? [{ key: "delivery", label: "Delivery time" }] : []),
-    { key: "payment", label: "Payment" },
-    { key: "review", label: "Review" },
+    { key: "address", label: t("checkout.stepAddress") },
+    ...(scheduledOrdersEnabled ? [{ key: "delivery", label: t("checkout.stepDelivery") }] : []),
+    { key: "payment", label: t("checkout.stepPayment") },
+    { key: "review", label: t("checkout.stepReview") },
   ];
   const clampedStep = Math.min(stepIndex, steps.length - 1);
   const currentStepKey = steps[clampedStep].key;
@@ -350,7 +356,7 @@ export function Checkout() {
           <label key={a.id} className="flex items-start gap-2 mb-2 text-sm">
             <input type="radio" checked={addressId === a.id} onChange={() => setAddressId(a.id)} />
             <span>
-              <strong>{a.label ?? t("checkout.addressFallback")}</strong> — {a.recipient_name}, {a.phone}
+              <strong>{a.label ? (ADDRESS_LABEL_KEYS[a.label] ? t(ADDRESS_LABEL_KEYS[a.label]) : a.label) : t("checkout.addressFallback")}</strong> — {a.recipient_name}, {a.phone}
               <br />
               <span className="inline-flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
@@ -454,7 +460,7 @@ export function Checkout() {
       {embed && (
         <label className="flex items-center gap-2 mt-2 pt-2 border-t text-sm">
           <input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} />
-          Pay with Tolo Wallet (in-app)
+          {t("checkout.payWithWallet")}
         </label>
       )}
     </div>

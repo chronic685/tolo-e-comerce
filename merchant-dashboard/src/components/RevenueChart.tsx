@@ -101,12 +101,12 @@ export function RevenueChart({ merchantId }: { merchantId: string }) {
     <div className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mt-6">
       <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
         <div>
-          <h2 className="font-semibold dark:text-gray-100">Revenue over time</h2>
+          <h2 className="font-semibold dark:text-gray-100">{t("revenueChart.title")}</h2>
           {/* merchant_payable = order subtotal minus platform commission — the
               amount actually credited to this merchant, not the gross order
               value a customer paid. Matches the "You receive" figure shown
               on the order detail page. */}
-          <p className="text-xs text-gray-500 dark:text-gray-400">Amount you receive per day (after platform commission), completed orders only.</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t("revenueChart.description")}</p>
         </div>
         <DateRangePicker range={range} onChange={setRange} />
       </div>
@@ -116,12 +116,16 @@ export function RevenueChart({ merchantId }: { merchantId: string }) {
       ) : (
         <>
           <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-            <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(totalRevenue)}</span> total from{" "}
-            {toDateInputValue(range.start)} to {toDateInputValue(range.end)}, across {totalOrders} completed order{totalOrders === 1 ? "" : "s"}.
+            <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(totalRevenue)}</span>{" "}
+            {t(totalOrders === 1 ? "revenueChart.summaryOne" : "revenueChart.summaryMany", {
+              start: toDateInputValue(range.start),
+              end: toDateInputValue(range.end),
+              count: totalOrders,
+            })}
           </p>
           <TrendChart
             data={buckets.map((b) => ({ label: b.label, value: b.revenue }))}
-            ariaLabel="Daily revenue over the selected range"
+            ariaLabel={t("revenueChart.dailyAriaLabel")}
             formatValue={(v) => formatCurrency(v)}
             height={180}
           />

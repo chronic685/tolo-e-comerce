@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, Pagination, SkeletonRows, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
 import type { Delivery, Driver } from "../types";
 
 const STATUS_FLOW: Record<string, string[]> = {
@@ -10,7 +10,17 @@ const STATUS_FLOW: Record<string, string[]> = {
   in_transit: ["delivered", "failed"],
 };
 
+const STATUS_KEYS: Record<string, string> = {
+  pending: "deliveryStatus.pending",
+  assigned: "deliveryStatus.assigned",
+  picked_up: "deliveryStatus.picked_up",
+  in_transit: "deliveryStatus.in_transit",
+  delivered: "deliveryStatus.delivered",
+  failed: "deliveryStatus.failed",
+};
+
 export function Deliveries() {
+  const { t } = useTranslation();
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -77,21 +87,21 @@ export function Deliveries() {
   const columns: DataTableColumn<Delivery>[] = [
     {
       key: "merchant",
-      header: "Delivery",
+      header: t("deliveries.column"),
       render: (d) => (
         <div>
           <p className="font-medium text-sm">{d.merchant_orders?.merchants?.business_name}</p>
           <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(d.created_at).toLocaleString()}</p>
           <div className="grid grid-cols-2 gap-3 text-xs mt-2 max-w-md">
             <div>
-              <p className="font-medium text-gray-500 dark:text-gray-400">Pickup</p>
+              <p className="font-medium text-gray-500 dark:text-gray-400">{t("deliveries.pickup")}</p>
               <p className="dark:text-gray-200">{d.pickup_contact_name} · {d.pickup_contact_phone}</p>
-              <p className="text-gray-500 dark:text-gray-400">{d.pickup_address ?? "No pickup address on file"}</p>
+              <p className="text-gray-500 dark:text-gray-400">{d.pickup_address ?? t("deliveries.noPickupAddress")}</p>
             </div>
             <div>
-              <p className="font-medium text-gray-500 dark:text-gray-400">Drop-off</p>
+              <p className="font-medium text-gray-500 dark:text-gray-400">{t("deliveries.dropoff")}</p>
               <p className="dark:text-gray-200">{d.dropoff_contact_name} · {d.dropoff_contact_phone}</p>
-              <p className="text-gray-500 dark:text-gray-400">{d.dropoff_address ?? "No drop-off address on file"}</p>
+              <p className="text-gray-500 dark:text-gray-400">{d.dropoff_address ?? t("deliveries.noDropoffAddress")}</p>
             </div>
           </div>
         </div>
@@ -102,8 +112,8 @@ export function Deliveries() {
     },
     {
       key: "status",
-      header: "Status",
-      render: (d) => <Badge className="capitalize">{d.status.replace(/_/g, " ")}</Badge>,
+      header: t("common.status"),
+      render: (d) => <Badge className="capitalize">{STATUS_KEYS[d.status] ? t(STATUS_KEYS[d.status]) : d.status}</Badge>,
       csvValue: (d) => d.status,
     },
     {
@@ -119,7 +129,7 @@ export function Deliveries() {
               className="text-xs border rounded-md px-2 py-1.5 dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
             >
               <option value="" disabled>
-                Assign driver...
+                {t("deliveries.assignDriverEllipsis")}
               </option>
               {drivers.map((driver) => (
                 <option key={driver.id} value={driver.id}>
@@ -128,10 +138,10 @@ export function Deliveries() {
               ))}
             </select>
           )}
-          {d.driver_id && <span className="text-xs text-gray-500 dark:text-gray-400">Driver: {d.drivers?.full_name}</span>}
+          {d.driver_id && <span className="text-xs text-gray-500 dark:text-gray-400">{t("deliveries.driverLabel", { name: d.drivers?.full_name ?? "" })}</span>}
           {(STATUS_FLOW[d.status] ?? []).map((next) => (
             <Button key={next} size="sm" variant="outline" onClick={() => advanceStatus(d, next)} disabled={busyId === d.id} className="capitalize">
-              Mark {next.replace(/_/g, " ")}
+              {t("deliveries.markAction", { status: STATUS_KEYS[next] ? t(STATUS_KEYS[next]) : next })}
             </Button>
           ))}
         </div>
@@ -141,11 +151,11 @@ export function Deliveries() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Deliveries</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">{t("deliveries.title")}</h1>
       {loading ? (
         <SkeletonRows />
       ) : deliveries.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400">No deliveries yet.</p>
+        <p className="text-gray-500 dark:text-gray-400">{t("deliveries.noDeliveriesYet")}</p>
       ) : (
         <>
           <DataTable storageKey="admin.deliveries" columns={columns} rows={deliveries} getRowId={(d) => d.id} />

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, LifeBuoy } from "lucide-react";
 import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, toast, totalPagesFor, usePagination, useTranslation } from "@tolo/ui";
@@ -6,16 +6,16 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import type { SupportTicket } from "../types";
 
-const STATUS_LABEL: Record<string, string> = {
-  open: "Open",
-  in_progress: "In progress",
-  resolved: "Resolved",
-  closed: "Closed",
+const STATUS_KEYS: Record<string, string> = {
+  open: "support.status.open",
+  in_progress: "support.status.in_progress",
+  resolved: "support.status.resolved",
+  closed: "support.status.closed",
 };
 
 export function Support() {
-  const { user } = useAuth();
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -69,19 +69,19 @@ export function Support() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-xl font-bold mb-4">Support</h1>
+      <h1 className="text-xl font-bold mb-4">{t("account.support")}</h1>
 
       <form onSubmit={handleSubmit} className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-6 space-y-3">
-        <h2 className="font-medium text-sm">New ticket</h2>
+        <h2 className="font-medium text-sm">{t("customerSupport.newTicket")}</h2>
         <input
-          placeholder="Subject"
+          placeholder={t("support.subject")}
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           required
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
         <textarea
-          placeholder="Describe your issue..."
+          placeholder={t("customerSupport.descriptionPlaceholder")}
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={3}
@@ -92,37 +92,37 @@ export function Support() {
           disabled={submitting || !subject.trim()}
           className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
         >
-          {submitting ? "Submitting..." : "Submit ticket"}
+          {submitting ? t("support.submitting") : t("customerSupport.submitTicket")}
         </button>
       </form>
 
-      <h2 className="font-medium text-sm mb-2">Your tickets</h2>
+      <h2 className="font-medium text-sm mb-2">{t("customerSupport.yourTickets")}</h2>
       {loading ? (
         <SkeletonRows count={3} />
       ) : tickets.length === 0 ? (
-        <EmptyState icon={LifeBuoy} title="No support tickets yet" description="Need help? Use the form above to reach us." />
+        <EmptyState icon={LifeBuoy} title={t("customerSupport.noTicketsTitle")} description={t("customerSupport.noTicketsDescription")} />
       ) : (
         <>
         <div className="space-y-2">
-          {tickets.map((t) => (
-            <div key={t.id} className="bg-white dark:bg-navy-dark border rounded-lg p-3">
+          {tickets.map((ticket) => (
+            <div key={ticket.id} className="bg-white dark:bg-navy-dark border rounded-lg p-3">
               <div className="flex justify-between items-start gap-2">
-                <p className="font-medium text-sm">{t.subject}</p>
+                <p className="font-medium text-sm">{ticket.subject}</p>
                 <span className="text-xs bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 rounded-full px-2 py-0.5 shrink-0">
-                  {STATUS_LABEL[t.status] ?? t.status}
+                  {STATUS_KEYS[ticket.status] ? t(STATUS_KEYS[ticket.status]) : ticket.status}
                 </span>
               </div>
-              {t.body && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{t.body}</p>}
-              {t.merchant_orders && (
+              {ticket.body && <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{ticket.body}</p>}
+              {ticket.merchant_orders && (
                 <Link
-                  to={`/orders/${t.merchant_orders.order_id}`}
+                  to={`/orders/${ticket.merchant_orders.order_id}`}
                   className="text-xs text-navy hover:underline mt-1 inline-flex items-center gap-1"
                 >
-                  Re: order with {t.merchant_orders.merchants?.business_name ?? "a merchant"}
+                  {t("customerSupport.reOrderWith", { merchant: ticket.merchant_orders.merchants?.business_name ?? t("customerSupport.aMerchant") })}
                   <ChevronRight className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                 </Link>
               )}
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{new Date(t.created_at).toLocaleString()}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{new Date(ticket.created_at).toLocaleString()}</p>
             </div>
           ))}
         </div>

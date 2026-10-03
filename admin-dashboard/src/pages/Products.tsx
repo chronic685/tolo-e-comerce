@@ -3,11 +3,22 @@ import { useSearchParams } from "react-router-dom";
 import { Star } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, fetchAllRows, formatCurrency, Pagination, SkeletonRows, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, fetchAllRows, formatCurrency, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
 import type { AdminProduct } from "../types";
 import { Categories } from "./Categories";
 
 const STATUS_FILTERS = ["all", "submitted", "approved", "published", "paused", "archived", "draft", "rejected"];
+
+const PRODUCT_STATUS_KEYS: Record<string, string> = {
+  all: "productStatus.all",
+  submitted: "productStatus.submitted",
+  approved: "productStatus.approved",
+  published: "productStatus.published",
+  paused: "productStatus.paused",
+  archived: "productStatus.archived",
+  draft: "productStatus.draft",
+  rejected: "productStatus.rejected",
+};
 
 const statusVariant: Record<string, "default" | "warning" | "info" | "success" | "danger"> = {
   draft: "default",
@@ -25,8 +36,8 @@ const statusVariant: Record<string, "default" | "warning" | "info" | "success" |
 // functionally collides with STATUS_FILTERS — that's still exactly what it
 // was before, just one tab among two instead of the whole page.
 const TABS = [
-  { key: "products", label: "Products" },
-  { key: "categories", label: "Categories" },
+  { key: "products", labelKey: "adminProducts.productsTab" },
+  { key: "categories", labelKey: "adminProducts.categoriesTab" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -36,6 +47,7 @@ function isTabKey(value: string | null): value is TabKey {
 }
 
 export function Products() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   const activeTab: TabKey = isTabKey(tabParam) ? tabParam : "products";
@@ -46,17 +58,17 @@ export function Products() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Products</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">{t("adminProducts.title")}</h1>
       <div className="flex items-center gap-1 border-b dark:border-white/10 mb-4">
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
+            key={tab.key}
+            onClick={() => setTab(tab.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
-              activeTab === t.key ? "border-navy dark:border-navy-light text-navy dark:text-navy-light" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              activeTab === tab.key ? "border-navy dark:border-navy-light text-navy dark:text-navy-light" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             }`}
           >
-            {t.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -68,6 +80,7 @@ export function Products() {
 }
 
 function ProductCatalog() {
+  const { t } = useTranslation();
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -182,32 +195,34 @@ function ProductCatalog() {
   const columns: DataTableColumn<AdminProduct>[] = [
     {
       key: "name",
-      header: "Product",
+      header: t("adminProducts.productColumn"),
       render: (p) => (
         <div>
           <p className="font-medium text-sm flex items-center gap-1">
             {p.name}{" "}
             {p.is_featured && (
-              <span title="Featured">
+              <span title={t("adminProducts.featuredTitle")}>
                 <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
               </span>
             )}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {p.merchants?.business_name ?? "—"} · {p.categories?.name ?? "Uncategorized"} · {formatCurrency(p.base_price)}
-            {p.sku && ` · SKU ${p.sku}`}
+            {p.merchants?.business_name ?? "—"} · {p.categories?.name ?? t("adminProducts.uncategorized")} · {formatCurrency(p.base_price)}
+            {p.sku && t("adminProducts.skuSuffix", { sku: p.sku })}
           </p>
-          {p.status === "draft" && p.rejection_reason && <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">Rejected: {p.rejection_reason}</p>}
+          {p.status === "draft" && p.rejection_reason && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">{t("adminProducts.rejectedPrefix", { reason: p.rejection_reason })}</p>
+          )}
           {rejectingId === p.id && (
             <div className="mt-2 flex gap-2">
               <input
-                placeholder="Reason for rejection"
+                placeholder={t("adminProducts.reasonForRejectionPlaceholder")}
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 className="flex-1 border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
-              <Button size="sm" variant="destructive" onClick={() => setStatus(p, "draft", rejectReason || "Rejected by Tolo")}>
-                Confirm reject
+              <Button size="sm" variant="destructive" onClick={() => setStatus(p, "draft", rejectReason || t("adminProducts.defaultRejectReason"))}>
+                {t("adminProducts.confirmReject")}
               </Button>
             </div>
           )}
@@ -219,8 +234,12 @@ function ProductCatalog() {
     },
     {
       key: "status",
-      header: "Status",
-      render: (p) => <Badge variant={statusVariant[p.status] ?? "default"} className="capitalize">{p.status}</Badge>,
+      header: t("common.status"),
+      render: (p) => (
+        <Badge variant={statusVariant[p.status] ?? "default"} className="capitalize">
+          {t(PRODUCT_STATUS_KEYS[p.status] ?? "productStatus.draft")}
+        </Badge>
+      ),
       csvValue: (p) => p.status,
     },
     {
@@ -229,31 +248,31 @@ function ProductCatalog() {
       render: (p) => (
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <Button size="sm" variant="outline" onClick={() => toggleFeatured(p)}>
-            {p.is_featured ? "Unfeature" : "Feature"}
+            {p.is_featured ? t("adminProducts.unfeature") : t("adminProducts.feature")}
           </Button>
           {p.status === "submitted" && (
             <>
               <Button size="sm" onClick={() => setStatus(p, "published")}>
-                Approve &amp; Publish
+                {t("adminProducts.approveAndPublish")}
               </Button>
               <Button size="sm" variant="outline" onClick={() => setRejectingId(rejectingId === p.id ? null : p.id)}>
-                Reject
+                {t("adminProducts.reject")}
               </Button>
             </>
           )}
           {p.status === "published" && (
             <Button size="sm" variant="outline" onClick={() => setStatus(p, "paused")}>
-              Pause
+              {t("adminProducts.pause")}
             </Button>
           )}
           {p.status === "paused" && (
             <Button size="sm" onClick={() => setStatus(p, "published")}>
-              Republish
+              {t("adminProducts.republish")}
             </Button>
           )}
           {p.status !== "archived" && (
             <Button size="sm" variant="outline" onClick={() => setStatus(p, "archived")}>
-              Archive
+              {t("adminProducts.archive")}
             </Button>
           )}
         </div>
@@ -272,11 +291,11 @@ function ProductCatalog() {
               statusFilter === s ? "bg-navy text-white border-navy dark:bg-navy-light dark:border-navy-light" : "bg-white dark:bg-navy-dark dark:border-white/20 dark:text-gray-300"
             }`}
           >
-            {s}
+            {t(PRODUCT_STATUS_KEYS[s] ?? "productStatus.all")}
           </button>
         ))}
         <input
-          placeholder="Search name or SKU..."
+          placeholder={t("adminProducts.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && setCommittedSearch(search)}
@@ -295,8 +314,8 @@ function ProductCatalog() {
             rows={products}
             getRowId={(p) => p.id}
             onExportAll={handleExport}
-            emptyMessage="No products in this view."
-            bulkActions={[{ label: "Archive", onAction: bulkArchive, variant: "destructive" }]}
+            emptyMessage={t("adminProducts.noneInView")}
+            bulkActions={[{ label: t("adminProducts.archive"), onAction: bulkArchive, variant: "destructive" }]}
           />
           <div className="mt-4">
             <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />

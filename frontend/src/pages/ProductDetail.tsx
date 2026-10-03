@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Heart, Star } from "lucide-react";
-import { Button, Card, CardContent, LazyImage, SkeletonPage, cn, formatCurrency, formatRelativeTime } from "@tolo/ui";
+import { Button, Card, CardContent, LazyImage, SkeletonPage, cn, formatCurrency, formatRelativeTime, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
@@ -20,7 +20,7 @@ const PRODUCT_SELECT = `
     stock_status:variant_stock_status, stock_remaining:variant_stock_remaining ),
   product_images ( id, url, is_primary, variant_id, sort_order ),
   stores ( name, slug, logo_url ),
-  merchants ( avg_rating:merchants_avg_rating, review_count:merchants_review_count )
+  merchants!inner ( is_test, avg_rating:merchants_avg_rating, review_count:merchants_review_count )
 `;
 
 interface Review {
@@ -31,6 +31,7 @@ interface Review {
 }
 
 export function ProductDetail() {
+  const { t } = useTranslation();
   const { slug } = useParams();
   const { user } = useAuth();
   const { addItem } = useCart();
@@ -48,11 +49,19 @@ export function ProductDetail() {
   const [reviews, setReviews] = useState<Review[] | null>(null);
 
   useEffect(() => {
+    // merchants.is_test excludes a QA/CI fixture product (migration 0079):
+    // a direct link to its slug behaves like a slug that never existed,
+    // same reasoning as Storefront.tsx's store-by-slug fetch. `merchants`
+    // is embedded with `!inner` in PRODUCT_SELECT above -- without it,
+    // PostgREST would leave `products` as a left join and a failing
+    // merchants filter would just null the embed instead of excluding
+    // the row (see BrowseShops.tsx for the full explanation).
     supabase
       .from("products")
       .select(PRODUCT_SELECT)
       .eq("slug", slug)
       .eq("status", "published")
+      .eq("merchants.is_test", false)
       .maybeSingle()
       .then(({ data }) => {
         const p = data as unknown as Product | null;
@@ -117,7 +126,7 @@ export function ProductDetail() {
           className="w-20 border rounded-md px-2 py-1.5 disabled:opacity-60"
         />
         <Button onClick={handleAddToCart} disabled={status === "adding" || outOfStock} className="flex-1 md:flex-none">
-          {outOfStock ? "Out of stock" : status === "added" ? "Added!" : "Add to cart"}
+          {outOfStock ? t("productDetail.outOfStock") : status === "added" ? t("productDetail.added") : t("productDetail.addToCart")}
         </Button>
       </div>
     );
@@ -137,7 +146,7 @@ export function ProductDetail() {
                 <button
                   key={img.id}
                   onClick={() => setSelectedImageId(img.id)}
-                  aria-label="View image"
+                  aria-label={t("productDetail.viewImage")}
                   className={cn(
                     "flex-shrink-0 rounded-md overflow-hidden border-2 transition-colors",
                     image?.id === img.id ? "border-navy" : "border-transparent",
@@ -156,7 +165,7 @@ export function ProductDetail() {
             {favoritesEnabled && user && (
               <button
                 onClick={() => toggleFavorite(product.id)}
-                aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
+                aria-label={isFavorite(product.id) ? t("productDetail.removeFromFavorites") : t("productDetail.addToFavorites")}
                 className="flex-shrink-0"
               >
                 <Heart className={`w-6 h-6 ${isFavorite(product.id) ? "fill-current text-red-500" : "text-gray-400 dark:text-gray-500"}`} />
@@ -184,15 +193,15 @@ export function ProductDetail() {
           )}
 
           <p className="text-xl font-semibold text-navy mt-4">{formatCurrency(price)}</p>
-          {outOfStock && <p className="text-sm font-medium text-red-600 mt-1">Out of stock</p>}
+          {outOfStock && <p className="text-sm font-medium text-red-600 mt-1">{t("productDetail.outOfStock")}</p>}
           {variant?.stock_status === "low" && variant.stock_remaining != null && (
-            <p className="text-sm font-medium text-orange-600 mt-1">Only {variant.stock_remaining} left</p>
+            <p className="text-sm font-medium text-orange-600 mt-1">{t("productDetail.onlyLeft", { count: variant.stock_remaining })}</p>
           )}
           {product.description && <p className="text-gray-600 dark:text-gray-300 mt-4">{product.description}</p>}
 
           {product.product_variants.length > 1 && (
             <div className="mt-5">
-              <p className="text-sm font-medium mb-2">Variant</p>
+              <p className="text-sm font-medium mb-2">{t("productDetail.variant")}</p>
               <div className="flex gap-2 flex-wrap">
                 {product.product_variants.map((v) => (
                   <button
@@ -219,7 +228,7 @@ export function ProductDetail() {
 
       {reviews && reviews.length > 0 && (
         <div className="mt-8 border-t pt-6">
-          <h2 className="text-lg font-semibold mb-4">Reviews</h2>
+          <h2 className="text-lg font-semibold mb-4">{t("productDetail.reviews")}</h2>
           <div className="space-y-4">
             {reviews.map((r) => (
               <div key={r.id} className="border-b pb-4 last:border-b-0 last:pb-0">

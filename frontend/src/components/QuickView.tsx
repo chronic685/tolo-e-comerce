@@ -12,7 +12,8 @@ const PRODUCT_SELECT = `
   id, merchant_id, store_id, category_id, name, slug, description, base_price, discount_price, status,
   product_variants ( id, sku, attributes, price, discount_price, is_default, customer_price:product_variants_customer_price,
     stock_status:variant_stock_status, stock_remaining:variant_stock_remaining ),
-  product_images ( id, url, is_primary, variant_id )
+  product_images ( id, url, is_primary, variant_id ),
+  merchants!inner ( is_test )
 `;
 
 export interface QuickViewProps {
@@ -38,11 +39,15 @@ export function QuickView({ slug, onClose }: QuickViewProps) {
 
   useEffect(() => {
     setProduct(null);
+    // merchants.is_test excludes a QA/CI fixture product (migration 0079) —
+    // see ProductDetail.tsx's identical by-slug fetch (including why the
+    // embed needs `!inner`).
     supabase
       .from("products")
       .select(PRODUCT_SELECT)
       .eq("slug", slug)
       .eq("status", "published")
+      .eq("merchants.is_test", false)
       .maybeSingle()
       .then(({ data }) => {
         const p = data as unknown as Product | null;
@@ -129,11 +134,11 @@ export function QuickView({ slug, onClose }: QuickViewProps) {
                 </div>
               )}
 
-              {outOfStock && <p className="text-sm font-medium text-red-600 dark:text-red-400 mt-3">Out of stock</p>}
+              {outOfStock && <p className="text-sm font-medium text-red-600 dark:text-red-400 mt-3">{t("productDetail.outOfStock")}</p>}
 
               <div className="flex items-center gap-2 mt-4">
                 <Button onClick={handleAddToCart} disabled={status === "adding" || outOfStock} className="flex-1">
-                  {status === "added" ? "Added!" : status === "adding" ? t("common.saving") : "Add to cart"}
+                  {status === "added" ? t("productDetail.added") : status === "adding" ? t("common.saving") : t("productDetail.addToCart")}
                 </Button>
                 <Link to={`/products/${product.slug}`} onClick={onClose}>
                   <Button variant="outline">{t("quickView.viewFullDetails")}</Button>

@@ -57,7 +57,7 @@ export function Layout() {
   // reaches the palette to be shown or searched.
   const paletteItems: CommandPaletteItem[] = ADMIN_PAGES.filter((item) => hasAccess(item.key)).map((item) => ({
     key: item.key,
-    label: item.label,
+    label: t(item.labelKey),
     to: item.to,
     icon: item.icon,
     group: t("commandPalette.pages"),
@@ -89,7 +89,16 @@ export function Layout() {
     return results;
   }
 
-  const tierLabel = adminTier === "super_admin" ? "Super Admin" : adminTier === "admin" ? "Admin" : role?.replaceAll("_", " ") ?? "Staff";
+  const tierLabel =
+    adminTier === "super_admin"
+      ? t("adminNav.superAdmin")
+      : adminTier === "admin"
+        ? t("adminNav.admin")
+        : role
+          ? t(`staffRole.${role}`) === `staffRole.${role}`
+            ? role.replaceAll("_", " ")
+            : t(`staffRole.${role}`)
+          : t("adminNav.staff");
 
   async function handleSignOut() {
     await signOut();
@@ -123,7 +132,7 @@ export function Layout() {
           <img src="/logo.png" alt="" className="h-8 w-8 flex-shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-lg font-bold text-white leading-tight">{t("admin.appName")}</p>
-            <p className="text-xs text-slate-400 truncate">{fullName ?? "..."}</p>
+            <p className="text-xs text-slate-400 truncate">{fullName ?? t("adminNav.nameLoading")}</p>
             <span className="inline-block mt-1 text-[10px] font-medium capitalize bg-navy-light/50 text-white rounded-full px-2 py-0.5">
               {tierLabel}
             </span>
@@ -147,17 +156,17 @@ export function Layout() {
           {dashboardItem && (
             <NavLink to={dashboardItem.to} end={dashboardItem.end} className={navLinkClass}>
               <dashboardItem.icon className="w-4 h-4 flex-shrink-0" />
-              {dashboardItem.label}
+              {t(dashboardItem.labelKey)}
             </NavLink>
           )}
 
           {groupedItems.map(({ group, items }) => (
             <div key={group} className="mt-3">
-              <p className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{group}</p>
+              <p className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{t(`adminNav.group.${group}`)}</p>
               {items.map((item) => (
                 <NavLink key={item.to} to={item.to} end={item.end} className={navLinkClass}>
                   <item.icon className="w-4 h-4 flex-shrink-0" />
-                  {item.label}
+                  {t(item.labelKey)}
                 </NavLink>
               ))}
             </div>

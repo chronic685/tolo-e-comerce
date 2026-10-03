@@ -1,6 +1,14 @@
 ﻿import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
-import { DAY_KEYS, DAY_LABELS, isOpenNowClientSide, toast, translateServerError, useTranslation, type DayKey, type OperatingHours } from "@tolo/ui";
+import {
+  DAY_KEYS,
+  type DayKey,
+  isOpenNowClientSide,
+  type OperatingHours,
+  toast,
+  translateServerError,
+  useTranslation,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import { getCurrentLocation } from "../lib/geolocation";
@@ -17,8 +25,8 @@ function slugify(name: string) {
 }
 
 export function StoreSettings() {
-  const { merchant, store, setStoreLocal } = useMerchant();
   const { t } = useTranslation();
+  const { merchant, store, setStoreLocal } = useMerchant();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -125,15 +133,15 @@ export function StoreSettings() {
       return;
     }
     setStoreLocal(data as Store);
-    toast.success("Saved.");
+    toast.success(t("promotions.saved"));
   }
 
   return (
     <div className="max-w-md">
-      <h1 className="text-xl font-bold mb-4">Store Settings</h1>
+      <h1 className="text-xl font-bold mb-4">{t("storeSettings.title")}</h1>
       <form onSubmit={handleSave} className="bg-white dark:bg-navy-dark border rounded-lg p-4 space-y-3">
         <div>
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Store name</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("storeSettings.storeName")}</label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -142,7 +150,7 @@ export function StoreSettings() {
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Description</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("common.description")}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -151,7 +159,7 @@ export function StoreSettings() {
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Shop logo</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("storeSettings.shopLogo")}</label>
           <div className="flex items-center gap-3 mt-1">
             {logoUrl ? (
               <img src={logoUrl} alt="" className="w-14 h-14 rounded-full object-cover border flex-shrink-0" />
@@ -160,7 +168,7 @@ export function StoreSettings() {
             )}
             <div className="flex gap-2">
               <label className="text-xs text-gray-700 dark:text-gray-300 border rounded-md px-3 py-1.5 cursor-pointer hover:bg-gray-50 dark:bg-white/5">
-                {uploadingLogo ? "Uploading..." : logoUrl ? "Replace" : "Upload"}
+                {uploadingLogo ? t("common.uploading") : logoUrl ? t("storeSettings.replace") : t("productForm.upload")}
                 <input
                   type="file"
                   accept=".jpg,.jpeg,.png,.webp"
@@ -178,7 +186,7 @@ export function StoreSettings() {
                   onClick={() => setLogoUrl("")}
                   className="text-xs text-red-600 border border-red-200 rounded-md px-3 py-1.5 hover:bg-red-50"
                 >
-                  Remove
+                  {t("common.remove")}
                 </button>
               )}
             </div>
@@ -186,16 +194,14 @@ export function StoreSettings() {
           <input
             value={logoUrl}
             onChange={(e) => setLogoUrl(e.target.value)}
-            placeholder="Or paste a photo URL directly"
+            placeholder={t("storeSettings.photoUrlPlaceholder")}
             className="w-full border rounded-md px-3 py-2 text-sm mt-2"
           />
         </div>
 
         <div className="pt-2 border-t">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Pickup location</label>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
-            Used automatically as the pickup point for every delivery — you won't be asked again per order.
-          </p>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("storeSettings.pickupLocation")}</label>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{t("storeSettings.pickupLocationHint")}</p>
           <button
             type="button"
             onClick={handleUseCurrentLocation}
@@ -203,43 +209,40 @@ export function StoreSettings() {
             className="w-full border-2 border-navy text-navy rounded-md px-3 py-2 text-sm font-medium hover:bg-navy-50 disabled:opacity-60 mb-2 inline-flex items-center justify-center gap-1.5"
           >
             {locating ? (
-              "Getting your location..."
+              t("checkout.gettingLocation")
             ) : (
               <>
                 <MapPin className="w-4 h-4" />
-                Use my current location
+                {t("checkout.useCurrentLocation")}
               </>
             )}
           </button>
           {latitude && (
             <p className="text-xs text-navy bg-navy-50 rounded-md px-3 py-2 mb-2 inline-flex items-center gap-1.5">
               <MapPin className="w-4 h-4" />
-              GPS location set ({latitude.toFixed(5)}, {longitude?.toFixed(5)})
+              {t("storeSettings.gpsLocationSet", { lat: latitude.toFixed(5), lng: longitude?.toFixed(5) ?? "" })}
             </p>
           )}
           <input
             value={pickupAddress}
             onChange={(e) => setPickupAddress(e.target.value)}
-            placeholder="Pickup address description"
+            placeholder={t("storeSettings.pickupAddressPlaceholder")}
             className="w-full border rounded-md px-3 py-2 text-sm"
           />
         </div>
 
         <div className="pt-2 border-t">
           <div className="flex items-center justify-between mb-1">
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Opening hours</label>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("storeSettings.openingHours")}</label>
             <span
               className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                 isOpenNowClientSide(status, hours) ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300"
               }`}
             >
-              {isOpenNowClientSide(status, hours) ? "Open now" : "Closed now"}
+              {isOpenNowClientSide(status, hours) ? t("storefront.openNow") : t("storefront.closedNow")}
             </span>
           </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
-            Customers can't place orders outside these hours. Leave a day unchecked to stay closed all day. No days set at all means always open
-            (as long as your shop isn't paused below).
-          </p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{t("storeSettings.hoursHint")}</p>
           <div className="space-y-1.5">
             {DAY_KEYS.map((day) => {
               const dayHours = hours[day];
@@ -248,7 +251,7 @@ export function StoreSettings() {
                 <div key={day} className="flex items-center gap-2">
                   <label className="flex items-center gap-1.5 w-28 text-xs text-gray-700 dark:text-gray-300 flex-shrink-0">
                     <input type="checkbox" checked={open} onChange={(e) => toggleDay(day, e.target.checked)} />
-                    {DAY_LABELS[day]}
+                    {t(`days.${day}`)}
                   </label>
                   {open ? (
                     <>
@@ -258,7 +261,7 @@ export function StoreSettings() {
                         onChange={(e) => setDayTime(day, "open", e.target.value)}
                         className="border rounded-md px-2 py-1 text-xs"
                       />
-                      <span className="text-xs text-gray-400 dark:text-gray-500">to</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">{t("storeSettings.to")}</span>
                       <input
                         type="time"
                         value={dayHours.close}
@@ -267,7 +270,7 @@ export function StoreSettings() {
                       />
                     </>
                   ) : (
-                    <span className="text-xs text-gray-400 dark:text-gray-500">Closed</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">{t("storeSettings.closed")}</span>
                   )}
                 </div>
               );
@@ -276,10 +279,8 @@ export function StoreSettings() {
         </div>
 
         <div className="pt-2 border-t">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Prep time</label>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
-            Shown to customers on your storefront as "Usually ready in ~X minutes". Leave blank to not show an estimate.
-          </p>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("storeSettings.prepTime")}</label>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{t("storeSettings.prepTimeHint")}</p>
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -289,17 +290,17 @@ export function StoreSettings() {
               placeholder="e.g. 20"
               className="w-28 border rounded-md px-3 py-2 text-sm"
             />
-            <span className="text-sm text-gray-500 dark:text-gray-400">minutes</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{t("storeSettings.minutes")}</span>
           </div>
         </div>
 
         {store && (
           <div className="pt-2 border-t">
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Store status</label>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Pausing hides your shop from customers and blocks new orders, regardless of hours above.</p>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t("storeSettings.storeStatus")}</label>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">{t("storeSettings.storeStatusHint")}</p>
             <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full border rounded-md px-3 py-2 text-sm mt-1">
-              <option value="active">Active</option>
-              <option value="paused">Paused</option>
+              <option value="active">{t("common.active")}</option>
+              <option value="paused">{t("promotions.paused")}</option>
             </select>
           </div>
         )}
@@ -308,7 +309,7 @@ export function StoreSettings() {
           disabled={saving}
           className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? t("common.saving") : t("common.save")}
         </button>
       </form>
     </div>

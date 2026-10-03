@@ -1,17 +1,21 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
-import { toast, translateServerError, useTranslation } from "@tolo/ui";
+import {
+  toast,
+  translateServerError,
+  useTranslation,
+} from "@tolo/ui";
 
 type RecoveryState = "checking" | "ready" | "invalid";
 
 const RECOVERY_DETECTION_TIMEOUT_MS = 4000;
 
 export function ResetPassword() {
+  const { t } = useTranslation();
   const { updatePassword, signOut } = useAuth();
   const navigate = useNavigate();
-  const { t } = useTranslation();
 
   const [recoveryState, setRecoveryState] = useState<RecoveryState>("checking");
   const [password, setPassword] = useState("");
@@ -62,38 +66,38 @@ export function ResetPassword() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100">
       <div className="max-w-sm w-full bg-white dark:bg-navy-dark border rounded-lg p-8">
-        {recoveryState === "checking" && <p className="text-center text-gray-500 dark:text-gray-400">Verifying your reset link...</p>}
+        {recoveryState === "checking" && <p className="text-center text-gray-500 dark:text-gray-400">{t("auth.verifyingResetLink")}</p>}
 
         {recoveryState === "invalid" && (
           <div className="text-center">
-            <h1 className="text-xl font-bold mb-2">Link invalid or expired</h1>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">This password-reset link is invalid or has expired.</p>
+            <h1 className="text-xl font-bold mb-2">{t("auth.linkInvalidTitle")}</h1>
+            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">{t("auth.linkInvalidDescription")}</p>
             <button onClick={() => navigate("/forgot-password")} className="text-navy text-sm font-medium">
-              Request a new reset link
+              {t("auth.requestNewResetLink")}
             </button>
           </div>
         )}
 
         {recoveryState === "ready" && done && (
           <div className="text-center">
-            <h1 className="text-xl font-bold mb-2">Password updated</h1>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">Your password has been changed. Sign in with your new password.</p>
+            <h1 className="text-xl font-bold mb-2">{t("auth.passwordUpdatedTitle")}</h1>
+            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">{t("auth.passwordUpdatedDescription")}</p>
             <button
               onClick={() => navigate("/login")}
               className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark"
             >
-              Go to login
+              {t("auth.goToLogin")}
             </button>
           </div>
         )}
 
         {recoveryState === "ready" && !done && (
           <>
-            <h1 className="text-xl font-bold mb-1">Set a new password</h1>
+            <h1 className="text-xl font-bold mb-1">{t("auth.setNewPassword")}</h1>
             <form onSubmit={handleSubmit} className="space-y-3 mt-4">
               <input
                 type="password"
-                placeholder="New password"
+                placeholder={t("auth.newPassword")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -102,7 +106,7 @@ export function ResetPassword() {
               />
               <input
                 type="password"
-                placeholder="Confirm new password"
+                placeholder={t("auth.confirmNewPassword")}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
@@ -114,7 +118,7 @@ export function ResetPassword() {
                 disabled={submitting}
                 className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
               >
-                {submitting ? "Updating password..." : "Update password"}
+                {submitting ? t("auth.updatingPassword") : t("auth.updatePassword")}
               </button>
             </form>
           </>

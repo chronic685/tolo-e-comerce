@@ -6,6 +6,15 @@
 // customer/merchant. The suite only ever performs read-only or
 // rejected/negative-path actions against these fixtures, so a single seed
 // is reused indefinitely without drifting or needing cleanup between runs.
+//
+// Both fixture merchants are created with is_test = true (migration 0079).
+// Labeling the name alone was not enough -- it kept the fixture out of the
+// *admin* dashboard's confusion, but every customer-facing discovery query
+// (BrowseShops/Storefront/Marketplace) only ever filtered on `status`,
+// which this fixture deliberately sets to 'active' so it behaves like a
+// real approved merchant for authorization tests. That made "QA TEST Store
+// — DO NOT USE" publicly visible/listable to real customers. is_test is
+// the flag those queries now exclude on, independent of status.
 import { serviceClient } from "../env.ts";
 
 const QA_MERCHANT_A_EMAIL = process.env.QA_MERCHANT_A_EMAIL!;
@@ -90,6 +99,7 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
         email: QA_MERCHANT_A_EMAIL,
         location: "QA Fixture",
         status: "active",
+        is_test: true,
         agreement_accepted: true,
         approved_at: new Date().toISOString(),
       })
@@ -112,6 +122,7 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
         email: QA_MERCHANT_B_EMAIL,
         location: "QA Fixture",
         status: "active",
+        is_test: true,
         agreement_accepted: true,
         approved_at: new Date().toISOString(),
       })
@@ -260,13 +271,33 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
   const reviewableA = await ensureReviewableProduct("QA TEST Reviewable Product A — DO NOT USE", "QA-TEST-REVIEW-A");
   const reviewableB = await ensureReviewableProduct("QA TEST Reviewable Product B — DO NOT USE", "QA-TEST-REVIEW-B");
 
-  let { data: reviewableMerchantOrder } = await db
-    .from("merchant_orders")
-    .select("id, order_id")
-    .eq("merchant_id", merchantA.id)
-    .eq("status", "completed")
-    .limit(1)
-    .maybeSingle();
+  // Must be the completed order that actually carries reviewable products A
+  // and B. This used to take ANY completed order of merchant A (limit(1), no
+  // ordering), which stopped being the fixture's own order once other tests
+  // left unrelated completed orders behind -- so tests that assume this order
+  // contains exactly products A and B (return-restock, reviews) hit the wrong
+  // variants.
+  let reviewableMerchantOrder: { id: string; order_id: string } | null = null;
+  {
+    const { data: candidates } = await db
+      .from("order_items")
+      .select("merchant_order_id, merchant_orders!inner ( id, order_id, status, merchant_id )")
+      .eq("variant_id", reviewableA.variantId)
+      .eq("merchant_orders.status", "completed")
+      .eq("merchant_orders.merchant_id", merchantA.id);
+    for (const candidate of (candidates ?? []) as unknown as { merchant_order_id: string; merchant_orders: { id: string; order_id: string } }[]) {
+      const { data: hasB } = await db
+        .from("order_items")
+        .select("id")
+        .eq("merchant_order_id", candidate.merchant_order_id)
+        .eq("variant_id", reviewableB.variantId)
+        .limit(1);
+      if (hasB && hasB.length > 0) {
+        reviewableMerchantOrder = { id: candidate.merchant_orders.id, order_id: candidate.merchant_orders.order_id };
+        break;
+      }
+    }
+  }
 
   let reviewableMerchantOrderId: string;
   if (!reviewableMerchantOrder) {

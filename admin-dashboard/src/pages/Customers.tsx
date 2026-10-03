@@ -11,11 +11,13 @@ import {
   fetchAllRows,
   totalPagesFor,
   usePagination,
+  useTranslation,
   type DataTableColumn,
 } from "@tolo/ui";
 import type { CustomerProfile } from "../types";
 
 export function Customers() {
+  const { t } = useTranslation();
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState("");
@@ -86,7 +88,7 @@ export function Customers() {
   async function bulkSuspend(selected: CustomerProfile[]) {
     const active = selected.filter((c) => c.account_status === "active");
     if (active.length === 0) return;
-    const bulkReason = window.prompt(`Reason for suspending ${active.length} customer(s)`);
+    const bulkReason = window.prompt(t("customers.bulkSuspendPrompt", { count: active.length }));
     if (bulkReason === null) return;
     await supabase
       .from("profiles")
@@ -135,16 +137,16 @@ export function Customers() {
   const columns: DataTableColumn<CustomerProfile>[] = [
     {
       key: "name",
-      header: "Name",
-      render: (c) => c.full_name ?? "Unnamed",
+      header: t("common.name"),
+      render: (c) => c.full_name ?? t("customers.unnamed"),
       filterValue: (c) => c.full_name ?? "",
       sortValue: (c) => c.full_name ?? "",
       csvValue: (c) => c.full_name ?? "",
     },
-    { key: "phone", header: "Phone", render: (c) => c.phone ?? "—", filterValue: (c) => c.phone ?? "", csvValue: (c) => c.phone ?? "" },
+    { key: "phone", header: t("common.phone"), render: (c) => c.phone ?? "—", filterValue: (c) => c.phone ?? "", csvValue: (c) => c.phone ?? "" },
     {
       key: "orders",
-      header: "Orders",
+      header: t("customers.ordersColumn"),
       render: (c) => orderCounts[c.id] ?? 0,
       sortValue: (c) => orderCounts[c.id] ?? 0,
       csvValue: (c) => orderCounts[c.id] ?? 0,
@@ -152,18 +154,18 @@ export function Customers() {
     },
     {
       key: "joined",
-      header: "Joined",
+      header: t("customers.joinedColumn"),
       render: (c) => new Date(c.created_at).toLocaleDateString(),
       sortValue: (c) => c.created_at,
       csvValue: (c) => c.created_at,
     },
     {
       key: "status",
-      header: "Status",
+      header: t("common.status"),
       render: (c) => (
         <div>
           <Badge variant={c.account_status === "active" ? "success" : "danger"} className="capitalize">
-            {c.account_status}
+            {c.account_status === "active" ? t("common.active") : t("adminDashboard.stat.suspended")}
           </Badge>
           {c.account_status === "suspended" && c.suspension_reason && (
             <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">{c.suspension_reason}</p>
@@ -178,18 +180,18 @@ export function Customers() {
       render: (c) => (
         <div>
           <Button size="sm" variant={c.account_status === "active" ? "outline" : "destructive"} onClick={() => toggleStatus(c)}>
-            {c.account_status === "active" ? "Suspend" : "Reactivate"}
+            {c.account_status === "active" ? t("customers.suspend") : t("customers.reactivate")}
           </Button>
           {reasonPromptId === c.id && (
             <div className="flex gap-2 mt-2">
               <input
-                placeholder="Reason for suspension"
+                placeholder={t("customers.suspensionReasonPlaceholder")}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 className="flex-1 border rounded-md px-3 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
               />
               <Button size="sm" variant="destructive" onClick={() => confirmSuspend(c)}>
-                Confirm
+                {t("common.confirm")}
               </Button>
             </div>
           )}
@@ -201,12 +203,12 @@ export function Customers() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold dark:text-gray-100">Customers</h1>
+        <h1 className="text-xl font-bold dark:text-gray-100">{t("customers.title")}</h1>
       </div>
 
       <div className="flex gap-2 mb-4 max-w-2xl">
         <input
-          placeholder="Search by name or phone"
+          placeholder={t("customers.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && setCommittedSearch(search)}
@@ -216,7 +218,7 @@ export function Customers() {
           onClick={() => setCommittedSearch(search)}
           className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy"
         >
-          Search
+          {t("common.search")}
         </button>
       </div>
 
@@ -229,9 +231,9 @@ export function Customers() {
             columns={columns}
             rows={customers}
             getRowId={(c) => c.id}
-            bulkActions={[{ label: "Suspend", onAction: bulkSuspend, variant: "destructive" }]}
+            bulkActions={[{ label: t("customers.suspend"), onAction: bulkSuspend, variant: "destructive" }]}
             onExportAll={handleExportAll}
-            emptyMessage="No customers found."
+            emptyMessage={t("customers.noCustomersFound")}
           />
           <div className="mt-4">
             <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />

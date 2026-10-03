@@ -5,6 +5,7 @@ import {
   ADMIN_PAGE_SIZE,
   Button,
   DataTable,
+  type DataTableColumn,
   ExportCsvButton,
   extractServerErrorText,
   fetchAllRows,
@@ -15,11 +16,23 @@ import {
   translateServerError,
   usePagination,
   useTranslation,
-  type DataTableColumn,
 } from "@tolo/ui";
 import type { FinancialAdjustment, Merchant, Settlement } from "../types";
 
 const ADJUSTMENT_TYPES = ["correction", "bonus", "penalty", "goodwill", "other"];
+
+const ADJUSTMENT_TYPE_KEYS: Record<string, string> = {
+  correction: "adjustmentType.correction",
+  bonus: "adjustmentType.bonus",
+  penalty: "adjustmentType.penalty",
+  goodwill: "adjustmentType.goodwill",
+  other: "adjustmentType.other",
+};
+
+const SETTLEMENT_STATUS_KEYS: Record<string, string> = {
+  pending: "settlementStatus.pending",
+  paid: "settlementStatus.paid",
+};
 
 export function Settlements() {
   const { t } = useTranslation();
@@ -59,7 +72,7 @@ export function Settlements() {
   // 'pending' (migration 0009's own default); nothing transitioned them
   // further until now.
   async function markPaid(s: Settlement) {
-    if (!confirm(`Mark the ${s.total_amount.toFixed(2)} ETB payout to ${s.merchants?.business_name} as paid?`)) return;
+    if (!confirm(t("settlements.markPaidConfirm", { amount: s.total_amount.toFixed(2), merchant: s.merchants?.business_name ?? "" }))) return;
     const { error } = await supabase.from("settlements").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", s.id);
     if (error) {
       toast.error(translateServerError(error.message, t));
@@ -201,7 +214,7 @@ export function Settlements() {
       toast.error(translateServerError(await extractServerErrorText(error), t));
       return;
     }
-    toast.success(data?.message ?? `Settled ${data?.total_amount ?? 0} ETB across ${data?.item_count ?? 0} order(s).`);
+    toast.success(data?.message ?? t("settlements.settledToast", { amount: data?.total_amount ?? 0, count: data?.item_count ?? 0 }));
     // Newest-first ordering means a brand-new settlement always belongs on
     // page 1 -- reload only when that's the page currently showing, and
     // land there otherwise so it's visible.
@@ -237,7 +250,7 @@ export function Settlements() {
   const settlementColumns: DataTableColumn<Settlement>[] = [
     {
       key: "merchant",
-      header: "Merchant",
+      header: t("settlements.merchantColumn"),
       render: (s) => (
         <div>
           <p className="text-sm font-medium">{s.merchants?.business_name}</p>
@@ -252,11 +265,17 @@ export function Settlements() {
     },
     {
       key: "amount",
-      header: "Amount",
+      header: t("settlements.amountColumn"),
       render: (s) => (
         <div className="text-right">
           <p className="font-semibold text-sm">{formatCurrency(s.total_amount)}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{s.status === "paid" && s.paid_at ? `Paid ${new Date(s.paid_at).toLocaleDateString()}` : s.status}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+            {s.status === "paid" && s.paid_at
+              ? t("settlements.paidOn", { date: new Date(s.paid_at).toLocaleDateString() })
+              : SETTLEMENT_STATUS_KEYS[s.status]
+                ? t(SETTLEMENT_STATUS_KEYS[s.status])
+                : s.status}
+          </p>
         </div>
       ),
       sortValue: (s) => s.total_amount,
@@ -269,11 +288,11 @@ export function Settlements() {
       render: (s) => (
         <div className="flex items-center gap-2 justify-end">
           <Button size="sm" variant="outline" onClick={() => downloadStatement(s)} disabled={downloadingStatementId === s.id}>
-            {downloadingStatementId === s.id ? "..." : "Statement CSV"}
+            {downloadingStatementId === s.id ? t("settlements.statementCsvEllipsis") : t("settlements.statementCsv")}
           </Button>
           {s.status !== "paid" && (
             <Button size="sm" onClick={() => markPaid(s)}>
-              Mark as paid
+              {t("settlements.markAsPaid")}
             </Button>
           )}
         </div>
@@ -284,11 +303,11 @@ export function Settlements() {
   const adjustmentColumns: DataTableColumn<FinancialAdjustment>[] = [
     {
       key: "merchant",
-      header: "Adjustment",
+      header: t("settlements.adjustmentColumn"),
       render: (a) => (
         <div>
           <p className="text-sm font-medium">
-            {a.merchants?.business_name} · <span className="capitalize">{a.type}</span>
+            {a.merchants?.business_name} · <span className="capitalize">{ADJUSTMENT_TYPE_KEYS[a.type] ? t(ADJUSTMENT_TYPE_KEYS[a.type]) : a.type}</span>
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">{a.reason}</p>
         </div>
@@ -299,7 +318,7 @@ export function Settlements() {
     },
     {
       key: "amount",
-      header: "Amount",
+      header: t("settlements.amountColumn"),
       render: (a) => (
         <div className="text-right">
           <p className={`font-semibold text-sm ${a.amount < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}>
@@ -318,15 +337,15 @@ export function Settlements() {
   return (
     <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold dark:text-gray-100">Settlements</h1>
+        <h1 className="text-xl font-bold dark:text-gray-100">{t("settlements.title")}</h1>
         <ExportCsvButton onExport={handleExport} disabled={settlements.length === 0} />
       </div>
 
       <form onSubmit={handleRun} className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 flex gap-2 items-end flex-wrap">
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Merchant</label>
+          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settlements.merchantLabel")}</label>
           <select value={merchantId} onChange={(e) => setMerchantId(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100">
-            <option value="">Select...</option>
+            <option value="">{t("settlements.selectEllipsis")}</option>
             {merchants.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.business_name}
@@ -335,11 +354,11 @@ export function Settlements() {
           </select>
         </div>
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Period start</label>
+          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settlements.periodStart")}</label>
           <input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100" />
         </div>
         <div>
-          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Period end</label>
+          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settlements.periodEnd")}</label>
           <input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100" />
         </div>
         <button
@@ -347,7 +366,7 @@ export function Settlements() {
           disabled={running}
           className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60"
         >
-          {running ? "Running..." : "Run settlement"}
+          {running ? t("settlements.running") : t("settlements.runSettlement")}
         </button>
       </form>
 
@@ -357,21 +376,19 @@ export function Settlements() {
       </div>
 
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Financial Adjustments</h2>
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t("settlements.financialAdjustments")}</h2>
         <button onClick={() => setShowAdjustmentForm((s) => !s)} className="text-xs border dark:border-white/20 dark:text-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-white/5">
-          {showAdjustmentForm ? "Cancel" : "+ New adjustment"}
+          {showAdjustmentForm ? t("common.cancel") : t("settlements.newAdjustment")}
         </button>
       </div>
-      <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
-        A record of manual corrections — this does not itself change settlement totals; it's the audit trail for why one might be adjusted.
-      </p>
+      <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{t("settlements.adjustmentsDescription")}</p>
 
       {showAdjustmentForm && (
         <form onSubmit={handleAddAdjustment} className="bg-white dark:bg-navy-dark border dark:border-white/10 rounded-lg p-4 mb-4 flex gap-2 items-end flex-wrap">
           <div>
-            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Merchant</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settlements.merchantLabel")}</label>
             <select value={adjMerchantId} onChange={(e) => setAdjMerchantId(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100">
-              <option value="">Select...</option>
+              <option value="">{t("settlements.selectEllipsis")}</option>
               {merchants.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.business_name}
@@ -380,17 +397,17 @@ export function Settlements() {
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Type</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settlements.typeLabel")}</label>
             <select value={adjType} onChange={(e) => setAdjType(e.target.value)} className="border rounded-md px-2 py-1.5 text-sm capitalize dark:bg-navy-dark dark:border-white/20 dark:text-gray-100">
-              {ADJUSTMENT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
+              {ADJUSTMENT_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {t(ADJUSTMENT_TYPE_KEYS[type])}
                 </option>
               ))}
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Amount (ETB, can be negative)</label>
+            <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("settlements.amountEtbNegative")}</label>
             <input
               type="number"
               value={adjAmount}
@@ -399,18 +416,18 @@ export function Settlements() {
             />
           </div>
           <input
-            placeholder="Reason"
+            placeholder={t("settlements.reasonPlaceholder")}
             value={adjReason}
             onChange={(e) => setAdjReason(e.target.value)}
             className="flex-1 min-w-[160px] border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
           />
           <button type="submit" className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy">
-            Add
+            {t("common.add")}
           </button>
         </form>
       )}
 
-      <DataTable storageKey="admin.financialAdjustments" columns={adjustmentColumns} rows={adjustments} getRowId={(a) => a.id} emptyMessage="No adjustments recorded." />
+      <DataTable storageKey="admin.financialAdjustments" columns={adjustmentColumns} rows={adjustments} getRowId={(a) => a.id} emptyMessage={t("settlements.noAdjustmentsRecorded")} />
       <div className="mt-4">
         <Pagination page={adjustmentsPage.page} totalPages={totalPagesFor(adjustmentsTotal, ADMIN_PAGE_SIZE)} onPageChange={adjustmentsPage.setPage} />
       </div>

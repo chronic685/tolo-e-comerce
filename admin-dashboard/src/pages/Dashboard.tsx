@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { SkeletonPage } from "@tolo/ui";
+import { SkeletonPage, useTranslation } from "@tolo/ui";
 import { SalesTrend } from "../components/SalesTrend";
 import { LiveOrdersFeed } from "../components/LiveOrdersFeed";
 
@@ -44,6 +44,7 @@ const SEVEN_DAYS_AGO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOStrin
 const THIRTY_DAYS_AGO = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
 export function Dashboard() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
@@ -153,8 +154,8 @@ export function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-1 dark:text-gray-100">Platform Overview</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Tolo marketplace at a glance.</p>
+      <h1 className="text-xl font-bold mb-1 dark:text-gray-100">{t("adminDashboard.title")}</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{t("adminDashboard.subtitle")}</p>
 
       {stats.unacknowledgedOrders > 0 && (
         <Link
@@ -162,7 +163,7 @@ export function Dashboard() {
           className="flex items-center gap-2 bg-red-50 border border-red-300 text-red-800 rounded-lg p-4 mb-3 text-sm font-bold hover:bg-red-100"
         >
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-          {stats.unacknowledgedOrders} order(s) not acknowledged by their merchant — customer may be waiting →
+          {t("adminDashboard.unacknowledgedOrdersAlert", { count: stats.unacknowledgedOrders })}
         </Link>
       )}
       {stats.pendingMerchants > 0 && (
@@ -171,7 +172,7 @@ export function Dashboard() {
           className="flex items-center gap-2 bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-lg p-4 mb-3 text-sm font-medium hover:bg-yellow-100"
         >
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-          {stats.pendingMerchants} merchant application(s) awaiting review →
+          {t("adminDashboard.pendingMerchantsAlert", { count: stats.pendingMerchants })}
         </Link>
       )}
       {stats.openTickets > 0 && (
@@ -180,53 +181,53 @@ export function Dashboard() {
           className="flex items-center gap-2 bg-blue-50 border border-blue-300 text-blue-800 rounded-lg p-4 mb-6 text-sm font-medium hover:bg-blue-100"
         >
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-          {stats.openTickets} open support ticket(s) →
+          {t("adminDashboard.openTicketsAlert", { count: stats.openTickets })}
         </Link>
       )}
 
       <LiveOrdersFeed />
       <SalesTrend />
 
-      <DashboardSection title="Customers">
-        <StatCard label="Registered" value={stats.registeredCustomers} />
-        <StatCard label="Active (30d)" value={stats.activeCustomers} hint="Placed at least one order in the last 30 days" />
-        <StatCard label="New (7d)" value={stats.newCustomers} />
+      <DashboardSection title={t("adminDashboard.sections.customers")}>
+        <StatCard label={t("adminDashboard.stat.registered")} value={stats.registeredCustomers} />
+        <StatCard label={t("adminDashboard.stat.active30d")} value={stats.activeCustomers} hint={t("adminDashboard.stat.activeHint")} />
+        <StatCard label={t("adminDashboard.stat.new7d")} value={stats.newCustomers} />
       </DashboardSection>
 
-      <DashboardSection title="Merchants">
-        <StatCard label="Total" value={stats.totalMerchants} />
-        <StatCard label="Approved" value={stats.approvedMerchants} />
-        <StatCard label="Pending Verification" value={stats.pendingMerchants} highlight={stats.pendingMerchants > 0} />
-        <StatCard label="Suspended" value={stats.suspendedMerchants} />
+      <DashboardSection title={t("adminDashboard.sections.merchants")}>
+        <StatCard label={t("adminDashboard.stat.total")} value={stats.totalMerchants} />
+        <StatCard label={t("adminDashboard.stat.approved")} value={stats.approvedMerchants} />
+        <StatCard label={t("adminDashboard.stat.pendingVerification")} value={stats.pendingMerchants} highlight={stats.pendingMerchants > 0} />
+        <StatCard label={t("adminDashboard.stat.suspended")} value={stats.suspendedMerchants} />
       </DashboardSection>
 
-      <DashboardSection title="Products">
-        <StatCard label="Total" value={stats.totalProducts} />
-        <StatCard label="Published" value={stats.publishedProducts} />
-        <StatCard label="Out of Stock (variants)" value={stats.outOfStockVariants} />
-        <StatCard label="Pending Approval" value={stats.pendingApprovalProducts} highlight={stats.pendingApprovalProducts > 0} />
+      <DashboardSection title={t("adminDashboard.sections.products")}>
+        <StatCard label={t("adminDashboard.stat.total")} value={stats.totalProducts} />
+        <StatCard label={t("adminDashboard.stat.published")} value={stats.publishedProducts} />
+        <StatCard label={t("adminDashboard.stat.outOfStockVariants")} value={stats.outOfStockVariants} />
+        <StatCard label={t("adminDashboard.stat.pendingApproval")} value={stats.pendingApprovalProducts} highlight={stats.pendingApprovalProducts > 0} />
       </DashboardSection>
 
-      <DashboardSection title="Orders">
-        <StatCard label="Total" value={stats.totalOrders} />
-        <StatCard label="New" value={stats.newOrders} highlight={stats.newOrders > 0} />
-        <StatCard label="Preparing" value={stats.preparingOrders} />
-        <StatCard label="Ready for Pickup" value={stats.readyForPickupOrders} />
-        <StatCard label="In Delivery" value={stats.inDeliveryOrders} />
-        <StatCard label="Completed" value={stats.completedOrders} />
-        <StatCard label="Cancelled" value={stats.cancelledOrders} />
+      <DashboardSection title={t("adminDashboard.sections.orders")}>
+        <StatCard label={t("adminDashboard.stat.total")} value={stats.totalOrders} />
+        <StatCard label={t("adminDashboard.stat.new")} value={stats.newOrders} highlight={stats.newOrders > 0} />
+        <StatCard label={t("adminDashboard.stat.preparing")} value={stats.preparingOrders} />
+        <StatCard label={t("adminDashboard.stat.readyForPickup")} value={stats.readyForPickupOrders} />
+        <StatCard label={t("adminDashboard.stat.inDelivery")} value={stats.inDeliveryOrders} />
+        <StatCard label={t("adminDashboard.stat.completed")} value={stats.completedOrders} />
+        <StatCard label={t("adminDashboard.stat.cancelled")} value={stats.cancelledOrders} />
       </DashboardSection>
 
-      <DashboardSection title="Sales (paid orders)">
-        <StatCard label="GMV" value={`${stats.gmv.toFixed(2)} ETB`} hint="Total customer payments on paid orders" />
-        <StatCard label="Merchant Sales" value={`${stats.merchantSales.toFixed(2)} ETB`} hint="What merchants are owed before Tolo's cut" />
-        <StatCard label="Tolo Commission" value={`${stats.commissionEarned.toFixed(2)} ETB`} />
-        <StatCard label="Discounts Given" value={`${stats.discountsGiven.toFixed(2)} ETB`} />
-        <StatCard label="Refunds Issued" value={`${stats.refundsIssued.toFixed(2)} ETB`} />
+      <DashboardSection title={t("adminDashboard.sections.sales")}>
+        <StatCard label={t("adminDashboard.gmv")} value={`${stats.gmv.toFixed(2)} ETB`} hint={t("adminDashboard.stat.gmvHint")} />
+        <StatCard label={t("adminDashboard.stat.merchantSales")} value={`${stats.merchantSales.toFixed(2)} ETB`} hint={t("adminDashboard.stat.merchantSalesHint")} />
+        <StatCard label={t("adminDashboard.stat.toloCommission")} value={`${stats.commissionEarned.toFixed(2)} ETB`} />
+        <StatCard label={t("adminDashboard.stat.discountsGiven")} value={`${stats.discountsGiven.toFixed(2)} ETB`} />
+        <StatCard label={t("adminDashboard.stat.refundsIssued")} value={`${stats.refundsIssued.toFixed(2)} ETB`} />
         <StatCard
-          label="Net Platform Revenue"
+          label={t("adminDashboard.stat.netPlatformRevenue")}
           value={`${(stats.commissionEarned - stats.refundsIssued).toFixed(2)} ETB`}
-          hint="Commission earned minus refunds issued"
+          hint={t("adminDashboard.stat.netPlatformRevenueHint")}
         />
       </DashboardSection>
     </div>

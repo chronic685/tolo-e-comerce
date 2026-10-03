@@ -1,10 +1,28 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, ExportCsvButton, fetchAllRows, formatCurrency, Pagination, SkeletonRows, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, ExportCsvButton, fetchAllRows, formatCurrency, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
 import type { RefundRow, ReturnRow } from "../types";
 
 const REASONS = ["Customer cancellation", "Merchant unavailable", "Product unavailable", "Delivery failure", "Duplicate payment", "Payment error", "Admin correction", "Other"];
+
+const REASON_KEYS: Record<string, string> = {
+  "Customer cancellation": "refundReason.customerCancellation",
+  "Merchant unavailable": "refundReason.merchantUnavailable",
+  "Product unavailable": "refundReason.productUnavailable",
+  "Delivery failure": "refundReason.deliveryFailure",
+  "Duplicate payment": "refundReason.duplicatePayment",
+  "Payment error": "refundReason.paymentError",
+  "Admin correction": "refundReason.adminCorrection",
+  Other: "refundReason.other",
+};
+
+const REFUND_STATUS_KEYS: Record<string, string> = {
+  pending: "refundStatus.pending",
+  processing: "refundStatus.processing",
+  completed: "refundStatus.completed",
+  failed: "refundStatus.failed",
+};
 
 const RETURN_SELECT = `id, merchant_order_id, customer_id, reason, status, created_at,
          merchant_orders ( subtotal, merchants ( business_name ) ),
@@ -12,6 +30,7 @@ const RETURN_SELECT = `id, merchant_order_id, customer_id, reason, status, creat
          refunds ( id, amount, status )`;
 
 export function Refunds() {
+  const { t } = useTranslation();
   // Three genuinely separate operational queues, each its own query/page --
   // deriving them all by client-side .filter() on one .limit(100) fetch (as
   // this page used to) can't produce a correct .range()-paginated count for
@@ -160,14 +179,14 @@ export function Refunds() {
   const requestedColumns: DataTableColumn<ReturnRow>[] = [
     {
       key: "customer",
-      header: "Return",
+      header: t("refunds.returnColumn"),
       render: (r) => (
         <div>
           <p className="text-sm font-medium">
-            {r.profiles?.full_name ?? "Customer"} · {r.merchant_orders?.merchants?.business_name}
+            {r.profiles?.full_name ?? t("refunds.customerFallback")} · {r.merchant_orders?.merchants?.business_name}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {r.reason} · {formatCurrency(r.merchant_orders?.subtotal ?? 0)}
+            {REASON_KEYS[r.reason] ? t(REASON_KEYS[r.reason]) : r.reason} · {formatCurrency(r.merchant_orders?.subtotal ?? 0)}
           </p>
         </div>
       ),
@@ -181,10 +200,10 @@ export function Refunds() {
       render: (r) => (
         <div className="flex gap-2 justify-end">
           <Button size="sm" onClick={() => setReturnStatus(r, "approved")}>
-            Approve
+            {t("refunds.approve")}
           </Button>
           <Button size="sm" variant="outline" onClick={() => setReturnStatus(r, "rejected")}>
-            Reject
+            {t("refunds.reject")}
           </Button>
         </div>
       ),
@@ -194,22 +213,22 @@ export function Refunds() {
   const awaitingColumns: DataTableColumn<ReturnRow>[] = [
     {
       key: "customer",
-      header: "Return",
+      header: t("refunds.returnColumn"),
       render: (r) => (
         <div>
           <div className="flex items-center justify-between gap-2 mb-2">
             <div>
               <p className="text-sm font-medium">
-                {r.profiles?.full_name ?? "Customer"} · {r.merchant_orders?.merchants?.business_name}
+                {r.profiles?.full_name ?? t("refunds.customerFallback")} · {r.merchant_orders?.merchants?.business_name}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{r.reason}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{REASON_KEYS[r.reason] ? t(REASON_KEYS[r.reason]) : r.reason}</p>
             </div>
             {r.status === "approved" && (
-              <Button size="sm" variant="outline" onClick={() => setReturnStatus(r, "received")} title="Confirm the physical item is back with the merchant — restocks inventory">
-                Mark item received
+              <Button size="sm" variant="outline" onClick={() => setReturnStatus(r, "received")} title={t("refunds.markItemReceivedTitle")}>
+                {t("refunds.markItemReceived")}
               </Button>
             )}
-            {r.status === "received" && <Badge variant="success">Item received · restocked</Badge>}
+            {r.status === "received" && <Badge variant="success">{t("refunds.itemReceivedRestocked")}</Badge>}
           </div>
           <div className="flex gap-2">
             <select
@@ -219,7 +238,7 @@ export function Refunds() {
             >
               {REASONS.map((reason) => (
                 <option key={reason} value={reason}>
-                  {reason}
+                  {t(REASON_KEYS[reason])}
                 </option>
               ))}
             </select>
@@ -231,7 +250,7 @@ export function Refunds() {
               className="w-28 border rounded-md px-2 py-1.5 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
             />
             <Button size="sm" onClick={() => issueRefund(r)}>
-              Issue refund
+              {t("refunds.issueRefund")}
             </Button>
           </div>
         </div>
@@ -244,14 +263,14 @@ export function Refunds() {
   const refundColumns: DataTableColumn<RefundRow>[] = [
     {
       key: "customer",
-      header: "Refund",
+      header: t("refunds.refundColumn"),
       render: (f) => (
         <div>
           <p className="text-sm font-medium">
-            {f.returns?.profiles?.full_name ?? "Customer"} · {f.returns?.merchant_orders?.merchants?.business_name}
+            {f.returns?.profiles?.full_name ?? t("refunds.customerFallback")} · {f.returns?.merchant_orders?.merchants?.business_name}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {formatCurrency(f.amount)} · {f.returns?.reason}
+            {formatCurrency(f.amount)} · {f.returns?.reason ? (REASON_KEYS[f.returns.reason] ? t(REASON_KEYS[f.returns.reason]) : f.returns.reason) : ""}
           </p>
         </div>
       ),
@@ -261,8 +280,8 @@ export function Refunds() {
     },
     {
       key: "status",
-      header: "Status",
-      render: (f) => <Badge className="capitalize">{f.status}</Badge>,
+      header: t("common.status"),
+      render: (f) => <Badge className="capitalize">{REFUND_STATUS_KEYS[f.status] ? t(REFUND_STATUS_KEYS[f.status]) : f.status}</Badge>,
       csvValue: (f) => f.status,
     },
     {
@@ -272,10 +291,10 @@ export function Refunds() {
         f.status === "pending" || f.status === "processing" ? (
           <div className="flex gap-2 justify-end">
             <Button size="sm" onClick={() => setRefundStatus(f.id, "completed")}>
-              Mark completed
+              {t("refunds.markCompleted")}
             </Button>
             <Button size="sm" variant="outline" onClick={() => setRefundStatus(f.id, "failed")}>
-              Mark failed
+              {t("refunds.markFailed")}
             </Button>
           </div>
         ) : null,
@@ -287,13 +306,13 @@ export function Refunds() {
   return (
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold dark:text-gray-100">Returns &amp; Refunds</h1>
+        <h1 className="text-xl font-bold dark:text-gray-100">{t("refunds.title")}</h1>
         <ExportCsvButton onExport={handleExport} disabled={refunds.length === 0} />
       </div>
 
-      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Return Requests</h2>
+      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{t("refunds.returnRequestsHeading")}</h2>
       {requested.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">No pending return requests.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">{t("refunds.noPendingRequests")}</p>
       ) : (
         <>
           <DataTable storageKey="admin.returns.requested" columns={requestedColumns} rows={requested} getRowId={(r) => r.id} />
@@ -303,9 +322,9 @@ export function Refunds() {
         </>
       )}
 
-      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Approved — Awaiting Refund (Finance)</h2>
+      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{t("refunds.awaitingRefundHeading")}</h2>
       {approvedAwaitingRefund.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Nothing awaiting a refund.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">{t("refunds.nothingAwaiting")}</p>
       ) : (
         <DataTable storageKey="admin.returns.awaitingRefund" columns={awaitingColumns} rows={approvedAwaitingRefund} getRowId={(r) => r.id} />
       )}
@@ -317,9 +336,9 @@ export function Refunds() {
         />
       </div>
 
-      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Refunds</h2>
+      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{t("refunds.refundsHeading")}</h2>
       {refunds.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400 text-sm">No refunds issued yet.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">{t("refunds.noRefundsYet")}</p>
       ) : (
         <>
           <DataTable storageKey="admin.refunds" columns={refundColumns} rows={refunds} getRowId={(f) => f.id} />

@@ -1,4 +1,5 @@
 ﻿import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "@tolo/ui";
 import { Commissions } from "./Commissions";
 import { Discounts } from "./Discounts";
 
@@ -8,8 +9,8 @@ import { Discounts } from "./Discounts";
 // edit-mode addition made alongside this merge — this is a navigation/
 // layout merge, not a rewrite of either page's logic.
 const TABS = [
-  { key: "discounts", label: "Discounts" },
-  { key: "commissions", label: "Commissions" },
+  { key: "discounts", labelKey: "discounts.title" },
+  { key: "commissions", labelKey: "commissions.title" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -19,6 +20,7 @@ function isTabKey(value: string | null): value is TabKey {
 }
 
 export function PricingRules() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   // Discounts is the default/landing tab — promotions get created/edited/
@@ -32,17 +34,17 @@ export function PricingRules() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-4">Pricing Rules</h1>
+      <h1 className="text-xl font-bold mb-4">{t("pricingRules.title")}</h1>
       <div className="flex items-center gap-1 border-b mb-4">
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
+            key={tab.key}
+            onClick={() => setTab(tab.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
-              activeTab === t.key ? "border-navy text-navy" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:text-gray-300"
+              activeTab === tab.key ? "border-navy text-navy" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:text-gray-300"
             }`}
           >
-            {t.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>

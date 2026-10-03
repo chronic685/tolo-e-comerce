@@ -1,11 +1,11 @@
 ﻿import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ChevronRight, Download } from "lucide-react";
-import { SkeletonPage, toast } from "@tolo/ui";
+import { SkeletonPage, toast, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import { buildCsv, downloadCsv, parseCsvToObjects } from "../lib/csv";
-import { isEligibleForListing, LISTING_ELIGIBILITY_ERROR, parseAttributes, slugify } from "../lib/productRules";
+import { isEligibleForListing, parseAttributes, slugify } from "../lib/productRules";
 import { saveProduct } from "../lib/productWrites";
 import type { Category } from "../types";
 
@@ -45,11 +45,11 @@ interface RowResult {
   reason: string | null;
 }
 
-const OUTCOME_LABEL: Record<PlannedStatus | "failed", string> = {
-  published: "Published",
-  submitted: "Submitted for review",
-  draft: "Saved as draft",
-  failed: "Failed",
+const OUTCOME_KEYS: Record<PlannedStatus | "failed", string> = {
+  published: "bulkUpload.outcome.published",
+  submitted: "bulkUpload.outcome.submitted",
+  draft: "bulkUpload.outcome.draft",
+  failed: "bulkUpload.outcome.failed",
 };
 
 const OUTCOME_COLOR: Record<PlannedStatus | "failed", string> = {
@@ -60,6 +60,7 @@ const OUTCOME_COLOR: Record<PlannedStatus | "failed", string> = {
 };
 
 export function BulkUpload() {
+  const { t } = useTranslation();
   const { merchant, store } = useMerchant();
   const [featureEnabled, setFeatureEnabled] = useState(false);
   const [featureLoading, setFeatureLoading] = useState(true);
@@ -113,13 +114,13 @@ export function BulkUpload() {
     let stock = 0;
 
     if (!name) {
-      validationError = "Name is required.";
+      validationError = t("bulkUpload.nameRequired");
     }
 
     if (!validationError) {
       const parsedPrice = Number(priceRaw);
       if (!priceRaw || Number.isNaN(parsedPrice) || parsedPrice < 0) {
-        validationError = "Price must be a non-negative number.";
+        validationError = t("bulkUpload.priceInvalid");
       } else {
         price = parsedPrice;
       }
@@ -128,7 +129,7 @@ export function BulkUpload() {
     if (!validationError && stockRaw) {
       const parsedStock = Number(stockRaw);
       if (Number.isNaN(parsedStock) || parsedStock < 0 || !Number.isInteger(parsedStock)) {
-        validationError = "Stock must be a non-negative whole number.";
+        validationError = t("bulkUpload.stockInvalid");
       } else {
         stock = parsedStock;
       }
@@ -137,7 +138,7 @@ export function BulkUpload() {
     if (!validationError && categoryName) {
       const match = categories.find((c) => c.name.toLowerCase() === categoryName.toLowerCase());
       if (!match) {
-        validationError = `Unknown category "${categoryName}".`;
+        validationError = t("bulkUpload.unknownCategory", { category: categoryName });
       } else {
         categoryId = match.id;
       }
@@ -189,7 +190,7 @@ export function BulkUpload() {
     const text = await file.text();
     const objects = parseCsvToObjects(text);
     if (objects.length === 0) {
-      toast.error("This file has no data rows — check it matches the template.");
+      toast.error(t("bulkUpload.noDataRows"));
       setRows([]);
       return;
     }
@@ -237,10 +238,10 @@ export function BulkUpload() {
           rowNumber: row.rowNumber,
           name: row.name,
           outcome: row.plannedStatus,
-          reason: row.plannedStatus === "draft" ? LISTING_ELIGIBILITY_ERROR : null,
+          reason: row.plannedStatus === "draft" ? t("productForm.eligibilityError") : null,
         });
       } else {
-        rowResults.push({ rowNumber: row.rowNumber, name: row.name, outcome: "failed", reason: result.error });
+        rowResults.push({ rowNumber: row.rowNumber, name: row.name, outcome: "failed", reason: t("productForm.saveError") });
       }
     }
 
@@ -253,20 +254,18 @@ export function BulkUpload() {
   if (!featureEnabled) {
     return (
       <div className="max-w-lg">
-        <h1 className="text-xl font-bold mb-2">Bulk upload</h1>
-        <p className="text-gray-600 dark:text-gray-300 text-sm">
-          Bulk product upload isn't available on your account yet. Contact Tolo support if you'd like it enabled.
-        </p>
+        <h1 className="text-xl font-bold mb-2">{t("bulkUpload.title")}</h1>
+        <p className="text-gray-600 dark:text-gray-300 text-sm">{t("bulkUpload.notEnabled")}</p>
         <Link to="/products" className="text-navy text-sm font-medium mt-4 inline-flex items-center gap-1">
           <ArrowLeft className="w-4 h-4" />
-          Back to products
+          {t("bulkUpload.backToProducts")}
         </Link>
       </div>
     );
   }
 
   if (!store) {
-    return <p className="text-gray-600 dark:text-gray-300">Set up your store profile before bulk-uploading products. Go to Store Settings.</p>;
+    return <p className="text-gray-600 dark:text-gray-300">{t("bulkUpload.setUpStorePrompt")}</p>;
   }
 
   const validCount = rows.filter((r) => !r.validationError).length;
@@ -274,30 +273,28 @@ export function BulkUpload() {
   return (
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Bulk upload products</h1>
+        <h1 className="text-xl font-bold">{t("bulkUpload.pageTitle")}</h1>
         <Link to="/products" className="text-navy text-sm font-medium inline-flex items-center gap-1">
           <ArrowLeft className="w-4 h-4" />
-          Back to products
+          {t("bulkUpload.backToProducts")}
         </Link>
       </div>
 
       <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
-        <h2 className="font-medium text-sm mb-2">1. Download the template</h2>
+        <h2 className="font-medium text-sm mb-2">{t("bulkUpload.step1Title")}</h2>
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-          One row per product (a single variant each). <code>category</code> must match an existing category name exactly.{" "}
-          <code>attributes</code> is optional, comma-separated <code>key:value</code> pairs (e.g. <code>color:Red, size:M</code>) — add more
-          variants afterward from the product's own edit page if you need them.{" "}
-          <code>image_url</code> is optional: paste a direct image link and it's attached as-is, the same as pasting a URL in the normal
-          product form — nothing is re-uploaded or re-hosted.
+          {t("bulkUpload.help1")} <code>category</code> {t("bulkUpload.help2")} <code>attributes</code> {t("bulkUpload.help3")}{" "}
+          <code>key:value</code> {t("bulkUpload.help4")} <code>color:Red, size:M</code>
+          {t("bulkUpload.help5")} <code>image_url</code> {t("bulkUpload.help6")}
         </p>
         <button onClick={handleDownloadTemplate} className="text-xs border px-3 py-1.5 rounded-md hover:bg-gray-50 dark:bg-white/5 inline-flex items-center gap-1">
           <Download className="w-4 h-4" />
-          Download CSV template
+          {t("bulkUpload.downloadTemplate")}
         </button>
       </div>
 
       <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
-        <h2 className="font-medium text-sm mb-2">2. Upload your CSV</h2>
+        <h2 className="font-medium text-sm mb-2">{t("bulkUpload.step2Title")}</h2>
         <input type="file" accept=".csv,text/csv" onChange={handleFileChange} className="text-sm" />
         {fileName && <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{fileName}</p>}
       </div>
@@ -305,29 +302,25 @@ export function BulkUpload() {
       {rows.length > 0 && !results && (
         <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 mb-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-medium text-sm">
-              3. Review ({validCount} of {rows.length} row{rows.length === 1 ? "" : "s"} ready)
-            </h2>
+            <h2 className="font-medium text-sm">{t("bulkUpload.step3Title", { valid: validCount, total: rows.length })}</h2>
             <button
               onClick={handleImport}
               disabled={importing || validCount === 0}
               className="bg-navy text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark disabled:opacity-60"
             >
-              {importing ? "Importing..." : `Import ${rows.length} row${rows.length === 1 ? "" : "s"}`}
+              {importing ? t("bulkUpload.importing") : t("bulkUpload.importRows", { count: rows.length })}
             </button>
           </div>
           <div className="divide-y max-h-96 overflow-y-auto">
             {rows.map((r) => (
               <div key={r.rowNumber} className="py-2 flex items-center justify-between gap-3 text-sm">
                 <div className="min-w-0">
-                  <p className="font-medium truncate">
-                    Row {r.rowNumber}: {r.name || "(no name)"}
-                  </p>
+                  <p className="font-medium truncate">{t("bulkUpload.rowLabel", { number: r.rowNumber, name: r.name || t("bulkUpload.noName") })}</p>
                   {r.validationError ? (
                     <p className="text-xs text-red-600">{r.validationError}</p>
                   ) : (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {r.categoryName || "Uncategorized"} · {r.price} ETB · stock {r.stock}
+                      {t("bulkUpload.rowSummary", { category: r.categoryName || t("common.uncategorized"), price: r.price ?? 0, stock: r.stock })}
                     </p>
                   )}
                 </div>
@@ -341,12 +334,12 @@ export function BulkUpload() {
                   }`}
                 >
                   {r.validationError
-                    ? "Invalid"
+                    ? t("bulkUpload.invalid")
                     : r.plannedStatus === "published"
-                      ? "Will publish"
+                      ? t("bulkUpload.willPublish")
                       : r.plannedStatus === "submitted"
-                        ? "Will submit for review"
-                        : "Will save as draft (below listing threshold)"}
+                        ? t("bulkUpload.willSubmit")
+                        : t("bulkUpload.willSaveDraft")}
                 </span>
               </div>
             ))}
@@ -356,28 +349,23 @@ export function BulkUpload() {
 
       {results && (
         <div className="bg-white dark:bg-navy-dark border rounded-lg p-4">
-          <h2 className="font-medium text-sm mb-1">Import results</h2>
+          <h2 className="font-medium text-sm mb-1">{t("bulkUpload.importResults")}</h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            {results.filter((r) => r.outcome !== "failed").length} of {results.length} row{results.length === 1 ? "" : "s"} created —
-            partial success is normal, fix and re-upload just the failed rows if you want another pass.
+            {t("bulkUpload.resultsSummary", { created: results.filter((r) => r.outcome !== "failed").length, total: results.length })}
           </p>
           <div className="divide-y">
             {results.map((r) => (
               <div key={r.rowNumber} className="py-2 flex items-center justify-between gap-3 text-sm">
                 <div className="min-w-0">
-                  <p className="font-medium truncate">
-                    Row {r.rowNumber}: {r.name || "(no name)"}
-                  </p>
+                  <p className="font-medium truncate">{t("bulkUpload.rowLabel", { number: r.rowNumber, name: r.name || t("bulkUpload.noName") })}</p>
                   {r.reason && <p className="text-xs text-gray-500 dark:text-gray-400">{r.reason}</p>}
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${OUTCOME_COLOR[r.outcome]}`}>
-                  {OUTCOME_LABEL[r.outcome]}
-                </span>
+                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${OUTCOME_COLOR[r.outcome]}`}>{t(OUTCOME_KEYS[r.outcome])}</span>
               </div>
             ))}
           </div>
           <Link to="/products" className="text-navy text-sm font-medium mt-4 inline-flex items-center gap-1">
-            View products
+            {t("bulkUpload.viewProducts")}
             <ChevronRight className="w-4 h-4" />
           </Link>
         </div>

@@ -126,7 +126,7 @@ export function Categories() {
   const columns: DataTableColumn<Category>[] = [
     {
       key: "name",
-      header: "Name",
+      header: t("common.name"),
       render: (c) =>
         editingId === c.id ? (
           <input
@@ -148,8 +148,8 @@ export function Categories() {
     },
     {
       key: "status",
-      header: "Status",
-      render: (c) => <Badge variant={c.is_active ? "success" : "default"}>{c.is_active ? "Active" : "Inactive"}</Badge>,
+      header: t("common.status"),
+      render: (c) => <Badge variant={c.is_active ? "success" : "default"}>{c.is_active ? t("common.active") : t("common.inactive")}</Badge>,
       csvValue: (c) => (c.is_active ? "active" : "inactive"),
     },
     {
@@ -160,22 +160,22 @@ export function Categories() {
           {editingId === c.id ? (
             <>
               <Button size="sm" variant="outline" onClick={() => handleRename(c)}>
-                Save
+                {t("common.save")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
             </>
           ) : (
             <Button size="sm" variant="outline" onClick={() => startEdit(c)}>
-              Rename
+              {t("adminCategories.rename")}
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={() => toggleActive(c)}>
-            {c.is_active ? "Deactivate" : "Activate"}
+            {c.is_active ? t("banners.deactivate") : t("banners.activate")}
           </Button>
           <Button size="sm" variant="destructive" onClick={() => confirmDelete(c)}>
-            Delete
+            {t("common.delete")}
           </Button>
         </div>
       ),
@@ -184,17 +184,17 @@ export function Categories() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">Categories</h1>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">{t("adminCategories.title")}</h1>
 
       <form onSubmit={handleAdd} className="flex gap-2 mb-4">
         <input
-          placeholder="New category name"
+          placeholder={t("adminCategories.newCategoryPlaceholder")}
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           className="flex-1 border rounded-md px-3 py-2 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
         />
         <button type="submit" className="bg-navy dark:bg-navy-light text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark dark:hover:bg-navy">
-          Add
+          {t("common.add")}
         </button>
       </form>
 
@@ -204,8 +204,8 @@ export function Categories() {
         rows={categories}
         getRowId={(c) => c.id}
         bulkActions={[
-          { label: "Activate", onAction: (rows) => bulkToggle(rows, true) },
-          { label: "Deactivate", onAction: (rows) => bulkToggle(rows, false), variant: "outline" },
+          { label: t("banners.activate"), onAction: (rows) => bulkToggle(rows, true) },
+          { label: t("banners.deactivate"), onAction: (rows) => bulkToggle(rows, false), variant: "outline" },
         ]}
       />
       <div className="mt-4">
@@ -215,13 +215,11 @@ export function Categories() {
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-navy-dark rounded-lg p-5 max-w-sm w-full">
-            <h2 className="font-semibold mb-2 dark:text-gray-100">Delete "{deleteTarget.category.name}"?</h2>
+            <h2 className="font-semibold mb-2 dark:text-gray-100">{t("adminCategories.deleteTitle", { name: deleteTarget.category.name })}</h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               {deleteTarget.productCount > 0
-                ? `${deleteTarget.productCount} product${deleteTarget.productCount === 1 ? "" : "s"} currently use this category — ${
-                    deleteTarget.productCount === 1 ? "it" : "they"
-                  } will become uncategorized, not deleted.`
-                : "No products currently use this category."}
+                ? t("adminCategories.productsWillBeUncategorized", { count: deleteTarget.productCount })
+                : t("adminCategories.noProductsUseCategory")}
             </p>
             <div className="flex gap-2 justify-end">
               <button
@@ -229,14 +227,14 @@ export function Categories() {
                 disabled={deleting}
                 className="text-sm border dark:border-white/20 dark:text-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-white/5 disabled:opacity-60"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deleting}
                 className="text-sm bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700 disabled:opacity-60"
               >
-                {deleting ? "Deleting..." : "Delete category"}
+                {deleting ? t("adminCategories.deleting") : t("adminCategories.deleteCategory")}
               </button>
             </div>
           </div>

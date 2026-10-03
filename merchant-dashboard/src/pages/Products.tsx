@@ -15,6 +15,7 @@ import {
   formatCurrency,
   totalPagesFor,
   usePagination,
+  useTranslation,
   type DataTableColumn,
 } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
@@ -43,6 +44,7 @@ function totalStockOf(p: Product): number {
 }
 
 export function Products() {
+  const { t } = useTranslation();
   const { merchant, store } = useMerchant();
   const [products, setProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -125,7 +127,7 @@ export function Products() {
   const columns: DataTableColumn<Product>[] = [
     {
       key: "name",
-      header: "Product",
+      header: t("common.product"),
       render: (p) => (
         <div className="flex items-center gap-3 min-w-0">
           <LazyImage src={p.product_images[0]?.url} alt={p.name} className="w-10 h-10 flex-shrink-0 rounded" />
@@ -138,11 +140,17 @@ export function Products() {
       sortValue: (p) => p.name,
       csvValue: (p) => p.name,
     },
-    { key: "category", header: "Category", render: (p) => p.categories?.name ?? "Uncategorized", filterValue: (p) => p.categories?.name ?? "", csvValue: (p) => p.categories?.name ?? "" },
-    { key: "stock", header: "Stock", render: (p) => totalStockOf(p), sortValue: totalStockOf, csvValue: totalStockOf, align: "right" },
+    {
+      key: "category",
+      header: t("common.category"),
+      render: (p) => p.categories?.name ?? t("common.uncategorized"),
+      filterValue: (p) => p.categories?.name ?? "",
+      csvValue: (p) => p.categories?.name ?? "",
+    },
+    { key: "stock", header: t("common.stock"), render: (p) => totalStockOf(p), sortValue: totalStockOf, csvValue: totalStockOf, align: "right" },
     {
       key: "status",
-      header: "Status",
+      header: t("common.status"),
       render: (p) => (
         <Badge variant={statusVariant[p.status] ?? "default"} className="capitalize">
           {p.status}
@@ -150,35 +158,42 @@ export function Products() {
       ),
       csvValue: (p) => p.status,
     },
-    { key: "price", header: "Price", render: (p) => formatCurrency(p.base_price), sortValue: (p) => p.base_price, csvValue: (p) => p.base_price, align: "right" },
+    {
+      key: "price",
+      header: t("common.price"),
+      render: (p) => formatCurrency(p.base_price),
+      sortValue: (p) => p.base_price,
+      csvValue: (p) => p.base_price,
+      align: "right",
+    },
     {
       key: "actions",
       header: "",
       render: (p) =>
         p.status === "published" || p.status === "paused" ? (
           <Button size="sm" variant="outline" onClick={() => togglePause(p)}>
-            {p.status === "published" ? "Pause" : "Publish"}
+            {p.status === "published" ? t("merchantProducts.pause") : t("merchantProducts.publish")}
           </Button>
         ) : null,
     },
   ];
 
   if (!store) {
-    return <p className="text-gray-600 dark:text-gray-400">Set up your store profile before adding products. Go to Store Settings.</p>;
+    return <p className="text-gray-600 dark:text-gray-400">{t("merchantProducts.setUpStorePrompt")}</p>;
   }
 
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-bold dark:text-gray-100">Products</h1>
+        <h1 className="text-xl font-bold dark:text-gray-100">{t("merchantDashboard.products")}</h1>
         <div className="flex items-center gap-2">
           {bulkUploadEnabled && (
             <Link to="/products-bulk-upload" className="text-sm border dark:border-white/20 dark:text-gray-200 px-4 py-2 rounded-md hover:bg-gray-50 dark:hover:bg-white/5">
-              Bulk upload
+              {t("merchantProducts.bulkUpload")}
             </Link>
           )}
           <Link to="/products/new" className="bg-navy dark:bg-navy-light text-white text-sm px-4 py-2 rounded-md hover:bg-navy-dark dark:hover:bg-navy">
-            + New product
+            {t("merchantProducts.newProduct")}
           </Link>
         </div>
       </div>
@@ -188,11 +203,11 @@ export function Products() {
       ) : products.length === 0 ? (
         <EmptyState
           icon={Package}
-          title="No products yet"
-          description="Add your first product to start selling on Tolo."
+          title={t("merchantProducts.noProductsTitle")}
+          description={t("merchantProducts.noProductsDescription")}
           action={
             <Link to="/products/new">
-              <Button>Add your first product</Button>
+              <Button>{t("merchantProducts.addFirstProduct")}</Button>
             </Link>
           }
         />
@@ -203,7 +218,7 @@ export function Products() {
             columns={columns}
             rows={products}
             getRowId={(p) => p.id}
-            bulkActions={[{ label: "Pause", onAction: bulkPause }]}
+            bulkActions={[{ label: t("merchantProducts.pause"), onAction: bulkPause }]}
             onExportAll={handleExportAll}
           />
           <div className="mt-4">

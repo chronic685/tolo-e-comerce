@@ -1,6 +1,10 @@
 ﻿import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { toast, translateServerError, useTranslation } from "@tolo/ui";
+import {
+  toast,
+  translateServerError,
+  useTranslation,
+} from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 
 export function Login() {

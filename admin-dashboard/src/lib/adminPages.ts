@@ -28,7 +28,8 @@ import {
 // (migration 0049); `to`/`end` mirror exactly what the nav already used.
 export interface AdminPage {
   key: string;
-  label: string;
+  // i18n key, resolved with t() at render time -- never store display text here.
+  labelKey: string;
   to: string;
   end?: boolean;
   // Removed from the visible sidebar nav only — the route, its guard, and
@@ -47,49 +48,49 @@ export interface AdminPage {
 }
 
 export const ADMIN_PAGES: AdminPage[] = [
-  { key: "dashboard", label: "Dashboard", to: "/", end: true, icon: LayoutDashboard },
+  { key: "dashboard", labelKey: "nav.dashboard", to: "/", end: true, icon: LayoutDashboard },
 
-  { key: "orders", label: "Orders", to: "/orders", icon: ClipboardList, group: "Operations" },
-  { key: "delivery_ops", label: "Delivery Ops", to: "/delivery-ops", icon: Truck, group: "Operations" },
-  { key: "refunds", label: "Refunds", to: "/refunds", icon: Undo2, group: "Operations" },
-  { key: "support", label: "Support", to: "/support", icon: LifeBuoy, group: "Operations" },
+  { key: "orders", labelKey: "nav.orders", to: "/orders", icon: ClipboardList, group: "Operations" },
+  { key: "delivery_ops", labelKey: "nav.deliveryOps", to: "/delivery-ops", icon: Truck, group: "Operations" },
+  { key: "refunds", labelKey: "nav.refunds", to: "/refunds", icon: Undo2, group: "Operations" },
+  { key: "support", labelKey: "nav.support", to: "/support", icon: LifeBuoy, group: "Operations" },
 
-  { key: "merchants", label: "Merchants", to: "/merchants", icon: Store, group: "Catalog" },
+  { key: "merchants", labelKey: "nav.merchants", to: "/merchants", icon: Store, group: "Catalog" },
   {
     key: "merchant_applications",
-    label: "Merchant Applications",
+    labelKey: "merchantApplications.title",
     to: "/merchant-applications",
     icon: FileCheck2,
     group: "Catalog",
     adminTierOnly: true,
   },
-  { key: "products", label: "Products", to: "/products", icon: Package, group: "Catalog" },
-  { key: "customers", label: "Customers", to: "/customers", icon: UsersIcon, group: "Catalog" },
-  { key: "banners", label: "Homepage Banners", to: "/banners", icon: ImageIcon, group: "Catalog" },
+  { key: "products", labelKey: "nav.products", to: "/products", icon: Package, group: "Catalog" },
+  { key: "customers", labelKey: "nav.customers", to: "/customers", icon: UsersIcon, group: "Catalog" },
+  { key: "banners", labelKey: "nav.banners", to: "/banners", icon: ImageIcon, group: "Catalog" },
   {
     key: "inventory_movements",
-    label: "Inventory Movements",
+    labelKey: "inventoryMovements.title",
     to: "/inventory-movements",
     hiddenFromNav: true,
     icon: Boxes,
     group: "Catalog",
   },
 
-  { key: "payments", label: "Payments", to: "/payments", icon: CreditCard, group: "Finance" },
-  { key: "pricing_rules", label: "Pricing Rules", to: "/pricing-rules", icon: Tag, group: "Finance" },
-  { key: "settlements", label: "Settlements", to: "/settlements", icon: Wallet, group: "Finance" },
+  { key: "payments", labelKey: "nav.payments", to: "/payments", icon: CreditCard, group: "Finance" },
+  { key: "pricing_rules", labelKey: "nav.pricingRules", to: "/pricing-rules", icon: Tag, group: "Finance" },
+  { key: "settlements", labelKey: "nav.settlements", to: "/settlements", icon: Wallet, group: "Finance" },
   {
     key: "finance_reconciliation",
-    label: "Finance Reconciliation",
+    labelKey: "nav.financeReconciliation",
     to: "/finance-reconciliation",
     icon: FileBarChart,
     group: "Finance",
   },
 
-  { key: "notification_templates", label: "Notification Templates", to: "/notification-templates", icon: Bell, group: "Platform" },
-  { key: "users", label: "Users & Roles", to: "/users", icon: UserCog, group: "Platform" },
-  { key: "audit_log", label: "Audit Log", to: "/audit-log", icon: History, group: "Platform" },
-  { key: "settings", label: "Settings", to: "/settings", icon: SettingsIcon, group: "Platform" },
+  { key: "notification_templates", labelKey: "nav.notificationTemplates", to: "/notification-templates", icon: Bell, group: "Platform" },
+  { key: "users", labelKey: "nav.users", to: "/users", icon: UserCog, group: "Platform" },
+  { key: "audit_log", labelKey: "nav.auditLog", to: "/audit-log", icon: History, group: "Platform" },
+  { key: "settings", labelKey: "nav.settings", to: "/settings", icon: SettingsIcon, group: "Platform" },
 ];
 
 /** Pages a staff member can be granted through the Users & Roles checklist. */

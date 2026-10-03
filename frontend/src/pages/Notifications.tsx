@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
@@ -51,10 +51,10 @@ export function Notifications() {
   return (
     <div className="max-w-lg">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Notifications</h1>
+        <h1 className="text-xl font-bold">{t("account.notifications")}</h1>
         {items.some((n) => !n.is_read) && (
           <button onClick={markAllRead} className="text-sm text-navy font-medium">
-            Mark all read
+            {t("notifications.markAllRead")}
           </button>
         )}
       </div>
@@ -69,7 +69,7 @@ export function Notifications() {
           </button>
         </div>
       ) : items.length === 0 ? (
-        <EmptyState icon={Bell} title="No notifications yet" />
+        <EmptyState icon={Bell} title={t("emptyState.noNotifications")} />
       ) : (
         <>
           <div className="space-y-2">
@@ -83,7 +83,7 @@ export function Notifications() {
               >
                 <div className="flex justify-between items-start gap-2">
                   <p className="font-medium text-sm">{n.title}</p>
-                  {!n.is_read && <span className="w-2 h-2 rounded-full bg-orange-500 mt-1.5 shrink-0" aria-label="Unread" />}
+                  {!n.is_read && <span className="w-2 h-2 rounded-full bg-orange-500 mt-1.5 shrink-0" aria-label={t("notifications.unread")} />}
                 </div>
                 {n.body && <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">{n.body}</p>}
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{new Date(n.created_at).toLocaleString()}</p>

@@ -2,12 +2,16 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { ADMIN_PAGES } from "../lib/adminPages";
-import { toast, translateServerError, useTranslation } from "@tolo/ui";
+import {
+  toast,
+  translateServerError,
+  useTranslation,
+} from "@tolo/ui";
 
 export function Login() {
+  const { t } = useTranslation();
   const { signIn } = useAuth();
   const navigate = useNavigate();
-  const { t } = useTranslation();
 
   // Framing only — never passed to signIn or used for routing. Real access
   // always comes from the account's admin_tier/permissions in the database.
@@ -42,31 +46,31 @@ export function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100">
       <div className="max-w-sm w-full bg-white dark:bg-navy-dark border rounded-lg p-8">
-        <h1 className="text-xl font-bold mb-1">Tolo Admin</h1>
+        <h1 className="text-xl font-bold mb-1">{t("admin.appName")}</h1>
         {mode === null ? (
           <>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">How are you signing in?</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t("adminLogin.howSigningIn")}</p>
             <div className="space-y-3">
               <button
                 type="button"
                 onClick={() => setMode("admin")}
                 className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark"
               >
-                Log in as Admin
+                {t("adminLogin.logInAsAdmin")}
               </button>
               <button
                 type="button"
                 onClick={() => setMode("staff")}
                 className="w-full border border-navy text-navy py-2.5 rounded-md font-medium hover:bg-slate-50"
               >
-                Log in as Staff
+                {t("adminLogin.logInAsStaff")}
               </button>
             </div>
           </>
         ) : (
           <>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">{mode === "admin" ? "Admin sign in." : "Staff sign in."}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{mode === "admin" ? t("adminLogin.adminSignIn") : t("adminLogin.staffSignIn")}</p>
               <button
                 type="button"
                 onClick={() => {
@@ -74,13 +78,13 @@ export function Login() {
                 }}
                 className="text-xs text-navy font-medium"
               >
-                Change
+                {t("adminLogin.change")}
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <input
                 type="text"
-                placeholder="Username or email"
+                placeholder={t("adminLogin.usernameOrEmail")}
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 required
@@ -90,7 +94,7 @@ export function Login() {
               />
               <input
                 type="password"
-                placeholder="Password"
+                placeholder={t("auth.password")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -102,18 +106,18 @@ export function Login() {
               {(identifier.trim() === "" || identifier.includes("@")) ? (
                 <div className="text-right">
                   <Link to="/forgot-password" className="text-xs text-navy font-medium">
-                    Forgot password?
+                    {t("auth.forgotPassword")}
                   </Link>
                 </div>
               ) : (
-                <p className="text-xs text-gray-400 dark:text-gray-500 text-right">Forgot your password? Ask an admin to reset your account.</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 text-right">{t("adminLogin.forgotPasswordStaffNote")}</p>
               )}
               <button
                 type="submit"
                 disabled={loading}
                 className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
               >
-                {loading ? "Signing in..." : "Sign in"}
+                {loading ? t("auth.signingIn") : t("nav.signIn")}
               </button>
             </form>
           </>
