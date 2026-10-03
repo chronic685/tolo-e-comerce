@@ -38,6 +38,17 @@ describe("TrendChart", () => {
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 
+  it("keeps the empty state short (80px) rather than reserving the chart's height", () => {
+    render(<TrendChart data={data.map((d) => ({ ...d, value: 0 }))} ariaLabel="Weekly revenue" height={180} />);
+    expect(screen.getByRole("status")).toHaveStyle({ height: "80px" });
+  });
+
+  it("draws the svg at its own pixel size so nothing is scaled", () => {
+    render(<TrendChart data={data} ariaLabel="Weekly revenue" height={180} />);
+    const svg = screen.getByRole("img", { name: "Weekly revenue" });
+    expect(svg.getAttribute("viewBox")).toBe(`0 0 ${svg.getAttribute("width")} ${svg.getAttribute("height")}`);
+  });
+
   it("falls back to the default empty message, and handles no points at all", () => {
     render(<TrendChart data={[]} ariaLabel="Weekly revenue" />);
     expect(screen.getByRole("status")).toHaveTextContent("No data for this date range");
