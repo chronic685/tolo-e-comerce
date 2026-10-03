@@ -18,6 +18,7 @@ import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
 import { useStatusCopy } from "../lib/orderStatus";
 import { buildTrackSteps, getTrackIndex } from "../lib/orderTrack";
+import { deliveryStageFor, pickDeliveryJob, visibleEta, type DeliveryJobView, type DeliveryStage } from "../lib/deliveryStatus";
 import { isVariantReorderable, type VariantAvailability } from "../lib/reorder";
 
 interface OrderItemRow {
@@ -40,6 +41,7 @@ interface MerchantOrderRow {
   merchants: { business_name: string; stores: { slug: string } | null } | null;
   order_items: OrderItemRow[];
   order_status_history: { status: string; changed_at: string; note: string | null }[];
+  delivery_jobs: DeliveryJobView | DeliveryJobView[] | null;
 }
 
 interface OrderRow {
@@ -131,7 +133,8 @@ export function OrderDetail() {
            id, status, subtotal,
            merchants ( business_name, stores ( slug ) ),
            order_items ( id, product_name_snapshot, variant_attributes_snapshot, unit_price, quantity, subtotal, variant_id, item_status, resolution_note, product_variants ( product_id ) ),
-           order_status_history ( status, changed_at, note )
+           order_status_history ( status, changed_at, note ),
+           delivery_jobs ( status, eta_at )
          )`,
       )
       .eq("id", id)
@@ -345,6 +348,27 @@ export function OrderDetail() {
               )}
             </div>
           )}
+          {(() => {
+            const job = pickDeliveryJob(mo.delivery_jobs);
+            const stage = deliveryStageFor(job, mo.status);
+            if (!job || !stage) return null;
+            const copy: Record<DeliveryStage, { label: string; detail?: string }> = {
+              finding: { label: t("orders.delivery.finding") },
+              assigned: { label: t("orders.delivery.assigned"), detail: t("orders.delivery.assignedDetail") },
+              picked_up: { label: t("orders.delivery.pickedUp"), detail: t("orders.delivery.pickedUpDetail") },
+              delivered: { label: t("orders.delivery.delivered") },
+              problem: { label: t("orders.delivery.problem") },
+            };
+            const eta = visibleEta(job);
+            return (
+              <div className="mb-3 rounded-md bg-gray-50 dark:bg-navy p-3 text-sm" data-testid="delivery-status">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("orders.delivery.title")}</p>
+                <p className="font-medium">{copy[stage].label}</p>
+                {copy[stage].detail && <p className="text-xs text-gray-500 dark:text-gray-400">{copy[stage].detail}</p>}
+                {eta && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t("orders.delivery.eta", { time: formatDateTime(eta) })}</p>}
+              </div>
+            );
+          })()}
           {mo.status === "new" && cancellationEnabled && (
             <div className="mb-3">
               {confirmingCancelId === mo.id ? (

@@ -30,7 +30,7 @@ function isUnacknowledged(mo: { status: string; notification_sent_at: string | n
 }
 
 const ORDER_SELECT = `id, order_number, customer_id, total, payment_status, created_at,
-   merchant_orders ( id, merchant_id, status, subtotal, notification_sent_at, order_received_at, escalated_at, merchants ( business_name ) )`;
+   merchant_orders ( id, merchant_id, status, subtotal, notification_sent_at, order_received_at, escalated_at, merchants ( business_name ), delivery_jobs ( needs_manual_handling, handoff_error ) )`;
 
 // Queried directly off merchant_orders (not orders) via
 // merchant_orders_unacknowledged() (migration 0055), a computed column
@@ -206,6 +206,14 @@ export function Orders() {
                 {mo.escalated_at ? t("adminOrders.escalatedSuffix") : isUnacknowledged(mo, escalateAfterMinutes) ? t("adminOrders.unacknowledgedSuffix") : ""}
               </Badge>
             ))}
+            {o.merchant_orders
+              .filter((mo) => mo.delivery_jobs?.needs_manual_handling)
+              .map((mo) => (
+                <Badge key={`delivery-${mo.id}`} variant="danger">
+                  {mo.merchants?.business_name ?? t("adminOrders.merchantFallback")}:{" "}
+                  {mo.delivery_jobs?.handoff_error === "no_verified_phone" ? t("adminOrders.deliveryNoVerifiedPhone") : t("adminOrders.deliveryNeedsManual")}
+                </Badge>
+              ))}
           </div>
         </div>
       ),

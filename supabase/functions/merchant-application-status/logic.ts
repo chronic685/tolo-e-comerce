@@ -1,6 +1,7 @@
 // Decision logic for the Tolo app's "show the Merchant button?" check
 // (docs/integration/tolo-app.md), free of Deno/network/database code so it
 // runs under plain Vitest -- same split as tolo-app-login/logic.ts.
+import { constantTimeEqual } from "../_shared/inbound_auth.ts";
 import { normalizeEthiopianPhone } from "../_shared/phone.ts";
 
 export interface PhoneStatusRow {
@@ -26,18 +27,7 @@ export interface StatusRequest {
 
 export type StatusResult = { ok: true; body: Record<string, unknown> } | { ok: false; status: number; error: string };
 
-// Length-independent comparison, so response timing doesn't reveal how
-// much of a guessed key was right.
-export function constantTimeEqual(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const x = enc.encode(a);
-  const y = enc.encode(b);
-  let diff = x.length ^ y.length;
-  for (let i = 0; i < Math.max(x.length, y.length); i++) {
-    diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
-  }
-  return diff === 0;
-}
+export { constantTimeEqual };
 
 export async function handleStatus(req: StatusRequest, deps: StatusDeps): Promise<StatusResult> {
   if (!req.expectedKey) {

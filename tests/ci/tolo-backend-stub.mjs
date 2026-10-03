@@ -10,6 +10,13 @@
 //   expired.<anything>      -> "expired_code"
 //   anything else           -> "invalid_code"
 // Every request must carry the shared key, exactly like the real backend.
+//
+// Also stands in for the Tolo Delivery app's delivery-job intake
+// (contract: docs/integration/delivery-handoff.md): POST .../delivery-jobs
+// validates and remembers the payload, idempotently per job_id, and
+// GET .../_stub/delivery-jobs returns what it has received so CI tests can
+// assert on the exact payload the marketplace sent. Stub-only: the real
+// backend has no such GET.
 import { createServer } from "node:http";
 
 const PORT = Number(process.env.TOLO_STUB_PORT ?? 54399);
@@ -20,6 +27,7 @@ if (!SHARED_KEY) {
 }
 
 const used = new Set();
+const deliveryJobs = new Map();
 
 function send(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -28,8 +36,33 @@ function send(res, status, body) {
 
 createServer((req, res) => {
   if (req.method === "GET" && req.url === "/health") return send(res, 200, { ok: true });
+  const authorized = req.headers.authorization === `Bearer ${SHARED_KEY}`;
+
+  if (req.method === "GET" && req.url === "/integrations/tolo-marketplace/_stub/delivery-jobs") {
+    if (!authorized) return send(res, 401, { error: "unauthorized" });
+    return send(res, 200, { jobs: [...deliveryJobs.values()] });
+  }
+  if (req.method === "POST" && req.url === "/integrations/tolo-marketplace/delivery-jobs") {
+    if (!authorized) return send(res, 401, { error: "unauthorized" });
+    let raw = "";
+    req.on("data", (chunk) => (raw += chunk));
+    req.on("end", () => {
+      let job;
+      try {
+        job = JSON.parse(raw);
+      } catch {
+        return send(res, 400, { error: "bad json" });
+      }
+      if (typeof job?.job_id !== "string" || !job?.payment?.method) return send(res, 400, { error: "invalid payload" });
+      deliveryJobs.set(job.job_id, job);
+      console.log("delivery-jobs: accepted", job.order_number);
+      return send(res, 200, { accepted: true });
+    });
+    return;
+  }
+
   if (req.method !== "POST" || req.url !== "/integrations/tolo-marketplace/verify-code") return send(res, 404, { error: "not found" });
-  if (req.headers.authorization !== `Bearer ${SHARED_KEY}`) {
+  if (!authorized) {
     console.log("verify-code: rejected (bad shared key)");
     return send(res, 401, { error: "unauthorized" });
   }

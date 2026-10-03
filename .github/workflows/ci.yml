@@ -48,6 +48,10 @@ jobs:
       # tests/smoke/tolo-app-functions.test.ts, which needs the Tolo
       # backend stub below and so only runs here.
       TOLO_CI_INBOUND_KEY: ci-tolo-inbound-key
+      # Must match TOLO_BACKEND_SHARED_KEY in tests/ci/functions.env and the
+      # stub step below; lets delivery-handoff-functions.test.ts read back what
+      # the stub received.
+      TOLO_CI_SHARED_KEY: ci-tolo-shared-key
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

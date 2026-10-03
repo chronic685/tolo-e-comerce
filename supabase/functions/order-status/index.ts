@@ -205,7 +205,23 @@ Deno.serve(async (req) => {
         dropoff_contact_name: address?.recipient_name ?? null,
         dropoff_contact_phone: address?.phone ?? null,
       });
-      // TODO: notify the Tolo delivery dispatch system (see delivery-dispatch function).
+
+      // Hand the order to the Tolo Delivery app's driver side. A side effect
+      // that must never undo or block the status change the merchant just
+      // made: delivery-handoff is idempotent and retryable, records its own
+      // failures on the delivery job, and does nothing unless
+      // TOLO_DELIVERY_HANDOFF_ENABLED=true.
+      try {
+        const handoff = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/delivery-handoff`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+          body: JSON.stringify({ merchant_order_id: mo.id }),
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!handoff.ok) console.error("order-status: delivery-handoff responded with status", handoff.status);
+      } catch (err) {
+        console.error("order-status: delivery-handoff request failed:", err instanceof Error ? err.message : String(err));
+      }
     }
 
     return jsonResponse({ ok: true });
