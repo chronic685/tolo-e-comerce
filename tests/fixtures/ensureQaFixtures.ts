@@ -26,6 +26,9 @@ const QA_CUSTOMER_PASSWORD = process.env.QA_CUSTOMER_PASSWORD!;
 const QA_STAFF_EMAIL = process.env.QA_STAFF_EMAIL!;
 const QA_STAFF_PASSWORD = process.env.QA_STAFF_PASSWORD!;
 
+/** Marks the permanent fixture order's history row; see migration 0087. */
+export const QA_FIXTURE_ORDER_NOTE = "QA FIXTURE: permanent order, never advance or delete";
+
 export interface QaFixtures {
   merchantAUserId: string;
   merchantAId: string;
@@ -203,13 +206,22 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
     address = insertResult.data;
   }
 
-  let { data: merchantOrder } = await db
-    .from("merchant_orders")
-    .select("id, order_id")
-    .eq("merchant_id", merchantA.id)
-    .eq("status", "new")
+  // The permanent "new" order is found by a marker on its history row, not by
+  // "any new order of Merchant A": the suite creates hundreds of its own new
+  // orders (and cleans them up), and picking one of those as the fixture meant
+  // another test could advance or pay it. delete_qa_orders() refuses to delete
+  // an order carrying this marker (migration 0087).
+  const { data: marked } = await db
+    .from("order_status_history")
+    .select("merchant_order_id, merchant_orders!inner(id, order_id, merchant_id, status)")
+    .eq("note", QA_FIXTURE_ORDER_NOTE)
+    .eq("merchant_orders.merchant_id", merchantA.id)
+    .eq("merchant_orders.status", "new")
     .limit(1)
     .maybeSingle();
+  const merchantOrder = marked
+    ? (marked as unknown as { merchant_orders: { id: string; order_id: string } }).merchant_orders
+    : null;
 
   let merchantOrderId: string;
   let orderId: string;
@@ -228,6 +240,12 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
       .single();
     if (moError) throw moError;
     merchantOrderId = mo.id;
+    const { error: markError } = await db
+      .from("order_status_history")
+      .update({ note: QA_FIXTURE_ORDER_NOTE })
+      .eq("merchant_order_id", merchantOrderId)
+      .eq("status", "new");
+    if (markError) throw markError;
   } else {
     merchantOrderId = merchantOrder.id;
     orderId = merchantOrder.order_id;

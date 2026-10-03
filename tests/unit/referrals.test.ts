@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, inject, it } from "vitest";
 import { env, serviceClient, signIn } from "../env.ts";
+import { deleteDisposableUser } from "../helpers.ts";
 
 // Migration 0047: customer referral system. Covers the self-referral DB
 // guard, handle_new_user()'s referred_by capture, process_referral_
@@ -17,7 +18,7 @@ describe("referrals", () => {
       await db.from("discount_rules").delete().eq("id", id);
     }
     for (const id of createdUserIds.splice(0)) {
-      await db.auth.admin.deleteUser(id); // cascades to profiles (on delete cascade)
+      await deleteDisposableUser(id); // cascades to profiles (on delete cascade)
     }
   });
 

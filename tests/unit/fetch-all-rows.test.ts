@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fetchAllRows } from "../../packages/ui/src/lib/fetchAllRows";
+import { fetchAllRows, fetchAllRowsForIds } from "../../packages/ui/src/lib/fetchAllRows";
 
 // PR #6 review fix: every admin CSV export used to do a single
 // `.range(0, 4999)` fetch, but Supabase/PostgREST caps every response at
@@ -65,5 +65,42 @@ describe("fetchAllRows", () => {
     const rows = await fetchAllRows(table.fetchPage);
     expect(rows).toHaveLength(1500);
     expect(table.callCount()).toBe(2);
+  });
+});
+
+describe("fetchAllRowsForIds", () => {
+  // A table of `perId` rows for every id, as `.in("owner", chunk)` would return them.
+  function fakeOwnedRows(perId: number) {
+    const idsSeen: number[] = [];
+    const fetchPage = (chunk: string[], from: number, to: number) => {
+      idsSeen.push(chunk.length);
+      const all = chunk.flatMap((owner) => Array.from({ length: perId }, (_, i) => ({ owner, i })));
+      return Promise.resolve({ data: all.slice(from, to + 1), error: null });
+    };
+    return { fetchPage, idsSeen };
+  }
+
+  it("never puts more than a chunk of ids in one request, however many are asked for", async () => {
+    const ids = Array.from({ length: 1050 }, (_, i) => `id-${i}`);
+    const t = fakeOwnedRows(1);
+    const rows = await fetchAllRowsForIds(ids, t.fetchPage);
+    expect(rows).toHaveLength(1050);
+    expect(Math.max(...t.idsSeen)).toBeLessThanOrEqual(100);
+  });
+
+  it("pages within a chunk, so one chunk's rows past 1000 are not dropped", async () => {
+    const ids = Array.from({ length: 100 }, (_, i) => `id-${i}`);
+    const rows = await fetchAllRowsForIds(ids, fakeOwnedRows(25).fetchPage);
+    expect(rows).toHaveLength(2500);
+  });
+
+  it("makes no request for an empty id list", async () => {
+    const t = fakeOwnedRows(1);
+    expect(await fetchAllRowsForIds([], t.fetchPage)).toEqual([]);
+    expect(t.idsSeen).toEqual([]);
+  });
+
+  it("propagates an error instead of returning a partial result", async () => {
+    await expect(fetchAllRowsForIds(["a"], () => Promise.resolve({ data: null, error: { message: "boom" } }))).rejects.toThrow("boom");
   });
 });

@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, inject, it } from "vitest";
 import { env, serviceClient, signIn } from "../env.ts";
-import { callFunction } from "../helpers.ts";
+import { callFunction, deleteDisposableUser } from "../helpers.ts";
 
 // Group 2, item 9 (migration 0061). Uses a fresh disposable customer per
 // test (not qaCustomerEmail) so the COD count starts at exactly zero and
@@ -49,7 +49,7 @@ describe("COD fraud controls (migration 0061)", () => {
       originalSetting = undefined;
     }
     for (const id of createdUserIds.splice(0)) {
-      await db.auth.admin.deleteUser(id);
+      await deleteDisposableUser(id);
     }
   });
 

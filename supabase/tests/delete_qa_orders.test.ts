@@ -15,6 +15,7 @@ create type inventory_movement_type as enum ('restock','sale','return','adjustme
 create sequence order_number_seq start 4300;
 create table orders (id uuid primary key default gen_random_uuid(), customer_id uuid not null references profiles(id), order_number int not null default nextval('order_number_seq'));
 create table merchant_orders (id uuid primary key default gen_random_uuid(), order_id uuid not null references orders(id) on delete cascade, merchant_id uuid not null references merchants(id), status merchant_order_status not null default 'new');
+create table order_status_history (id uuid primary key default gen_random_uuid(), merchant_order_id uuid not null references merchant_orders(id) on delete cascade, note text);
 create table order_items (id uuid primary key default gen_random_uuid(), merchant_order_id uuid not null references merchant_orders(id) on delete cascade);
 create table payments (id uuid primary key default gen_random_uuid(), order_id uuid not null references orders(id) on delete cascade, status payment_status not null default 'pending');
 create table payment_transactions (id uuid primary key default gen_random_uuid(), payment_id uuid not null references payments(id) on delete cascade);
@@ -41,7 +42,7 @@ let h: Harness;
 const variant = randomUUID();
 
 beforeAll(async () => {
-  h = await createHarness(["0082_delete_qa_orders.sql", "0083_delete_qa_orders_bulk.sql", "0084_delete_qa_orders_release_clamp.sql"], { prelude: PRELUDE });
+  h = await createHarness(["0082_delete_qa_orders.sql", "0083_delete_qa_orders_bulk.sql", "0084_delete_qa_orders_release_clamp.sql", "0087_protect_qa_fixture_order.sql"], { prelude: PRELUDE });
   await h.db.query("insert into inventory (variant_id, stock_quantity, reserved_quantity) values ($1, 100, 0)", [variant]);
 });
 
@@ -253,5 +254,17 @@ describe("delete_qa_orders", () => {
     const { rows } = await del([a.orderId]);
     expect(rows[0]).toMatchObject({ orders_deleted: 1, reservations_released: 0 });
     expect(await reserved()).toBe(0);
+  });
+
+  it("never deletes the permanent QA fixture order, in strict or bulk mode", async () => {
+    const fixture = await order();
+    await h.db.query("insert into order_status_history (merchant_order_id, note) values ($1, 'QA FIXTURE: permanent order, never advance or delete')", [fixture.moId]);
+    const other = await order();
+
+    await expect(del([fixture.orderId])).rejects.toThrow("protected_fixture");
+    const { rows } = await del([fixture.orderId, other.orderId], true);
+    expect(rows[0]).toMatchObject({ orders_deleted: 1, orders_skipped: 1 });
+    expect(await count("select count(*) n from orders where id = $1", fixture.orderId)).toBe(1);
+    expect(await count("select count(*) n from orders where id = $1", other.orderId)).toBe(0);
   });
 });

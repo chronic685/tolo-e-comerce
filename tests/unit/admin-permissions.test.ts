@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, inject, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { env, functionUrl, serviceClient, signIn } from "../env.ts";
+import { deleteDisposableUser } from "../helpers.ts";
 
 // Migration 0049: per-staff page-level access control. Migration 0050 split
 // what used to be a single "super admin = role tolo_admin" concept into two
@@ -47,7 +48,7 @@ describe("admin page permissions and account tiers", () => {
 
   afterEach(async () => {
     for (const id of createdUserIds.splice(0)) {
-      await db.auth.admin.deleteUser(id); // cascades to profiles (on delete cascade)
+      await deleteDisposableUser(id); // cascades to profiles (on delete cascade)
     }
   });
 
