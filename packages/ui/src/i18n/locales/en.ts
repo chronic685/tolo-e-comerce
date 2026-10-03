@@ -321,6 +321,7 @@ export const en: EnglishStrings = {
   "orders.deliveredAsSoonAsPossible": "Delivered as soon as possible",
   "orders.scheduledForPrefix": "Scheduled for {{datetime}}",
   "orders.deliveringTo": "Delivering to",
+  "images.prepareFailed": "Could not prepare this image. Try a different JPEG, PNG or WebP file.",
   "orders.delivery.title": "Delivery",
   "orders.delivery.finding": "Finding a driver for your order",
   "orders.delivery.assigned": "Driver assigned",

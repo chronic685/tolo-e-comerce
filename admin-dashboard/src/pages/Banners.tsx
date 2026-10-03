@@ -7,6 +7,8 @@ import {
   DataTable,
   type DataTableColumn,
   EmptyState,
+  compressImage,
+  PRODUCT_IMAGE_PRESET,
   toast,
   translateServerError,
   useTranslation,
@@ -47,8 +49,16 @@ export function Banners() {
 
   async function handleAdd(file: File) {
     setUploading(true);
-    const path = `${Date.now()}-${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("homepage-banners").upload(path, file);
+    let prepared: File;
+    try {
+      prepared = await compressImage(file, PRODUCT_IMAGE_PRESET);
+    } catch {
+      toast.error(t("images.prepareFailed"));
+      setUploading(false);
+      return;
+    }
+    const path = `${Date.now()}-${prepared.name}`;
+    const { error: uploadError } = await supabase.storage.from("homepage-banners").upload(path, prepared);
     if (uploadError) {
       toast.error(translateServerError(uploadError.message, t));
       setUploading(false);

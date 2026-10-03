@@ -1,6 +1,8 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  compressImage,
+  PRODUCT_IMAGE_PRESET,
   toast,
   translateServerError,
   useTranslation,
@@ -49,8 +51,17 @@ export function ProductForm() {
     if (!merchant) return;
     setUploadingImageIdx(idx);
 
-    const path = `${merchant.id}/${Date.now()}-${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("product-images").upload(path, file);
+    let prepared: File;
+    try {
+      prepared = await compressImage(file, PRODUCT_IMAGE_PRESET);
+    } catch {
+      setUploadingImageIdx(null);
+      toast.error(t("images.prepareFailed"));
+      return;
+    }
+
+    const path = `${merchant.id}/${Date.now()}-${prepared.name}`;
+    const { error: uploadError } = await supabase.storage.from("product-images").upload(path, prepared);
 
     setUploadingImageIdx(null);
     if (uploadError) {

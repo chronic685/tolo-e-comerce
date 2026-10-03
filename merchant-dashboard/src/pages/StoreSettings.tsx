@@ -5,6 +5,8 @@ import {
   type DayKey,
   isOpenNowClientSide,
   type OperatingHours,
+  compressImage,
+  LOGO_IMAGE_PRESET,
   toast,
   translateServerError,
   useTranslation,
@@ -88,8 +90,17 @@ export function StoreSettings() {
     if (!merchant) return;
     setUploadingLogo(true);
 
-    const path = `${merchant.id}/logo-${Date.now()}-${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("product-images").upload(path, file);
+    let prepared: File;
+    try {
+      prepared = await compressImage(file, LOGO_IMAGE_PRESET);
+    } catch {
+      setUploadingLogo(false);
+      toast.error(t("images.prepareFailed"));
+      return;
+    }
+
+    const path = `${merchant.id}/logo-${Date.now()}-${prepared.name}`;
+    const { error: uploadError } = await supabase.storage.from("product-images").upload(path, prepared);
 
     setUploadingLogo(false);
     if (uploadError) {

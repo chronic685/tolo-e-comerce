@@ -326,6 +326,7 @@ export const am: AmharicStrings = {
   "orders.deliveredAsSoonAsPossible": mt("በተቻለ ፍጥነት ይደርሳል"),
   "orders.scheduledForPrefix": mt("የተያዘለት ሰዓት {{datetime}}"),
   "orders.deliveringTo": mt("ማድረሻ"),
+  "images.prepareFailed": mt("ይህን ምስል ማዘጋጀት አልተቻለም። ሌላ JPEG፣ PNG ወይም WebP ፋይል ይሞክሩ።"),
   "orders.delivery.title": mt("ማድረስ"),
   "orders.delivery.finding": mt("ለትዕዛዝዎ ሹፌር በመፈለግ ላይ"),
   "orders.delivery.assigned": mt("ሹፌር ተመድቧል"),
