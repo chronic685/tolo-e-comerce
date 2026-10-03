@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, LifeBuoy } from "lucide-react";
-import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, toast, totalPagesFor, usePagination, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import type { SupportTicket } from "../types";
@@ -15,6 +15,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function Support() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -52,7 +53,7 @@ export function Support() {
       .single();
     setSubmitting(false);
     if (error) {
-      toast.error("Could not submit your ticket. Please try again.");
+      toast.error(t("support.submitError"));
       return;
     }
     // A brand-new ticket never has a merchant_order_id from this form (no

@@ -1,6 +1,6 @@
 ﻿import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { toast, useTranslation } from "@tolo/ui";
+import { toast, translateServerError, useTranslation } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 
 export function Login() {
@@ -20,7 +20,7 @@ export function Login() {
     const { error } = await signIn(email, password);
     setLoading(false);
     if (error) {
-      toast.error(error);
+      toast.error(translateServerError(error, t));
       return;
     }
     navigate(from, { replace: true });

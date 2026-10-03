@@ -13,7 +13,9 @@ import {
   fetchAllRows,
   toast,
   totalPagesFor,
+  translateServerError,
   usePagination,
+  useTranslation,
   type DataTableColumn,
   type FetchPageResult,
 } from "@tolo/ui";
@@ -44,6 +46,7 @@ const SELECT =
 const statusVariant = { pending: "warning", approved: "success", rejected: "danger" } as const;
 
 export function MerchantApplications() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get("status") ?? "pending";
   const [applications, setApplications] = useState<MerchantApplication[]>([]);
@@ -98,7 +101,7 @@ export function MerchantApplications() {
     });
     setBusyId(null);
     if (error) {
-      toast.error(await edgeFunctionError(error));
+      toast.error(translateServerError(await edgeFunctionError(error), t));
       return;
     }
     toast.success(review.action === "approve" ? `${a.business_name} approved — merchant account created.` : `${a.business_name} rejected.`);

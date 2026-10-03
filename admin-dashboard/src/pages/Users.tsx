@@ -2,7 +2,19 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { GRANTABLE_ADMIN_PAGES } from "../lib/adminPages";
-import { ADMIN_PAGE_SIZE, Badge, DataTable, Pagination, SkeletonRows, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Badge,
+  DataTable,
+  Pagination,
+  SkeletonRows,
+  toast,
+  totalPagesFor,
+  translateServerError,
+  usePagination,
+  useTranslation,
+  type DataTableColumn,
+} from "@tolo/ui";
 import { edgeFunctionError } from "../lib/edgeFunctionError";
 import type { StaffProfile } from "../types";
 
@@ -33,6 +45,7 @@ const EMPTY_CREATE_FORM = {
 
 export function Users() {
   const { isAdmin, isSuperAdmin, user } = useAuth();
+  const { t } = useTranslation();
   const [staff, setStaff] = useState<StaffProfile[]>([]);
   const [staffTotalCount, setStaffTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -173,7 +186,7 @@ export function Users() {
   async function changeRole(p: StaffProfile, role: string) {
     const { error } = await supabase.from("profiles").update({ role }).eq("id", p.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       return;
     }
     toast.success(`${p.full_name ?? "User"} is now ${role.replace(/_/g, " ")}.`);
@@ -194,7 +207,7 @@ export function Users() {
       body: { user_id: p.id, status: "active" },
     });
     if (error) {
-      toast.error(await edgeFunctionError(error));
+      toast.error(translateServerError(await edgeFunctionError(error), t));
       return;
     }
     toast.success(`${p.full_name ?? "User"} is now active and can sign in again.`);
@@ -211,7 +224,7 @@ export function Users() {
     setReasonPromptId(null);
     setReason("");
     if (error) {
-      toast.error(await edgeFunctionError(error));
+      toast.error(translateServerError(await edgeFunctionError(error), t));
       return;
     }
     toast.success(`${p.full_name ?? "User"} is suspended and can no longer sign in.`);
@@ -228,7 +241,7 @@ export function Users() {
     const next = checked ? [...p.permissions, pageKey] : p.permissions.filter((k) => k !== pageKey);
     const { error } = await supabase.from("profiles").update({ permissions: next }).eq("id", p.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       return;
     }
     applyProfileChange(p, { permissions: next });
@@ -243,7 +256,7 @@ export function Users() {
     const admin_tier = grant ? "admin" : null;
     const { error } = await supabase.from("profiles").update({ admin_tier }).eq("id", p.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       return;
     }
     applyProfileChange(p, { admin_tier });
@@ -255,7 +268,7 @@ export function Users() {
     setDeleting(false);
     setDeleteConfirmId(null);
     if (error) {
-      toast.error(`Could not delete this account: ${await edgeFunctionError(error)}`);
+      toast.error(t("errors.deleteAccountFailed", { reason: translateServerError(await edgeFunctionError(error), t) }));
       return;
     }
     await load();
@@ -291,7 +304,7 @@ export function Users() {
     });
     setCreating(false);
     if (error || !data?.id) {
-      toast.error(error ? await edgeFunctionError(error) : "Could not create this account. Please try again.");
+      toast.error(error ? translateServerError(await edgeFunctionError(error), t) : t("toast.somethingWentWrong"));
       return;
     }
     // Newest-first ordering means a brand-new account always belongs on

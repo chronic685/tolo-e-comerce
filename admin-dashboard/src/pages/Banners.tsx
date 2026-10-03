@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Image as ImageIcon } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { Badge, Button, DataTable, EmptyState, toast, type DataTableColumn } from "@tolo/ui";
+import { Badge, Button, DataTable, EmptyState, toast, translateServerError, useTranslation, type DataTableColumn } from "@tolo/ui";
 
 interface Banner {
   id: string;
@@ -18,6 +18,7 @@ interface Banner {
 // RLS means Marketplace.tsx can query homepage_banners directly with no
 // dedicated public endpoint.
 export function Banners() {
+  const { t } = useTranslation();
   const [banners, setBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
@@ -40,7 +41,7 @@ export function Banners() {
     const path = `${Date.now()}-${file.name}`;
     const { error: uploadError } = await supabase.storage.from("homepage-banners").upload(path, file);
     if (uploadError) {
-      toast.error(uploadError.message);
+      toast.error(translateServerError(uploadError.message, t));
       setUploading(false);
       return;
     }
@@ -55,7 +56,7 @@ export function Banners() {
     });
     setUploading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       return;
     }
     setTitle("");
@@ -79,7 +80,7 @@ export function Banners() {
     if (!confirm("Delete this banner?")) return;
     const { error } = await supabase.from("homepage_banners").delete().eq("id", b.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       return;
     }
     setBanners((prev) => prev.filter((x) => x.id !== b.id));

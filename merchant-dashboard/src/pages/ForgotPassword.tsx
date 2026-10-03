@@ -1,12 +1,13 @@
 ﻿import { useState } from "react";
 import { Link } from "react-router-dom";
-import { toast } from "@tolo/ui";
+import { toast, useTranslation } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 
 const RESEND_COOLDOWN_SECONDS = 30;
 
 export function ForgotPassword() {
   const { requestPasswordReset } = useAuth();
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -32,7 +33,7 @@ export function ForgotPassword() {
     const { error } = await requestPasswordReset(email);
     setLoading(false);
     if (error && !/user not found/i.test(error)) {
-      toast.error("We couldn't complete the request. Please try again.");
+      toast.error(t("auth.resetRequestFailed"));
       return;
     }
     setSent(true);

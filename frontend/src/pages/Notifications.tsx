@@ -1,16 +1,19 @@
 ﻿import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
-import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination } from "@tolo/ui";
+import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import type { Notification } from "../types";
 
 export function Notifications() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [items, setItems] = useState<Notification[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Never shown as text -- just gates the retry state below -- so only a
+  // flag is kept, never the raw backend message itself.
+  const [hasError, setHasError] = useState(false);
   const { page, from, to, setPage } = usePagination({ pageSize: CUSTOMER_PAGE_SIZE });
 
   useEffect(() => {
@@ -19,13 +22,13 @@ export function Notifications() {
 
   async function load() {
     setLoading(true);
-    setError(null);
+    setHasError(false);
     const { data, error, count } = await supabase
       .from("notifications")
       .select("id, type, title, body, is_read, created_at", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(from, to);
-    if (error) setError(error.message);
+    if (error) setHasError(true);
     setItems(data ?? []);
     setTotalCount(count ?? 0);
     setLoading(false);
@@ -58,11 +61,11 @@ export function Notifications() {
 
       {loading ? (
         <SkeletonRows count={4} />
-      ) : error ? (
+      ) : hasError ? (
         <div className="text-sm">
-          <p className="text-red-600 mb-2">We couldn't load your notifications.</p>
+          <p className="text-red-600 mb-2">{t("notifications.loadError")}</p>
           <button onClick={load} className="text-navy font-medium">
-            Retry
+            {t("common.retry")}
           </button>
         </div>
       ) : items.length === 0 ? (

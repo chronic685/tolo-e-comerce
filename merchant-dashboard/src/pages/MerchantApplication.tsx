@@ -1,6 +1,6 @@
 ﻿import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
-import { toast } from "@tolo/ui";
+import { toast, translateServerError, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
@@ -15,6 +15,7 @@ const REQUIRED_DOCS = [
 export function MerchantApplication() {
   const { user } = useAuth();
   const { refresh } = useMerchant();
+  const { t } = useTranslation();
 
   const [form, setForm] = useState({
     business_name: "",
@@ -40,7 +41,7 @@ export function MerchantApplication() {
     e.preventDefault();
     if (!user) return;
     if (!agreed) {
-      toast.error("You must accept the merchant agreement to continue.");
+      toast.error(t("merchantApplication.agreementRequired"));
       return;
     }
     setSubmitting(true);
@@ -69,7 +70,7 @@ export function MerchantApplication() {
 
     setSubmitting(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       return;
     }
     setMerchantId(data.id);
@@ -84,7 +85,7 @@ export function MerchantApplication() {
 
     if (uploadError) {
       setUploadingType(null);
-      toast.error(uploadError.message);
+      toast.error(translateServerError(uploadError.message, t));
       return;
     }
 
@@ -98,7 +99,7 @@ export function MerchantApplication() {
 
     setUploadingType(null);
     if (insertError) {
-      toast.error(insertError.message);
+      toast.error(translateServerError(insertError.message, t));
       return;
     }
     setUploadedTypes((prev) => new Set(prev).add(docType));

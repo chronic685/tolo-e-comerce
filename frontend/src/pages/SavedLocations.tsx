@@ -1,6 +1,16 @@
 ﻿import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
-import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, toast, totalPagesFor, usePagination } from "@tolo/ui";
+import {
+  Button,
+  CUSTOMER_PAGE_SIZE,
+  EmptyState,
+  Pagination,
+  SkeletonRows,
+  toast,
+  totalPagesFor,
+  usePagination,
+  useTranslation,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { getCurrentLocation } from "../lib/geolocation";
@@ -20,6 +30,7 @@ const EMPTY_FORM = {
 
 export function SavedLocations() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -60,8 +71,11 @@ export function SavedLocations() {
         city: loc.city || f.city,
         sub_city: loc.subCity || f.sub_city,
       }));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not get your location.");
+    } catch {
+      // The browser Geolocation API's own error text is always English and
+      // never one of our known backend errors -- never shown, just the
+      // translated fallback (same treatment as Checkout.tsx).
+      toast.error(t("checkout.couldNotGetLocation"));
     } finally {
       setLocating(false);
     }
@@ -76,7 +90,7 @@ export function SavedLocations() {
       .select()
       .single();
     if (error) {
-      toast.error("Could not save this location. Please try again.");
+      toast.error(t("savedLocations.saveError"));
       return;
     }
     setForm(EMPTY_FORM);
@@ -102,7 +116,7 @@ export function SavedLocations() {
     setConfirmingDeleteId(null);
     const { error } = await supabase.from("addresses").delete().eq("id", id);
     if (error) {
-      toast.error("This location is used by a past order and can't be deleted.");
+      toast.error(t("savedLocations.deleteInUseError"));
       return;
     }
     await load();

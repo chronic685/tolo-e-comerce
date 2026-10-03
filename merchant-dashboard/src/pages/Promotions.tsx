@@ -1,6 +1,20 @@
 import { useEffect, useState } from "react";
 import { Tag } from "lucide-react";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, EmptyState, Pagination, SkeletonRows, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Badge,
+  Button,
+  DataTable,
+  EmptyState,
+  Pagination,
+  SkeletonRows,
+  toast,
+  totalPagesFor,
+  translateServerError,
+  usePagination,
+  useTranslation,
+  type DataTableColumn,
+} from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
@@ -30,6 +44,7 @@ const emptyForm = {
 export function Promotions() {
   const { user } = useAuth();
   const { merchant } = useMerchant();
+  const { t } = useTranslation();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [products, setProducts] = useState<ProductOption[]>([]);
@@ -140,7 +155,7 @@ export function Promotions() {
 
     setSaving(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       return;
     }
     toast.success("Saved.");
@@ -151,7 +166,7 @@ export function Promotions() {
   async function toggleActive(p: Promotion) {
     const { error } = await supabase.from("discount_rules").update({ is_active: !p.is_active }).eq("id", p.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       return;
     }
     setPromotions((prev) => prev.map((x) => (x.id === p.id ? { ...x, is_active: !x.is_active } : x)));
@@ -161,7 +176,7 @@ export function Promotions() {
     if (!confirm(`Delete "${p.name}"? This can't be undone.`)) return;
     const { error } = await supabase.from("discount_rules").delete().eq("id", p.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       return;
     }
     toast.success("Deleted.");

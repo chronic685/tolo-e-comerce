@@ -1,9 +1,22 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, Pagination, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Badge,
+  Button,
+  DataTable,
+  Pagination,
+  toast,
+  totalPagesFor,
+  translateServerError,
+  usePagination,
+  useTranslation,
+  type DataTableColumn,
+} from "@tolo/ui";
 import type { Category, CommissionRule, Merchant } from "../types";
 
 export function Commissions() {
+  const { t } = useTranslation();
   const [rules, setRules] = useState<CommissionRule[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
@@ -49,7 +62,7 @@ export function Commissions() {
       ? await supabase.from("commission_rules").update(payload).eq("id", editingId).select().single()
       : await supabase.from("commission_rules").insert(payload).select().single();
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       return;
     }
     if (editingId) setRules((prev) => prev.map((r) => (r.id === editingId ? data : r)));

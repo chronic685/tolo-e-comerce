@@ -1,6 +1,20 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, exportToCsv, fetchAllRows, Pagination, toast, totalPagesFor, usePagination, type DataTableColumn } from "@tolo/ui";
+import {
+  ADMIN_PAGE_SIZE,
+  Badge,
+  Button,
+  DataTable,
+  exportToCsv,
+  fetchAllRows,
+  Pagination,
+  toast,
+  totalPagesFor,
+  translateServerError,
+  usePagination,
+  useTranslation,
+  type DataTableColumn,
+} from "@tolo/ui";
 import type { Category, DiscountRule, Merchant } from "../types";
 
 const emptyForm = {
@@ -23,6 +37,7 @@ const emptyForm = {
 };
 
 export function Discounts() {
+  const { t } = useTranslation();
   const [rules, setRules] = useState<DiscountRule[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
@@ -170,7 +185,7 @@ export function Discounts() {
 
     setSaving(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(translateServerError(error.message, t));
       return;
     }
     if (editingId) {

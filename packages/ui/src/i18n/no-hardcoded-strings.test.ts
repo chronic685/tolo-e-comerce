@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { extname, join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // Group 5, item 8: "a check that no hard-coded user-facing strings remain
@@ -108,6 +108,78 @@ describe("no hard-coded user-facing strings in Group 5 touched pages", () => {
       for (const literal of check.forbiddenLiterals) {
         expect(source.includes(literal), `${check.file} still contains the hard-coded literal: ${literal}`).toBe(false);
       }
+    });
+  }
+});
+
+// "Translating backend errors" (docs/i18n.md): a caught Supabase/Edge
+// Function error must be routed through translateServerError(...) (or
+// extractServerErrorText(...) first, for a functions.invoke() error) before
+// it reaches toast.error(...)/setError(...) -- never passed through raw.
+// Unlike the per-file literal list above, this scans every .ts/.tsx file in
+// all three apps, so it catches a regression (or a brand-new call site)
+// anywhere, not just in files this or an earlier pass happened to touch.
+const APP_SRC_DIRS = ["frontend/src", "merchant-dashboard/src", "admin-dashboard/src"];
+
+function listSourceFiles(dir: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    const stat = statSync(full);
+    if (stat.isDirectory()) {
+      out.push(...listSourceFiles(full));
+    } else if ([".ts", ".tsx"].includes(extname(entry)) && !entry.endsWith(".test.ts") && !entry.endsWith(".test.tsx")) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
+// A raw identifier (optionally `.message`, optionally `await`-ed) passed
+// directly as the sole argument -- e.g. toast.error(error.message),
+// setError(err), setLoadError(await edgeFunctionError(error)). A call
+// wrapped in translateServerError(...), or passed a string/template
+// literal or a t("...") lookup, doesn't match this (there's a nested "("
+// before the closing one, which the pattern below doesn't allow).
+const RAW_ERROR_ARG = /\b(?:toast\.error|set\w*Error)\(\s*(?:await\s+)?([a-zA-Z_$][\w]*)(?:\.message)?\s*\)/;
+// The same thing, but the raw value is interpolated into a template
+// literal alongside translated/literal text (e.g. `Could not delete this
+// account: ${await edgeFunctionError(error)}`), not passed as the sole arg
+// -- always a .message access or an edgeFunctionError() call, so no
+// name-based filtering is needed here the way RAW_ERROR_ARG needs below.
+const RAW_ERROR_IN_TEMPLATE = /\b(?:toast\.error|set\w*Error)\(`[^`]*\$\{[^}]*(?:\.message|edgeFunctionError\()[^}]*\}[^`]*`\)/;
+
+// RAW_ERROR_ARG's captured identifier is only actually a caught error --
+// as opposed to a module-level constant like LISTING_ELIGIBILITY_ERROR, or
+// an unrelated client-side validation string like a `usernameProblem()`
+// result -- when its name says so: "error"/"err", or camelCase ending in
+// "...Error" (uploadError, insertError, credError, ...). A SCREAMING_SNAKE
+// constant also ends in "...ERROR" case-insensitively, so it's excluded by
+// name shape first.
+function looksLikeCaughtError(name: string): boolean {
+  if (name === "null" || name === "undefined") return false;
+  if (/^[A-Z][A-Z0-9_]*$/.test(name)) return false;
+  return /^err$/i.test(name) || /error$/i.test(name);
+}
+
+describe("no raw backend error text bypassing translateServerError", () => {
+  for (const dir of APP_SRC_DIRS) {
+    it(`${dir}: every toast.error()/setXError() call with a caught error routes through translateServerError`, () => {
+      const offenders: string[] = [];
+      for (const file of listSourceFiles(resolve(ROOT, dir))) {
+        const source = readFileSync(file, "utf-8");
+        const relPath = relative(ROOT, file);
+        source.split("\n").forEach((line, idx) => {
+          if (line.includes("translateServerError")) return; // already safe
+          const argMatch = RAW_ERROR_ARG.exec(line);
+          const raw = (argMatch && looksLikeCaughtError(argMatch[1])) || RAW_ERROR_IN_TEMPLATE.test(line);
+          if (raw) offenders.push(`${relPath}:${idx + 1}: ${line.trim()}`);
+        });
+      }
+      expect(
+        offenders,
+        `Found call(s) that may show raw backend error text instead of a translateServerError(...) result:\n${offenders.join("\n")}`,
+      ).toEqual([]);
     });
   }
 });

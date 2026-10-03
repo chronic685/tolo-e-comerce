@@ -2,7 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
-import { toast } from "@tolo/ui";
+import { toast, translateServerError, useTranslation } from "@tolo/ui";
 
 type RecoveryState = "checking" | "ready" | "invalid";
 
@@ -11,6 +11,7 @@ const RECOVERY_DETECTION_TIMEOUT_MS = 4000;
 export function ResetPassword() {
   const { updatePassword, signOut } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [recoveryState, setRecoveryState] = useState<RecoveryState>("checking");
   const [password, setPassword] = useState("");
@@ -40,18 +41,18 @@ export function ResetPassword() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password.length < 6) {
-      toast.error("Please choose a stronger password (at least 6 characters).");
+      toast.error(t("auth.passwordTooWeak"));
       return;
     }
     if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
+      toast.error(t("validation.passwordsDontMatch"));
       return;
     }
     setSubmitting(true);
     const { error } = await updatePassword(password);
     setSubmitting(false);
     if (error) {
-      toast.error("We couldn't complete the request. Please try again.");
+      toast.error(translateServerError(error, t));
       return;
     }
     setDone(true);

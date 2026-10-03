@@ -2,11 +2,12 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import { ADMIN_PAGES } from "../lib/adminPages";
-import { toast } from "@tolo/ui";
+import { toast, translateServerError, useTranslation } from "@tolo/ui";
 
 export function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // Framing only — never passed to signIn or used for routing. Real access
   // always comes from the account's admin_tier/permissions in the database.
@@ -25,7 +26,7 @@ export function Login() {
     const { error, permissions, adminTier } = await signIn(identifier, password);
     setLoading(false);
     if (error) {
-      toast.error(error);
+      toast.error(translateServerError(error, t));
       return;
     }
     // Landing on "/" unconditionally would hit PageGuard's "Not authorized"
