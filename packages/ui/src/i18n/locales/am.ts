@@ -952,6 +952,8 @@ export const am: AmharicStrings = {
   "newOrderAlert.moreNewOrders": mt("+{{count}} ተጨማሪ አዲስ ትዕዛዝ(ዎች)"),
 
   // revenue chart (merchant-dashboard/src/components/RevenueChart.tsx) ---
+  "trendChart.noData": mt("በዚህ የጊዜ ክልል ውስጥ ምንም መረጃ የለም"),
+  "revenueChart.empty": mt("በዚህ የጊዜ ክልል ውስጥ የተጠናቀቀ ትዕዛዝ የለም"),
   "revenueChart.title": mt("ገቢ በጊዜ ሂደት"),
   "revenueChart.description": mt("በቀን የሚያገኙት መጠን (ከመደብር ኮሚሽን በኋላ)፣ የተጠናቀቁ ትዕዛዞች ብቻ።"),
 

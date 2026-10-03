@@ -900,6 +900,8 @@ export const en: EnglishStrings = {
   "newOrderAlert.moreNewOrders": "+{{count}} more new order(s)",
 
   // revenue chart (merchant-dashboard/src/components/RevenueChart.tsx) ---
+  "trendChart.noData": "No data for this date range",
+  "revenueChart.empty": "No completed orders in this date range",
   "revenueChart.title": "Revenue over time",
   "revenueChart.description": "Amount you receive per day (after platform commission), completed orders only.",
 
