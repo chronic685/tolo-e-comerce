@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { useTranslation } from "../i18n/useTranslation";
 import { cn } from "../lib/cn";
 
 export interface TrendChartPoint {
@@ -14,6 +15,8 @@ export interface TrendChartProps {
   formatValue?: (value: number) => string;
   className?: string;
   height?: number;
+  /** Shown instead of the chart when there is nothing to plot. */
+  emptyMessage?: string;
 }
 
 const BAR_MAX_WIDTH = 24;
@@ -26,7 +29,8 @@ const BAR_GAP = 2;
  * comparison, so no legend is drawn; the chart's caption/title carries
  * identity instead. A visually-hidden table beneath the SVG gives screen
  * reader users and anyone who wants exact values a non-visual alternative. */
-export function TrendChart({ data, ariaLabel, formatValue = (v) => String(v), className, height = 160 }: TrendChartProps) {
+export function TrendChart({ data, ariaLabel, formatValue = (v) => String(v), className, height = 160, emptyMessage }: TrendChartProps) {
+  const { t } = useTranslation();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const titleId = useId();
 
@@ -35,6 +39,16 @@ export function TrendChart({ data, ariaLabel, formatValue = (v) => String(v), cl
   const barWidth = Math.min(BAR_MAX_WIDTH, width / data.length - BAR_GAP);
   const chartHeight = height - 24; // leaves room for the x-axis label row
   const active = activeIndex != null ? data[activeIndex] : null;
+
+  // Nothing to plot (no points, or every point is 0): a row of 1px stubs and
+  // gridlines with no axis reads as a rendering glitch, so say so instead.
+  if (data.every((d) => d.value === 0)) {
+    return (
+      <div role="status" className={cn("flex items-center justify-center text-center text-sm text-gray-400 dark:text-gray-500 px-4", className)} style={{ height }}>
+        {emptyMessage ?? t("trendChart.noData")}
+      </div>
+    );
+  }
 
   return (
     <div className={cn("relative", className)}>

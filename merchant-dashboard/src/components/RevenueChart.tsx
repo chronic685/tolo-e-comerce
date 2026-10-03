@@ -141,6 +141,7 @@ export function RevenueChart({ merchantId }: { merchantId: string }) {
           <TrendChart
             data={buckets.map((b) => ({ label: b.label, value: b.revenue }))}
             ariaLabel={t("revenueChart.dailyAriaLabel")}
+            emptyMessage={t("revenueChart.empty")}
             formatValue={(v) => formatCurrency(v)}
             height={180}
           />
