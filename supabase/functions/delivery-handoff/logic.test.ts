@@ -38,7 +38,6 @@ function facts(overrides: Partial<OrderFacts> = {}): OrderFacts {
       latitude: 9.03,
       longitude: 38.75,
       verifiedPhone: "+251911000002",
-      addressPhone: "0911999999",
     },
     ...overrides,
   };
@@ -69,7 +68,7 @@ describe("buildPayload", () => {
         job_id: JOB,
         order_number: "TL-1042",
         pickup: { name: "Abebe's Kitchen", address: "Bole Rd, Addis Ababa", latitude: 9.01, longitude: 38.76, phone: "+251911000001" },
-        dropoff: { name: "Sara T.", address: "Piassa, Addis Ababa", latitude: 9.03, longitude: 38.75, phone: "+251911000002", phone_verified: true },
+        dropoff: { name: "Sara T.", address: "Piassa, Addis Ababa", latitude: 9.03, longitude: 38.75, phone: "+251911000002" },
         items: [
           { name: "Doro Wat", quantity: 2 },
           { name: "Injera pack", quantity: 1 },
@@ -97,18 +96,16 @@ describe("buildPayload", () => {
     expect(Object.keys(r.payload.payment).sort()).toEqual(["driver_collects_cash", "method"]);
   });
 
-  it("uses the Tolo-verified phone for the dropoff, never the address phone when a verified one exists", () => {
+  it("sends the Tolo-verified phone as the dropoff phone", () => {
     const r = buildPayload(JOB, facts());
     if (!r.ok) throw new Error("expected payload");
     expect(r.payload.dropoff.phone).toBe("+251911000002");
-    expect(JSON.stringify(r.payload)).not.toContain("0911999999");
+    expect(r.payload.dropoff).not.toHaveProperty("phone_verified");
   });
 
-  it("falls back to the address phone, flagged unverified, when the customer has no Tolo session phone", () => {
+  it("refuses an order whose customer has no Tolo-verified phone, rather than sending an unverified one", () => {
     const f = facts();
-    const r = buildPayload(JOB, { ...f, dropoff: { ...f.dropoff, verifiedPhone: null } });
-    if (!r.ok) throw new Error("expected payload");
-    expect(r.payload.dropoff).toMatchObject({ phone: "0911999999", phone_verified: false });
+    expect(buildPayload(JOB, { ...f, dropoff: { ...f.dropoff, verifiedPhone: null } })).toEqual({ ok: false, error: "no_verified_phone" });
   });
 
   it("refuses what a driver couldn't act on", () => {
@@ -127,13 +124,46 @@ describe("buildPayload", () => {
 });
 
 describe("attributeOrderLevelCharges", () => {
-  const charges = { deliveryFee: 60, riderTip: 10 };
-  it("puts the delivery fee and tip on the first merchant order only", () => {
-    expect(attributeOrderLevelCharges("a", ["a", "b"], charges)).toEqual(charges);
-    expect(attributeOrderLevelCharges("b", ["a", "b"], charges)).toEqual({ deliveryFee: 0, riderTip: 0 });
-  });
+  const sib = (id: string, subtotal: number) => ({ id, subtotal });
+  const split = (siblings: { id: string; subtotal: number }[], charges: { deliveryFee: number; riderTip: number }) =>
+    siblings.map((s) => attributeOrderLevelCharges(s.id, siblings, charges));
+
   it("leaves a single-merchant order untouched", () => {
-    expect(attributeOrderLevelCharges("a", ["a"], charges)).toEqual(charges);
+    expect(attributeOrderLevelCharges("a", [sib("a", 300)], { deliveryFee: 60, riderTip: 10 })).toEqual({ deliveryFee: 60, riderTip: 10 });
+  });
+
+  it("splits the fee and tip in proportion to each shop's subtotal", () => {
+    expect(split([sib("a", 300), sib("b", 100)], { deliveryFee: 60, riderTip: 20 })).toEqual([
+      { deliveryFee: 45, riderTip: 15 },
+      { deliveryFee: 15, riderTip: 5 },
+    ]);
+  });
+
+  it("always adds back up to exactly the order's fee and tip, to the cent", () => {
+    const cases = [
+      [sib("a", 100), sib("b", 100), sib("c", 100)],
+      [sib("a", 133.33), sib("b", 266.67), sib("c", 17.5)],
+      [sib("a", 1), sib("b", 999)],
+    ];
+    for (const siblings of cases) {
+      const parts = split(siblings, { deliveryFee: 59.99, riderTip: 10.01 });
+      expect(Math.round(parts.reduce((a, p) => a + p.deliveryFee, 0) * 100)).toBe(5999);
+      expect(Math.round(parts.reduce((a, p) => a + p.riderTip, 0) * 100)).toBe(1001);
+      for (const p of parts) expect(p.deliveryFee).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("gives leftover cents to the earliest merchant orders", () => {
+    // 1.00 over three equal shops: 0.34 / 0.33 / 0.33.
+    expect(split([sib("a", 50), sib("b", 50), sib("c", 50)], { deliveryFee: 1, riderTip: 0 }).map((p) => p.deliveryFee)).toEqual([0.34, 0.33, 0.33]);
+  });
+
+  it("splits evenly when no subtotal is known", () => {
+    expect(split([sib("a", 0), sib("b", 0)], { deliveryFee: 60, riderTip: 0 }).map((p) => p.deliveryFee)).toEqual([30, 30]);
+  });
+
+  it("refuses to guess for a merchant order that isn't among its siblings", () => {
+    expect(() => attributeOrderLevelCharges("x", [sib("a", 1)], { deliveryFee: 1, riderTip: 0 })).toThrow();
   });
 });
 
@@ -226,6 +256,22 @@ describe("handleHandoff", () => {
       throw new Error("ECONNREFUSED");
     };
     expect((await handleHandoff(request(), down.deps)).body).toMatchObject({ error: "tolo_unreachable" });
+  });
+
+  it("flags an order with no Tolo-verified phone for manual handling and sends nothing", async () => {
+    const f = facts();
+    const w = world({ ...f, dropoff: { ...f.dropoff, verifiedPhone: null } });
+    const res = await handleHandoff(request(), w.deps);
+    expect(res).toEqual({ status: 422, body: { job_id: JOB, error: "no_verified_phone" } });
+    expect(w.tolo.received).toHaveLength(0);
+    expect(w.deps.recordAttempt).toHaveBeenCalledWith(JOB, { ok: false, error: "no_verified_phone", manual: true });
+  });
+
+  it("does not flag a Tolo outage for manual handling: that one retries on its own", async () => {
+    const w = world();
+    w.tolo.reply = async () => new Response("boom", { status: 503 });
+    await handleHandoff(request(), w.deps);
+    expect(w.deps.recordAttempt).toHaveBeenCalledWith(JOB, { ok: false, error: "tolo_http_503" });
   });
 
   it("records an unbuildable order on the job instead of sending it", async () => {

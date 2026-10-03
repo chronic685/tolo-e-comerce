@@ -46,11 +46,11 @@ Deno.serve(async (req) => {
           db
             .from("orders")
             .select(
-              "order_number, customer_id, payment_status, delivery_fee, rider_tip, addresses(recipient_name, phone, line1, city, latitude, longitude), payments(provider, created_at)",
+              "order_number, customer_id, payment_status, delivery_fee, rider_tip, addresses(recipient_name, line1, city, latitude, longitude), payments(provider, created_at)",
             )
             .eq("id", mo.order_id)
             .single(),
-          db.from("merchant_orders").select("id").eq("order_id", mo.order_id).order("created_at").order("id"),
+          db.from("merchant_orders").select("id, subtotal, status").eq("order_id", mo.order_id).order("created_at").order("id"),
           db.from("order_items").select("product_name_snapshot, quantity").eq("merchant_order_id", mo.id).eq("item_status", "active"),
           db.from("stores").select("name, latitude, longitude, pickup_address").eq("merchant_id", mo.merchant_id).maybeSingle(),
           db.from("merchants").select("business_name, phone").eq("id", mo.merchant_id).single(),
@@ -68,7 +68,10 @@ Deno.serve(async (req) => {
 
         const charges = attributeOrderLevelCharges(
           mo.id,
-          (siblings ?? []).map((s) => s.id as string),
+          // Rejected/cancelled shops send no driver, so they take no share.
+          (siblings ?? [])
+            .filter((s) => s.id === mo.id || !["rejected", "cancelled"].includes(s.status as string))
+            .map((s) => ({ id: s.id as string, subtotal: num(s.subtotal) })),
           { deliveryFee: num(order.delivery_fee), riderTip: num(order.rider_tip) },
         );
 
@@ -96,7 +99,6 @@ Deno.serve(async (req) => {
             latitude: (address?.latitude as number | null | undefined) ?? null,
             longitude: (address?.longitude as number | null | undefined) ?? null,
             verifiedPhone: link?.phone ?? null,
-            addressPhone: (address?.phone as string | undefined) ?? null,
           },
         };
         return facts;
@@ -117,6 +119,7 @@ Deno.serve(async (req) => {
           .update({
             handoff_attempts: (data?.handoff_attempts ?? 0) + 1,
             handoff_error: outcome.ok ? null : outcome.error,
+            needs_manual_handling: outcome.ok ? false : (outcome.manual ?? false),
             ...(outcome.ok ? { dispatched_at: new Date().toISOString() } : {}),
           })
           .eq("id", jobId);

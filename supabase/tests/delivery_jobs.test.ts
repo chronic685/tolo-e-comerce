@@ -41,7 +41,7 @@ as $$ select exists (select 1 from profiles where id = auth.uid() and account_st
 let h: Harness;
 
 beforeAll(async () => {
-  h = await createHarness(["0080_delivery_jobs.sql"], { prelude: PRELUDE });
+  h = await createHarness(["0080_delivery_jobs.sql", "0081_delivery_jobs_manual_handling.sql"], { prelude: PRELUDE });
 });
 
 interface Setup {
@@ -105,6 +105,11 @@ describe("delivery_jobs table", () => {
     await expect(h.db.query("insert into delivery_jobs (merchant_order_id) values ($1)", [s.merchantOrderId])).rejects.toThrow(/unique/i);
   });
 
+  it("is not flagged for manual handling by default", async () => {
+    const s = await setup();
+    expect((await job(s.jobId)).needs_manual_handling).toBe(false);
+  });
+
   it("only allows the five documented statuses", async () => {
     const s = await setup();
     await expect(h.db.query("update delivery_jobs set status = 'in_transit' where id = $1", [s.jobId])).rejects.toThrow(/invalid input value/);
@@ -144,6 +149,16 @@ describe("delivery_jobs RLS", () => {
     const ids = rows.map((r) => r.id);
     expect(ids).toContain(a.jobId);
     expect(ids).toContain(b.jobId);
+  });
+
+  it("lets Orders-page staff read jobs, but not staff without that page", async () => {
+    const s = await setup();
+    const ordersStaff = await h.createAuthUser({ role: "tolo_ops" });
+    await h.db.query("update profiles set permissions = '[\"orders\"]'::jsonb where id = $1", [ordersStaff.id]);
+    const other = await h.createAuthUser({ role: "tolo_ops" });
+    await h.db.query("update profiles set permissions = '[\"support\"]'::jsonb where id = $1", [other.id]);
+    expect((await h.asUser(ordersStaff.id, (tx) => tx.query("select id from delivery_jobs where id = $1", [s.jobId]))).rows).toHaveLength(1);
+    expect((await h.asUser(other.id, (tx) => tx.query("select id from delivery_jobs where id = $1", [s.jobId]))).rows).toEqual([]);
   });
 
   it("shows nothing to anon", async () => {
