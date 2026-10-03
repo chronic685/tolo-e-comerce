@@ -1,4 +1,4 @@
-// Migration 0082 (delete_qa_orders) run for real against in-process PGlite --
+// Migrations 0082-0083 (delete_qa_orders) run for real against in-process PGlite --
 // see tests/pglite/harness.ts. Never touches any Supabase project.
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -41,7 +41,7 @@ let h: Harness;
 const variant = randomUUID();
 
 beforeAll(async () => {
-  h = await createHarness(["0082_delete_qa_orders.sql"], { prelude: PRELUDE });
+  h = await createHarness(["0082_delete_qa_orders.sql", "0083_delete_qa_orders_bulk.sql"], { prelude: PRELUDE });
   await h.db.query("insert into inventory (variant_id, stock_quantity, reserved_quantity) values ($1, 100, 0)", [variant]);
 });
 
@@ -74,9 +74,12 @@ async function order(opts: { isTest?: boolean } = {}): Promise<Order> {
   return { orderId, moId, number, customerId: customer.id };
 }
 
-const del = (ids: string[]) =>
+const del = (ids: string[], skipIneligible = false) =>
   h.asService((tx) =>
-    tx.query<{ orders_deleted: number; notifications_deleted: number; reservations_released: number }>("select * from delete_qa_orders($1)", [ids]),
+    tx.query<{ orders_deleted: number; notifications_deleted: number; reservations_released: number; orders_skipped: number }>(
+      "select * from delete_qa_orders($1, $2)",
+      [ids, skipIneligible],
+    ),
   );
 const count = async (sql: string, ...args: unknown[]) => Number((await h.db.query<{ n: string }>(sql, args)).rows[0].n);
 const reserved = async () =>
@@ -90,7 +93,7 @@ describe("delete_qa_orders", () => {
     const before = await reserved();
 
     const { rows } = await del([a.orderId, b.orderId]);
-    expect(rows[0]).toEqual({ orders_deleted: 2, notifications_deleted: 4, reservations_released: 4 });
+    expect(rows[0]).toEqual({ orders_deleted: 2, notifications_deleted: 4, reservations_released: 4, orders_skipped: 0 });
 
     for (const o of [a, b]) {
       expect(await count("select count(*) n from orders where id = $1", o.orderId)).toBe(0);
@@ -120,8 +123,8 @@ describe("delete_qa_orders", () => {
   it("is not callable by users or anon", async () => {
     const a = await order();
     const user = await h.createAuthUser();
-    await expect(h.asUser(user.id, (tx) => tx.query("select * from delete_qa_orders($1)", [[a.orderId]]))).rejects.toThrow(/permission denied/);
-    await expect(h.asAnon((tx) => tx.query("select * from delete_qa_orders($1)", [[a.orderId]]))).rejects.toThrow(/permission denied/);
+    await expect(h.asUser(user.id, (tx) => tx.query("select * from delete_qa_orders($1, false)", [[a.orderId]]))).rejects.toThrow(/permission denied/);
+    await expect(h.asAnon((tx) => tx.query("select * from delete_qa_orders($1, false)", [[a.orderId]]))).rejects.toThrow(/permission denied/);
     expect(await count("select count(*) n from orders where id = $1", a.orderId)).toBe(1);
   });
 
@@ -175,5 +178,55 @@ describe("delete_qa_orders", () => {
     const before = await reserved();
     await expect(del([a.orderId])).rejects.toThrow("stock_already_sold");
     expect(await reserved()).toBe(before);
+  });
+
+  describe("bulk mode (p_skip_ineligible)", () => {
+    it("checks every order individually, deleting the eligible ones and skipping each ineligible one", async () => {
+      const ok1 = await order();
+      const ok2 = await order();
+      const real = await order({ isTest: false });
+      const withWallet = await order();
+      await h.db.query("insert into wallet_transactions (merchant_order_id) values ($1)", [withWallet.moId]);
+      const settled = await order();
+      await h.db.query("update payments set status = 'verified' where order_id = $1", [settled.orderId]);
+      const sold = await order();
+      await h.db.query(
+        "insert into inventory_movements (variant_id, movement_type, quantity, reference_type, reference_id) values ($1, 'sale', 2, 'order', $2)",
+        [variant, sold.orderId],
+      );
+      const before = await reserved();
+
+      const { rows } = await del([ok1.orderId, ok2.orderId, real.orderId, withWallet.orderId, settled.orderId, sold.orderId, randomUUID()], true);
+      expect(rows[0]).toEqual({ orders_deleted: 2, notifications_deleted: 4, reservations_released: 4, orders_skipped: 5 });
+
+      for (const gone of [ok1, ok2]) expect(await count("select count(*) n from orders where id = $1", gone.orderId)).toBe(0);
+      for (const kept of [real, withWallet, settled, sold]) {
+        expect(await count("select count(*) n from orders where id = $1", kept.orderId)).toBe(1);
+        expect(await count("select count(*) n from notifications where user_id = $1", kept.customerId)).toBe(2);
+      }
+      expect(await reserved()).toBe(before - 4);
+    });
+
+    it("deletes nothing and reports the skips when no order is eligible", async () => {
+      const real = await order({ isTest: false });
+      const { rows } = await del([real.orderId], true);
+      expect(rows[0]).toEqual({ orders_deleted: 0, notifications_deleted: 0, reservations_released: 0, orders_skipped: 1 });
+      expect(await count("select count(*) n from orders where id = $1", real.orderId)).toBe(1);
+    });
+
+    it("still refuses an empty request", async () => {
+      await expect(del([], true)).rejects.toThrow("no_orders");
+    });
+  });
+
+  it("qa_order_blocker names why an order can't be deleted, and is not callable by users", async () => {
+    const ok = await order();
+    const real = await order({ isTest: false });
+    const q = (id: string) => h.asService((tx) => tx.query<{ b: string | null }>("select qa_order_blocker($1) b", [id]));
+    expect((await q(ok.orderId)).rows[0].b).toBeNull();
+    expect((await q(real.orderId)).rows[0].b).toBe("not_a_test_order");
+    expect((await q(randomUUID())).rows[0].b).toBe("order_not_found");
+    const user = await h.createAuthUser();
+    await expect(h.asUser(user.id, (tx) => tx.query("select qa_order_blocker($1)", [ok.orderId]))).rejects.toThrow(/permission denied/);
   });
 });
