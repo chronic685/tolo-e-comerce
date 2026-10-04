@@ -1577,6 +1577,7 @@ export const am: AmharicStrings = {
   // marketplace (frontend/src/pages/Marketplace.tsx) -----------------------
   "marketplace.searchPlaceholder": mt("ምርቶችን እና ሱቆችን ይፈልጉ..."),
   "marketplace.filters": mt("ማጣሪያዎች"),
+  "marketplace.category": mt("ምድብ"),
   "marketplace.allCategories": mt("ሁሉም"),
   "marketplace.shopByCategory": mt("በምድብ ይግዙ"),
   "marketplace.featuredProducts": mt("ተለይተው የቀረቡ ምርቶች"),

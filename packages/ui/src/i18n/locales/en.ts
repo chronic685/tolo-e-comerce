@@ -1525,6 +1525,7 @@ export const en: EnglishStrings = {
   // marketplace (frontend/src/pages/Marketplace.tsx) -----------------------
   "marketplace.searchPlaceholder": "Search products and shops...",
   "marketplace.filters": "Filters",
+  "marketplace.category": "Category",
   "marketplace.allCategories": "All",
   "marketplace.shopByCategory": "Shop by category",
   "marketplace.featuredProducts": "Featured products",
