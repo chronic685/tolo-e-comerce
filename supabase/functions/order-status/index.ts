@@ -14,17 +14,24 @@ const MERCHANT_TRANSITIONS: Record<string, string[]> = {
   processing: ["ready_for_pickup", "cancelled"],
 };
 
-// Phase 5d, item 8: the only customer-initiated transition. Restricted to
-// "new" — before the merchant has accepted (the spec's own "ORDER RECEIVED"
-// commitment moment: see order_received_at below, and the unacknowledged-
-// order escalation timers in migration 0033). MERCHANT_TRANSITIONS itself
-// already draws this line for merchants — "rejected" only exists from "new",
-// while post-acceptance orders only ever move to "cancelled" once real
-// prep/staff/ingredient cost may already be committed. A customer-facing
-// cancel button follows the same boundary rather than opening a new one.
+// The only customer-initiated transition. A customer may cancel from placement
+// until the driver has the parcel: every status before "picked_up". (It used to
+// stop at "new", the merchant's commitment point; widened so a customer is never
+// stuck with an order they no longer want while it is still on the merchant's
+// side.) The delivery leg is the real cut-off: once the delivery job is
+// picked_up or later, or the order itself is, nothing here applies. Money and
+// stock are made whole by the same steps a merchant reject/cancel takes.
 const CUSTOMER_TRANSITIONS: Record<string, string[]> = {
   new: ["cancelled"],
+  accepted: ["cancelled"],
+  processing: ["cancelled"],
+  ready_for_pickup: ["cancelled"],
 };
+
+// Order statuses (and delivery job statuses) at which the parcel is with a
+// driver or beyond, so a customer can no longer cancel.
+const WITH_DRIVER_ORDER_STATUSES = ["picked_up", "delivered", "completed"];
+const WITH_DRIVER_JOB_STATUSES = ["picked_up", "delivered"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -52,23 +59,25 @@ Deno.serve(async (req) => {
     const merchantAllowed = MERCHANT_TRANSITIONS[mo.status] ?? [];
     const customerAllowed = CUSTOMER_TRANSITIONS[mo.status] ?? [];
     if (!merchantAllowed.includes(status) && !customerAllowed.includes(status)) {
+      if (status === "cancelled" && WITH_DRIVER_ORDER_STATUSES.includes(mo.status)) {
+        return jsonResponse({ error: "This order can no longer be cancelled because it is already with the driver." }, 400);
+      }
       return jsonResponse(
         { error: `Cannot move from ${mo.status} to ${status}` },
         400,
       );
     }
 
-    if (customerAllowed.includes(status)) {
-      const { data: orderRow } = await db
-        .from("orders")
-        .select("customer_id")
-        .eq("id", mo.order_id)
-        .single();
+    const { data: orderRow } = await db
+      .from("orders")
+      .select("customer_id")
+      .eq("id", mo.order_id)
+      .single();
+    // Both the customer and the merchant may cancel from some statuses, so
+    // the caller's identity (not just the transition) decides which rules apply.
+    const isCustomerAction = customerAllowed.includes(status) && orderRow?.customer_id === userData.user.id;
 
-      if (orderRow?.customer_id !== userData.user.id) {
-        return jsonResponse({ error: "Not authorized for this order" }, 403);
-      }
-
+    if (isCustomerAction) {
       const { data: featureSettings } = await db
         .from("system_settings")
         .select("value")
@@ -79,6 +88,15 @@ Deno.serve(async (req) => {
       if (!cancellationEnabled) {
         return jsonResponse({ error: "Order cancellation is currently disabled" }, 403);
       }
+
+      // The delivery leg decides, not only the order status: a driver may have
+      // picked the parcel up a moment before the order status caught up.
+      const { data: job } = await db.from("delivery_jobs").select("status").eq("merchant_order_id", mo.id).maybeSingle();
+      if (job && WITH_DRIVER_JOB_STATUSES.includes(job.status)) {
+        return jsonResponse({ error: "This order can no longer be cancelled because it is already with the driver." }, 400);
+      }
+    } else if (!merchantAllowed.includes(status)) {
+      return jsonResponse({ error: "Not authorized for this order" }, 403);
     } else {
       const { data: membership } = await db
         .from("merchant_staff")
@@ -111,33 +129,26 @@ Deno.serve(async (req) => {
     if (status === "processing") update.preparation_started_at = now;
     if (status === "ready_for_pickup") update.ready_for_pickup_at = now;
 
-    await db.from("merchant_orders").update(update).eq("id", mo.id);
+    // Guarded on the status we validated against, so two simultaneous requests
+    // (a double tap, or the driver pickup callback racing a cancel) cannot both
+    // win and release stock / open a refund twice.
+    const { data: moved } = await db.from("merchant_orders").update(update).eq("id", mo.id).eq("status", mo.status).select("id");
+    if (!moved || moved.length === 0) {
+      return jsonResponse({ error: "This order's status just changed. Please refresh and try again." }, 409);
+    }
     await db.from("order_status_history").insert({
       merchant_order_id: mo.id,
       status,
       changed_by: userData.user.id,
-      note,
+      note: note ?? (isCustomerAction && status === "cancelled" ? "Cancelled by customer" : undefined),
     });
 
     if (status === "rejected" || status === "cancelled") {
-      // The stock reserved at checkout (create_order() -> reserve_stock())
-      // is only ever converted to a real sale on payment confirmation
-      // (finalizePaymentSuccess). Declining or cancelling before that point
-      // must give it back, or reserved_quantity — and therefore
-      // available_quantity — stays permanently inflated for stock that was
-      // never actually sold.
-      const { data: items } = await db
-        .from("order_items")
-        .select("variant_id, quantity")
-        .eq("merchant_order_id", mo.id);
-      for (const item of items ?? []) {
-        await db.rpc("release_stock", {
-          p_variant_id: item.variant_id,
-          p_quantity: item.quantity,
-          p_reference_id: mo.order_id,
-          p_as_sale: false,
-        });
-      }
+      // Gives the stock back and cancels any delivery job/record that nobody has
+      // picked up yet (migration 0088). Stock reserved at checkout is only turned
+      // into a sale on payment confirmation, so this releases the reservation for
+      // an unpaid order and restocks a paid one -- see cancel_order_fulfilment().
+      await db.rpc("cancel_order_fulfilment", { p_merchant_order_id: mo.id });
 
       // Auto-refund (migration 0058): a no-op if the order was never paid
       // (e.g. cash on delivery, still pending) or a refund already exists
@@ -173,6 +184,17 @@ Deno.serve(async (req) => {
           order_number: formatOrderNumber(orderDetails.order_number),
           merchant_name: merchantInfo?.business_name ?? "the merchant",
         });
+      }
+
+      // The customer cancelled: tell the merchant, who may already be preparing it.
+      if (isCustomerAction && status === "cancelled") {
+        const { data: merchantOwner } = await db.from("merchants").select("owner_id").eq("id", mo.merchant_id).single();
+        if (merchantOwner?.owner_id && orderDetails) {
+          await sendNotification(db, merchantOwner.owner_id, "order_cancelled_by_customer", {
+            order_id_short: mo.id.slice(0, 8),
+            order_number: formatOrderNumber(orderDetails.order_number),
+          });
+        }
       }
     }
 

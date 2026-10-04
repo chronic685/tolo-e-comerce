@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deliveryStageFor, pickDeliveryJob, visibleEta, type DeliveryJobView } from "./deliveryStatus";
+import { canCustomerCancel, deliveryStageFor, pickDeliveryJob, visibleEta, type DeliveryJobView } from "./deliveryStatus";
 
 const job = (status: DeliveryJobView["status"], eta_at: string | null = null): DeliveryJobView => ({ status, eta_at });
 
@@ -40,5 +40,30 @@ describe("visibleEta", () => {
     expect(visibleEta(job("accepted", "2026-10-03T09:00:00Z"), now)).toBeNull();
     expect(visibleEta(job("invoked", "2026-10-03T10:20:00Z"), now)).toBeNull();
     expect(visibleEta(job("delivered", "2026-10-03T10:20:00Z"), now)).toBeNull();
+  });
+});
+
+describe("canCustomerCancel", () => {
+  it("allows cancelling at every status before the driver has the parcel", () => {
+    for (const status of ["new", "accepted", "processing", "ready_for_pickup"]) {
+      expect(canCustomerCancel(status, null)).toBe(true);
+    }
+  });
+
+  it("allows it while a job exists but nobody has picked up (invoked / accepted / failed / cancelled)", () => {
+    for (const s of ["invoked", "accepted", "failed", "cancelled"] as const) {
+      expect(canCustomerCancel("ready_for_pickup", job(s))).toBe(true);
+    }
+  });
+
+  it("blocks it once the job is picked up or delivered, even if the order status has not caught up", () => {
+    expect(canCustomerCancel("ready_for_pickup", job("picked_up"))).toBe(false);
+    expect(canCustomerCancel("ready_for_pickup", job("delivered"))).toBe(false);
+  });
+
+  it("blocks it for orders that are with the driver, finished or already closed", () => {
+    for (const status of ["picked_up", "delivered", "completed", "cancelled", "rejected"]) {
+      expect(canCustomerCancel(status, null)).toBe(false);
+    }
   });
 });

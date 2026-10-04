@@ -2,11 +2,10 @@ import { afterEach, beforeAll, describe, expect, inject, it } from "vitest";
 import { env, serviceClient, signIn } from "../env.ts";
 import { callFunction } from "../helpers.ts";
 
-// Phase 5d, item 8: no customer-facing cancel action existed despite
-// customer_features.order_cancellation_enabled being on by default. Adds a
-// customer-authorized "new" -> "cancelled" transition to order-status,
-// restricted to before merchant acceptance (see CUSTOMER_TRANSITIONS'
-// comment in order-status/index.ts for why), gated by the same
+// Phase 5d, item 8 added a customer-authorized "new" -> "cancelled" transition
+// to order-status; migration 0088 widened it to every status before the driver
+// has the parcel (new, accepted, processing, ready_for_pickup), blocked once the
+// delivery job is picked_up. Gated by the same
 // system_settings toggle FavoritesContext already reads for a different
 // feature, and reusing the SAME release_stock reversal block item 1 added
 // for merchant reject/cancel — not a separate mechanism.
@@ -94,12 +93,9 @@ describe("order-status: customer self-cancellation", () => {
     await callFunction("order-status", { token: merchantAToken, body: { merchant_order_id: merchantOrderId, status: "rejected" } });
   });
 
-  it("refuses cancellation once the merchant has already accepted the order", async () => {
-    // "accepted" -> "cancelled" is still a valid transition (the merchant's
-    // own cancellation path), so this is a 403 authorization failure — the
-    // customer isn't merchant staff/owner — not a 400 shape error. Only
-    // "new" -> "cancelled" is in CUSTOMER_TRANSITIONS.
+  it("lets the customer cancel after the merchant accepted, and releases the reservation", async () => {
     const merchantOrderId = await createDisposableOrder(customerUserId, addressId, variantId);
+    const reservedBefore = await reservedQuantity(variantId);
     const acceptRes = await callFunction("order-status", {
       token: merchantAToken,
       body: { merchant_order_id: merchantOrderId, status: "accepted" },
@@ -110,10 +106,81 @@ describe("order-status: customer self-cancellation", () => {
       token: customerToken,
       body: { merchant_order_id: merchantOrderId, status: "cancelled" },
     });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+
+    const { data: mo } = await db.from("merchant_orders").select("status").eq("id", merchantOrderId).single();
+    expect(mo!.status).toBe("cancelled");
+    expect(await reservedQuantity(variantId)).toBe(reservedBefore - 1);
+
+    // A second request (a double tap) is refused rather than releasing again.
+    const again = await callFunction("order-status", {
+      token: customerToken,
+      body: { merchant_order_id: merchantOrderId, status: "cancelled" },
+    });
+    expect(again.status).toBe(400);
+    expect(await reservedQuantity(variantId)).toBe(reservedBefore - 1);
+  });
+
+  it("lets the customer cancel at ready_for_pickup and cancels the delivery job that was invoked", async () => {
+    const merchantOrderId = await createDisposableOrder(customerUserId, addressId, variantId);
+    const reservedBefore = await reservedQuantity(variantId);
+    await db.from("merchant_orders").update({ status: "ready_for_pickup" }).eq("id", merchantOrderId);
+    const { error: jobError } = await db.from("delivery_jobs").insert({ merchant_order_id: merchantOrderId, status: "invoked" });
+    expect(jobError).toBeNull();
+
+    const res = await callFunction("order-status", {
+      token: customerToken,
+      body: { merchant_order_id: merchantOrderId, status: "cancelled" },
+    });
+    expect(res.status).toBe(200);
+
+    const { data: job } = await db.from("delivery_jobs").select("status").eq("merchant_order_id", merchantOrderId).single();
+    expect(job!.status).toBe("cancelled");
+    expect(await reservedQuantity(variantId)).toBe(reservedBefore - 1);
+  });
+
+  it("refuses cancellation once the driver has picked the order up (job status, even if the order status lags)", async () => {
+    const merchantOrderId = await createDisposableOrder(customerUserId, addressId, variantId);
+    await db.from("merchant_orders").update({ status: "ready_for_pickup" }).eq("id", merchantOrderId);
+    await db.from("delivery_jobs").insert({ merchant_order_id: merchantOrderId, status: "picked_up", driver_ref: "qa-driver" });
+
+    const res = await callFunction("order-status", {
+      token: customerToken,
+      body: { merchant_order_id: merchantOrderId, status: "cancelled" },
+    });
+    expect(res.status).toBe(400);
+    const { data: mo } = await db.from("merchant_orders").select("status").eq("id", merchantOrderId).single();
+    expect(mo!.status).toBe("ready_for_pickup");
 
     await db.rpc("release_stock", { p_variant_id: variantId, p_quantity: 1, p_reference_id: merchantOrderId, p_as_sale: false });
     await db.from("merchant_orders").update({ status: "cancelled" }).eq("id", merchantOrderId);
+  });
+
+  it("refuses cancellation once the order itself is picked_up", async () => {
+    const merchantOrderId = await createDisposableOrder(customerUserId, addressId, variantId);
+    await db.from("merchant_orders").update({ status: "picked_up" }).eq("id", merchantOrderId);
+
+    const res = await callFunction("order-status", {
+      token: customerToken,
+      body: { merchant_order_id: merchantOrderId, status: "cancelled" },
+    });
+    expect(res.status).toBe(400);
+
+    await db.rpc("release_stock", { p_variant_id: variantId, p_quantity: 1, p_reference_id: merchantOrderId, p_as_sale: false });
+    await db.from("merchant_orders").update({ status: "cancelled" }).eq("id", merchantOrderId);
+  });
+
+  it("still refuses someone who is neither the customer nor the merchant, after acceptance too", async () => {
+    const merchantOrderId = await createDisposableOrder(customerUserId, addressId, variantId);
+    await callFunction("order-status", { token: merchantAToken, body: { merchant_order_id: merchantOrderId, status: "accepted" } });
+
+    const res = await callFunction("order-status", {
+      token: merchantBToken,
+      body: { merchant_order_id: merchantOrderId, status: "cancelled" },
+    });
+    expect(res.status).toBe(403);
+
+    await callFunction("order-status", { token: merchantAToken, body: { merchant_order_id: merchantOrderId, status: "cancelled" } });
   });
 
   describe("gated by customer_features.order_cancellation_enabled", () => {
