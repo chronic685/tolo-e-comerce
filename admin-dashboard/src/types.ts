@@ -2,8 +2,11 @@ export interface Merchant {
   id: string;
   owner_id: string;
   business_name: string;
+  /** Legacy free text from before category_id; read-only, shown only until an admin confirms a category. */
   business_category: string | null;
   business_subcategory: string | null;
+  category_id: string | null;
+  categories?: { name: string } | null;
   phone: string | null;
   email: string | null;
   location: string | null;
@@ -35,6 +38,10 @@ export interface MerchantDocument {
 export interface Category {
   id: string;
   name: string;
+  /** Optional Amharic name, shown to customers in Amharic (migration 0089). */
+  name_am: string | null;
+  icon: string;
+  color: string;
   slug: string;
   parent_id: string | null;
   is_active: boolean;

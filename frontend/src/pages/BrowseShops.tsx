@@ -1,6 +1,6 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useState, type ReactNode } from "react";
 import { Store } from "lucide-react";
-import { CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation } from "@tolo/ui";
+import { CategoryIcon, CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, useCategoryName, usePagination, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { ShopCard } from "../components/ShopCard";
 import { fetchMerchantRatings } from "../lib/merchantRatings";
@@ -16,8 +16,15 @@ interface ShopRow {
   merchants: { status: string; is_test: boolean } | null;
 }
 
+interface SummaryCategory {
+  name: string;
+  name_am: string | null;
+  icon: string;
+  color: string;
+}
+
 interface ShopSummary {
-  categoryNames: string[];
+  categories: SummaryCategory[];
   productNames: string[];
   // The shop's most-recently-added product image, used as the card photo
   // when the shop has no logo_url of its own.
@@ -26,6 +33,7 @@ interface ShopSummary {
 
 export function BrowseShops() {
   const { t } = useTranslation();
+  const categoryName = useCategoryName();
   const [shops, setShops] = useState<ShopRow[] | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [summaries, setSummaries] = useState<Map<string, ShopSummary>>(new Map());
@@ -78,7 +86,7 @@ export function BrowseShops() {
     // full product rows Storefront.tsx/ProductCard need.
     supabase
       .from("products")
-      .select("store_id, name, created_at, categories ( name ), product_images ( url, is_primary )")
+      .select("store_id, name, created_at, categories ( name, name_am, icon, color ), product_images ( url, is_primary )")
       .eq("status", "published")
       .in(
         "store_id",
@@ -90,13 +98,13 @@ export function BrowseShops() {
             store_id: string;
             name: string;
             created_at: string;
-            categories: { name: string } | null;
+            categories: SummaryCategory | null;
             product_images: { url: string; is_primary: boolean }[];
           }[]) ?? [];
         const map = new Map<string, ShopSummary>();
         for (const row of rows) {
-          const entry = map.get(row.store_id) ?? { categoryNames: [], productNames: [], latestProductImage: null };
-          if (row.categories?.name && !entry.categoryNames.includes(row.categories.name)) entry.categoryNames.push(row.categories.name);
+          const entry = map.get(row.store_id) ?? { categories: [], productNames: [], latestProductImage: null };
+          if (row.categories?.name && !entry.categories.some((c) => c.name === row.categories!.name)) entry.categories.push(row.categories);
           entry.productNames.push(row.name);
 
           const image = row.product_images.find((i) => i.is_primary) ?? row.product_images[0];
@@ -114,10 +122,21 @@ export function BrowseShops() {
     return shop.logo_url ?? summaries.get(shop.id)?.latestProductImage?.url ?? null;
   }
 
-  function summaryLine(shopId: string): string {
+  function summaryLine(shopId: string): ReactNode {
     const summary = summaries.get(shopId);
-    if (!summary || (summary.categoryNames.length === 0 && summary.productNames.length === 0)) return t("browseShops.newShopNoProducts");
-    if (summary.categoryNames.length > 0) return summary.categoryNames.slice(0, 3).join(" · ");
+    if (!summary || (summary.categories.length === 0 && summary.productNames.length === 0)) return t("browseShops.newShopNoProducts");
+    if (summary.categories.length > 0) {
+      return (
+        <span className="flex flex-wrap gap-x-2 gap-y-1">
+          {summary.categories.slice(0, 3).map((c) => (
+            <span key={c.name} className="inline-flex items-center gap-1">
+              <CategoryIcon icon={c.icon} color={c.color} size="xs" />
+              {categoryName(c)}
+            </span>
+          ))}
+        </span>
+      );
+    }
     // Uncategorized products still exist — fall back to naming a few of
     // them rather than showing nothing, same reasoning as Storefront.tsx's
     // "Uncategorized" group for products with no category_id.

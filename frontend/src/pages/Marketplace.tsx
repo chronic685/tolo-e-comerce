@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { PackageSearch, Search, SlidersHorizontal, Store as StoreIcon } from "lucide-react";
-import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Input, Pagination, Sheet, SkeletonRows, totalPagesFor, usePagination, useTranslation } from "@tolo/ui";
+import { Button, CategoryIcon, CUSTOMER_PAGE_SIZE, EmptyState, Input, Pagination, Sheet, SkeletonRows, totalPagesFor, useCategoryName, usePagination, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { fetchMerchantRatings } from "../lib/merchantRatings";
 import { ProductCard } from "../components/ProductCard";
@@ -71,6 +71,7 @@ function isSortOption(value: string | null): value is SortOption {
 
 export function Marketplace() {
   const { t } = useTranslation();
+  const categoryName = useCategoryName();
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.get("q") ?? "";
   const activeCategory = searchParams.get("category");
@@ -80,6 +81,8 @@ export function Marketplace() {
   const sort: SortOption = isSortOption(sortParam) ? sortParam : "newest";
 
   const hasActiveFilters = Boolean(search.trim() || activeCategory || minPrice || maxPrice || sort !== "newest");
+  // What the Filter popup itself holds (search is its own box): shown on the button.
+  const appliedFilterCount = [activeCategory, minPrice || maxPrice, sort !== "newest"].filter(Boolean).length;
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -111,7 +114,7 @@ export function Marketplace() {
   useEffect(() => {
     supabase
       .from("categories")
-      .select("id, name, slug, image_url")
+      .select("id, name, name_am, slug, icon, color")
       .eq("is_active", true)
       .order("sort_order")
       .then(({ data }) => setCategories(data ?? []));
@@ -240,37 +243,18 @@ export function Marketplace() {
         </div>
         <Button variant="outline" onClick={() => setFilterSheetOpen(true)} className="flex-shrink-0">
           <SlidersHorizontal className="w-4 h-4" />
-          <span className="hidden sm:inline">{t("marketplace.filters")}</span>
+          <span>{t("marketplace.filters")}</span>
+          {appliedFilterCount > 0 && (
+            <span className="ml-1 min-w-5 h-5 px-1 rounded-full bg-navy text-white text-[11px] leading-5 text-center dark:bg-navy-light">{appliedFilterCount}</span>
+          )}
         </Button>
-      </div>
-
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-        <button
-          onClick={() => updateParam("category", "")}
-          className={`px-3 py-1.5 rounded-full text-sm border flex-shrink-0 ${
-            activeCategory === null ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark"
-          }`}
-        >
-          {t("marketplace.allCategories")}
-        </button>
-        {categories.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => updateParam("category", c.id)}
-            className={`px-3 py-1.5 rounded-full text-sm border flex-shrink-0 ${
-              activeCategory === c.id ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark"
-            }`}
-          >
-            {c.name}
-          </button>
-        ))}
       </div>
 
       {!hasActiveFilters && (
         <>
           <ScrollRow title={t("marketplace.shopByCategory")}>
             {categories.map((c) => (
-              <CategoryTile key={c.id} name={c.name} imageUrl={c.image_url} onClick={() => updateParam("category", c.id)} />
+              <CategoryTile key={c.id} name={categoryName(c)} icon={c.icon} color={c.color} onClick={() => updateParam("category", c.id)} />
             ))}
           </ScrollRow>
 
@@ -337,6 +321,33 @@ export function Marketplace() {
       >
         <div className="space-y-4">
           <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t("marketplace.category")}</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => updateParam("category", "")}
+                aria-pressed={activeCategory === null}
+                className={`px-3 py-1.5 rounded-full text-sm border ${
+                  activeCategory === null ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark"
+                }`}
+              >
+                {t("marketplace.allCategories")}
+              </button>
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => updateParam("category", c.id)}
+                  aria-pressed={activeCategory === c.id}
+                  className={`pl-1.5 pr-3 py-1.5 rounded-full text-sm border inline-flex items-center gap-1.5 ${
+                    activeCategory === c.id ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark"
+                  }`}
+                >
+                  <CategoryIcon icon={c.icon} color={c.color} size="xs" />
+                  {categoryName(c)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
             <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("marketplace.sortBy")}</label>
             <select
               value={sort}
@@ -366,10 +377,11 @@ export function Marketplace() {
               />
             </div>
           </div>
-          {(minPrice || maxPrice || sort !== "newest") && (
+          {appliedFilterCount > 0 && (
             <button
               onClick={() => {
                 const next = new URLSearchParams(searchParams);
+                next.delete("category");
                 next.delete("min_price");
                 next.delete("max_price");
                 next.delete("sort");

@@ -1,4 +1,5 @@
-﻿import { Link } from "react-router-dom";
+﻿import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { Star } from "lucide-react";
 import { LazyImage } from "@tolo/ui";
 
@@ -6,7 +7,7 @@ export interface ShopCardProps {
   slug: string;
   name: string;
   photoUrl: string | null;
-  subtitle: string;
+  subtitle: ReactNode;
   avgRating?: number | null;
   reviewCount?: number;
   className?: string;
@@ -31,7 +32,7 @@ export function ShopCard({ slug, name, photoUrl, subtitle, avgRating, reviewCoun
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mt-0.5">{subtitle}</p>
+        <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mt-0.5">{subtitle}</div>
       </div>
     </Link>
   );

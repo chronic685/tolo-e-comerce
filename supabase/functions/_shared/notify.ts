@@ -50,6 +50,7 @@ const OUT_OF_APP_ALERT_EVENTS = new Set([
   "order_picked_up",
   "order_delivered",
   "order_cancelled",
+  "order_cancelled_by_customer",
   "order_rejected",
   "payment_success",
   "payment_failed",

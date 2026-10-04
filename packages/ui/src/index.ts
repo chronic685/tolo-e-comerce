@@ -29,6 +29,7 @@ export { EmptyState, type EmptyStateProps } from "./components/EmptyState";
 export { Toaster, toast } from "./components/Toaster";
 export { ExportCsvButton, type ExportCsvButtonProps } from "./components/ExportCsvButton";
 export { Sheet, type SheetProps } from "./components/Sheet";
+export { CategoryIcon, CATEGORY_ICON_NAMES, CATEGORY_COLORS, type CategoryIconProps, type CategoryColor } from "./components/CategoryIcon";
 export { Stepper, type StepperProps, type StepperStep } from "./components/Stepper";
 export { LazyImage, type LazyImageProps } from "./components/LazyImage";
 export { Pagination, type PaginationProps } from "./components/Pagination";
@@ -53,6 +54,7 @@ export { LanguageSwitcher, type LanguageSwitcherProps } from "./components/Langu
 
 export { I18nProvider, type I18nContextValue } from "./i18n/I18nProvider";
 export { useTranslation } from "./i18n/useTranslation";
+export { useCategoryName, localizedName, type LocalizableName } from "./i18n/categoryName";
 export { LOCALES, LOCALE_LABELS, LOCALE_STORAGE_KEY, type Locale } from "./i18n/types";
 export { getCurrentLocale } from "./i18n/locale";
 export { getEnglishStrings, getAmharicStrings } from "./i18n/loadTranslations";

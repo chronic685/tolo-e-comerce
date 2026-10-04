@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Clock } from "lucide-react";
-import { SkeletonPage, useTranslation } from "@tolo/ui";
+import { SkeletonPage, useCategoryName, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { closeApp, isEmbedMode } from "../lib/appBridge";
@@ -23,6 +23,7 @@ interface Application {
 export function MerchantApply() {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const categoryName = useCategoryName();
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [latest, setLatest] = useState<Application | null>(null);
@@ -40,7 +41,7 @@ export function MerchantApply() {
     if (!user) return;
     (async () => {
       const [{ data: cats }, { data: apps }, { data: link }] = await Promise.all([
-        supabase.from("categories").select("id, name, slug, image_url").eq("is_active", true).order("sort_order").order("name"),
+        supabase.from("categories").select("id, name, name_am, slug, icon, color").eq("is_active", true).order("sort_order").order("name"),
         // RLS only ever returns this session's own applications.
         supabase
           .from("merchant_applications")
@@ -175,7 +176,7 @@ export function MerchantApply() {
             <option value="">{t("merchantApply.categoryPlaceholder")}</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name}
+                {categoryName(c)}
               </option>
             ))}
           </select>

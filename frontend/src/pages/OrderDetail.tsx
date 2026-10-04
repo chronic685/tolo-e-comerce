@@ -18,7 +18,7 @@ import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
 import { useStatusCopy } from "../lib/orderStatus";
 import { buildTrackSteps, getTrackIndex } from "../lib/orderTrack";
-import { deliveryStageFor, pickDeliveryJob, visibleEta, type DeliveryJobView, type DeliveryStage } from "../lib/deliveryStatus";
+import { canCustomerCancel, deliveryStageFor, pickDeliveryJob, visibleEta, type DeliveryJobView, type DeliveryStage } from "../lib/deliveryStatus";
 import { isVariantReorderable, type VariantAvailability } from "../lib/reorder";
 
 interface OrderItemRow {
@@ -369,11 +369,12 @@ export function OrderDetail() {
               </div>
             );
           })()}
-          {mo.status === "new" && cancellationEnabled && (
+          {canCustomerCancel(mo.status, pickDeliveryJob(mo.delivery_jobs)) && cancellationEnabled && (
             <div className="mb-3">
               {confirmingCancelId === mo.id ? (
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-gray-700 dark:text-gray-300">{t("orders.cancelThisOrder")}</span>
+                  <span className="basis-full text-xs text-gray-500 dark:text-gray-400">{t("orders.cancelRefundNote")}</span>
                   <button
                     onClick={() => cancelOrder(mo.id)}
                     disabled={cancelling === mo.id}

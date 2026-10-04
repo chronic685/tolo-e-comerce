@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
 import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
-import type { Merchant, MerchantDocument } from "../types";
+import type { Category, Merchant, MerchantDocument } from "../types";
 
 const STATUS_FILTERS = ["all", "registered", "under_review", "active", "suspended", "rejected", "closed"];
 
@@ -66,10 +66,24 @@ export function Merchants() {
   const [reasonPromptId, setReasonPromptId] = useState<string | null>(null);
   const [reasonPromptKind, setReasonPromptKind] = useState<"rejected" | "suspended" | null>(null);
   const [reason, setReason] = useState("");
+  const [categories, setCategories] = useState<Pick<Category, "id" | "name">[]>([]);
+
+  useEffect(() => {
+    supabase.from("categories").select("id, name").order("name").then(({ data }) => setCategories(data ?? []));
+  }, []);
+
+  // An admin confirming (or correcting) a merchant's category, e.g. one whose old
+  // free-text value had no exact match. Writes the link only; the legacy text stays.
+  async function setCategory(m: Merchant, categoryId: string) {
+    const { error } = await supabase.from("merchants").update({ category_id: categoryId || null }).eq("id", m.id);
+    if (error) return;
+    const name = categories.find((c) => c.id === categoryId)?.name;
+    setMerchants((prev) => prev.map((x) => (x.id === m.id ? { ...x, category_id: categoryId || null, categories: name ? { name } : null } : x)));
+  }
 
   async function load() {
     setLoading(true);
-    let query = supabase.from("merchants").select("*", { count: "exact" }).order("created_at", { ascending: false });
+    let query = supabase.from("merchants").select("*, categories ( name )", { count: "exact" }).order("created_at", { ascending: false });
     if (statusFilter !== "all") query = query.eq("status", statusFilter);
     const { data, count } = await query.range(from, to);
     setMerchants(data ?? []);
@@ -155,7 +169,7 @@ export function Merchants() {
   // the page on screen.
   async function handleExport() {
     const rows = await fetchAllRows<Merchant>((from, to) => {
-      let query = supabase.from("merchants").select("*").order("created_at", { ascending: false });
+      let query = supabase.from("merchants").select("*, categories ( name )").order("created_at", { ascending: false });
       if (statusFilter !== "all") query = query.eq("status", statusFilter);
       return query.range(from, to);
     });
@@ -164,7 +178,7 @@ export function Merchants() {
       rows.map((m) => ({
         id: m.id,
         business_name: m.business_name,
-        category: m.business_category ?? "",
+        category: m.categories?.name ?? m.business_category ?? "",
         subcategory: m.business_subcategory ?? "",
         phone: m.phone ?? "",
         email: m.email ?? "",
@@ -187,7 +201,7 @@ export function Merchants() {
           <button className="text-left" onClick={() => toggleExpand(m)}>
             <p className="font-medium text-sm hover:text-navy dark:hover:text-navy-light">{m.business_name}</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {[m.business_category, m.business_subcategory].filter(Boolean).join(" · ") || "—"} ·{" "}
+              {m.categories?.name ?? (m.business_category ? t("merchants.legacyCategory", { name: m.business_category }) : t("merchants.categoryNotSet"))} ·{" "}
               {[m.city, m.sub_city].filter(Boolean).join(", ") || m.location || "—"}
             </p>
             {m.status === "rejected" && m.rejection_reason && (
@@ -218,6 +232,22 @@ export function Merchants() {
               <p className="mb-3">
                 {m.owner_full_name ?? "—"} · {m.owner_phone ?? "—"} · {m.owner_email ?? m.email ?? "—"}
               </p>
+
+              <label className="block mb-3">
+                <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("merchants.category")}</span>
+                <select
+                  value={m.category_id ?? ""}
+                  onChange={(e) => setCategory(m, e.target.value)}
+                  className="border rounded-md px-2 py-1 text-sm bg-white dark:bg-navy-dark dark:border-white/20 dark:text-gray-100 max-w-full"
+                >
+                  <option value="">{t("merchants.categoryNotSet")}</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("merchants.performance")}</p>
               {performance ? (

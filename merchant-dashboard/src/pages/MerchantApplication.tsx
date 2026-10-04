@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import {
   toast,
   translateServerError,
+  useCategoryName,
   useTranslation,
 } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
+import type { Category } from "../types";
 
 const REQUIRED_DOCS = [
   { type: "trade_license", labelKey: "merchantApplication.docs.trade_license" },
@@ -18,13 +20,13 @@ const REQUIRED_DOCS = [
 
 export function MerchantApplication() {
   const { t } = useTranslation();
+  const categoryName = useCategoryName();
   const { user } = useAuth();
   const { refresh } = useMerchant();
 
   const [form, setForm] = useState({
     business_name: "",
-    business_category: "",
-    business_subcategory: "",
+    category_id: "",
     phone: "",
     city: "",
     sub_city: "",
@@ -34,12 +36,24 @@ export function MerchantApplication() {
     owner_phone: "",
     owner_email: "",
   });
+  const [categories, setCategories] = useState<Category[]>([]);
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [merchantId, setMerchantId] = useState<string | null>(null);
   const [uploadedTypes, setUploadedTypes] = useState<Set<string>>(new Set());
   const [uploadingType, setUploadingType] = useState<string | null>(null);
+
+  // The same admin-managed list the marketplace and the product form use.
+  useEffect(() => {
+    supabase
+      .from("categories")
+      .select("id, name, name_am, slug")
+      .eq("is_active", true)
+      .order("sort_order")
+      .order("name")
+      .then(({ data }) => setCategories(data ?? []));
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,6 +62,9 @@ export function MerchantApplication() {
       toast.error(t("merchantApplication.agreementRequired"));
       return;
     }
+    // A pick from the categories list, stored as a link (merchants.category_id,
+    // migration 0090), never as typed text. business_category is legacy and not written.
+    if (!categories.some((c) => c.id === form.category_id)) return;
     setSubmitting(true);
 
     const { data, error } = await supabase
@@ -55,8 +72,7 @@ export function MerchantApplication() {
       .insert({
         owner_id: user.id,
         business_name: form.business_name,
-        business_category: form.business_category,
-        business_subcategory: form.business_subcategory || null,
+        category_id: form.category_id,
         phone: form.phone,
         email: user.email,
         location: [form.city, form.sub_city].filter(Boolean).join(", ") || null,
@@ -163,20 +179,19 @@ export function MerchantApplication() {
           required
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
-        <div className="grid grid-cols-2 gap-2">
-          <input
-            placeholder={t("merchantApplication.categoryPlaceholder")}
-            value={form.business_category}
-            onChange={(e) => setForm({ ...form, business_category: e.target.value })}
-            className="w-full border rounded-md px-3 py-2 text-sm"
-          />
-          <input
-            placeholder={t("merchantApplication.subcategoryPlaceholder")}
-            value={form.business_subcategory}
-            onChange={(e) => setForm({ ...form, business_subcategory: e.target.value })}
-            className="w-full border rounded-md px-3 py-2 text-sm"
-          />
-        </div>
+        <select
+          value={form.category_id}
+          onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+          required
+          className="w-full border rounded-md px-3 py-2 text-sm"
+        >
+          <option value="">{t("merchantApply.categoryPlaceholder")}</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {categoryName(c)}
+            </option>
+          ))}
+        </select>
         <input
           placeholder={t("merchantApplication.businessPhone")}
           value={form.phone}
