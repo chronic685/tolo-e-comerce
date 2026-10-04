@@ -62,11 +62,9 @@ export function MerchantApplication() {
       toast.error(t("merchantApplication.agreementRequired"));
       return;
     }
-    // A pick from the categories list, never typed text. merchants has no
-    // category_id column, so the category's name goes into business_category,
-    // the same value approving a marketplace application writes (migration 0075).
-    const category = categories.find((c) => c.id === form.category_id);
-    if (!category) return;
+    // A pick from the categories list, stored as a link (merchants.category_id,
+    // migration 0090), never as typed text. business_category is legacy and not written.
+    if (!categories.some((c) => c.id === form.category_id)) return;
     setSubmitting(true);
 
     const { data, error } = await supabase
@@ -74,7 +72,7 @@ export function MerchantApplication() {
       .insert({
         owner_id: user.id,
         business_name: form.business_name,
-        business_category: category.name,
+        category_id: form.category_id,
         phone: form.phone,
         email: user.email,
         location: [form.city, form.sub_city].filter(Boolean).join(", ") || null,

@@ -13,6 +13,7 @@ beforeAll(async () => {
     "0073_merchant_applications.sql",
     "0074_merchant_application_licenses_storage.sql",
     "0075_merchant_application_approval.sql",
+    "0090_merchant_category_id.sql",
   ]);
   category = await h.createCategory();
   admin = await h.createUser({ adminTier: "admin" });
@@ -64,7 +65,8 @@ describe("approve_merchant_application", () => {
       status: "active",
       approved_by: admin.id,
     });
-    expect((merchant.rows[0] as { business_category: string }).business_category).toMatch(/^Category /);
+    // The category is a link now, not text copied into business_category (0090).
+    expect(merchant.rows[0]).toMatchObject({ category_id: category, business_category: null });
 
     const app = await h.db.query<Record<string, unknown>>("select * from merchant_applications where id = $1", [appId]);
     expect(app.rows[0]).toMatchObject({ status: "approved", merchant_id: merchantId, reviewed_by: admin.id, admin_note: "Welcome" });

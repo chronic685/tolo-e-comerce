@@ -183,7 +183,7 @@ export function Categories() {
                     aria-label={name}
                     aria-pressed={draft.icon === name}
                     onClick={() => setDraft({ ...draft, icon: name })}
-                    className={`rounded-full p-0.5 border-2 ${draft.icon === name ? "border-navy dark:border-navy-light" : "border-transparent"}`}
+                    className={`rounded-full p-1 border-2 ${draft.icon === name ? "border-navy dark:border-navy-light" : "border-transparent"}`}
                   >
                     <CategoryIcon icon={name} color={draft.color} />
                   </button>
@@ -201,7 +201,7 @@ export function Categories() {
                     aria-label={t(COLOR_LABEL_KEYS[color])}
                     aria-pressed={draft.color === color}
                     onClick={() => setDraft({ ...draft, color })}
-                    className={`rounded-full p-0.5 border-2 ${draft.color === color ? "border-navy dark:border-navy-light" : "border-transparent"}`}
+                    className={`rounded-full p-1 border-2 ${draft.color === color ? "border-navy dark:border-navy-light" : "border-transparent"}`}
                   >
                     <CategoryIcon icon="tag" color={color} />
                   </button>
