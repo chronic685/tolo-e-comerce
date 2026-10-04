@@ -187,6 +187,7 @@ describe("cancel_order_fulfilment: stock", () => {
 describe("cancel_order_fulfilment: delivery", () => {
   it("cancels an invoked job and its deliveries row", async () => {
     const s = await setup({ paid: true, orderStatus: "ready_for_pickup", jobStatus: "invoked" });
+    await h.db.query("update deliveries set status = 'pending' where merchant_order_id = $1", [s.merchantOrderId]);
     await cancel(s.merchantOrderId);
     const job = await jobRow(s.merchantOrderId);
     expect(job.status).toBe("cancelled");
@@ -194,10 +195,11 @@ describe("cancel_order_fulfilment: delivery", () => {
     expect(await deliveryStatus(s.merchantOrderId)).toBe("cancelled");
   });
 
-  it("cancels an accepted job too (a driver is assigned but has not picked up)", async () => {
+  it("leaves a job a driver has accepted alone (order-status never lets a customer get this far)", async () => {
     const s = await setup({ paid: true, orderStatus: "ready_for_pickup", jobStatus: "accepted" });
     await cancel(s.merchantOrderId);
-    expect((await jobRow(s.merchantOrderId)).status).toBe("cancelled");
+    expect((await jobRow(s.merchantOrderId)).status).toBe("accepted");
+    expect(await deliveryStatus(s.merchantOrderId)).toBe("assigned");
   });
 
   it("leaves a picked_up job alone", async () => {

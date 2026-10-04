@@ -1,4 +1,4 @@
--- Customer order cancellation, any time before the driver has the parcel.
+-- Customer order cancellation, any time until a driver is assigned.
 --
 -- 1. delivery_jobs / deliveries get a 'cancelled' state. A job the marketplace
 --    cancels (the customer cancelled the order) is final: a late callback from
@@ -133,9 +133,10 @@ $$;
 -- at fulfilment (0065) gave their stock back when they were removed, so they
 -- are skipped. The release is clamped to what is actually reserved, as in 0084.
 --
--- Delivery: an 'invoked' or 'accepted' job (nobody has the parcel yet) and its
--- deliveries row are marked cancelled. A picked_up/delivered job is left alone;
--- order-status refuses to cancel those before ever calling this.
+-- Delivery: an 'invoked' job (no driver has taken it yet) and its deliveries
+-- row are marked cancelled. A job a driver has accepted (accepted, picked_up,
+-- delivered) is left alone; order-status refuses a customer cancel from then on
+-- and never calls this for one.
 create or replace function cancel_order_fulfilment(p_merchant_order_id uuid)
 returns void
 language plpgsql security definer set search_path = public
@@ -173,10 +174,10 @@ begin
 
   update delivery_jobs
   set status = 'cancelled', cancelled_at = now(), eta_at = null
-  where merchant_order_id = p_merchant_order_id and status in ('invoked', 'accepted');
+  where merchant_order_id = p_merchant_order_id and status = 'invoked';
 
   update deliveries set status = 'cancelled'
-  where merchant_order_id = p_merchant_order_id and status in ('pending', 'assigned');
+  where merchant_order_id = p_merchant_order_id and status = 'pending';
 end;
 $$;
 

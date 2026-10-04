@@ -47,8 +47,9 @@ export function visibleEta(job: DeliveryJobView, now: Date = new Date()): string
 const CUSTOMER_CANCELLABLE = new Set(["new", "accepted", "processing", "ready_for_pickup"]);
 
 /** Whether to offer "Cancel order": a cancellable status, and no delivery job
- * that has already been picked up (it can lead the order status by a moment). */
+ * a driver has taken on (accepted or later -- the job can lead the order status
+ * by a moment, which is why it is checked too). */
 export function canCustomerCancel(orderStatus: string, job: DeliveryJobView | null): boolean {
   if (!CUSTOMER_CANCELLABLE.has(orderStatus)) return false;
-  return !job || (job.status !== "picked_up" && job.status !== "delivered");
+  return !job || (job.status !== "accepted" && job.status !== "picked_up" && job.status !== "delivered");
 }

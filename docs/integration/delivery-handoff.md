@@ -263,6 +263,25 @@ npx supabase functions deploy delivery-handoff delivery-status-callback order-st
 must already be set. Orders that went ready *before* switching on have no job
 and aren't sent retroactively.
 
+## Customer cancellation
+
+A customer can cancel an order from placement until a driver is assigned: any
+order status before `picked_up`, and only while the delivery job is `invoked`
+(or there is no job yet). Once the job is `accepted` or later, the
+`order-status` function refuses (`400`). A cancel marks an `invoked` job and its
+`deliveries` row `cancelled` (final: a late callback is refused with
+`invalid_transition`), refunds a paid order through the usual flow, and notifies
+the merchant.
+
+**Known follow-up, not built:** the marketplace tells the Tolo Delivery app
+nothing when it cancels. A job that was already sent (`dispatched_at` set) and
+is still `invoked` stays open on the Tolo side, so a driver can still see it and
+try to accept it; that `accepted` callback is then refused, which the Tolo app
+has to handle. Once the real Tolo Delivery backend is connected, a cancel-notify
+call is needed for that window. The same call would be needed for the
+accepted-but-not-yet-picked-up window if cancelling were ever allowed after a
+driver accepts (it is deliberately blocked today).
+
 ## Not covered
 
 - **Live driver location / GPS tracking**: a separate backlog item. The

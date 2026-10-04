@@ -4,8 +4,8 @@ import { callFunction } from "../helpers.ts";
 
 // Phase 5d, item 8 added a customer-authorized "new" -> "cancelled" transition
 // to order-status; migration 0088 widened it to every status before the driver
-// has the parcel (new, accepted, processing, ready_for_pickup), blocked once the
-// delivery job is picked_up. Gated by the same
+// has a driver (new, accepted, processing, ready_for_pickup), blocked once the
+// delivery job is accepted or later. Gated by the same
 // system_settings toggle FavoritesContext already reads for a different
 // feature, and reusing the SAME release_stock reversal block item 1 added
 // for merchant reject/cancel — not a separate mechanism.
@@ -139,10 +139,10 @@ describe("order-status: customer self-cancellation", () => {
     expect(await reservedQuantity(variantId)).toBe(reservedBefore - 1);
   });
 
-  it("refuses cancellation once the driver has picked the order up (job status, even if the order status lags)", async () => {
+  it("refuses cancellation once a driver has accepted the job, even if the order status lags", async () => {
     const merchantOrderId = await createDisposableOrder(customerUserId, addressId, variantId);
     await db.from("merchant_orders").update({ status: "ready_for_pickup" }).eq("id", merchantOrderId);
-    await db.from("delivery_jobs").insert({ merchant_order_id: merchantOrderId, status: "picked_up", driver_ref: "qa-driver" });
+    await db.from("delivery_jobs").insert({ merchant_order_id: merchantOrderId, status: "accepted", driver_ref: "qa-driver" });
 
     const res = await callFunction("order-status", {
       token: customerToken,

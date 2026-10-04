@@ -15,11 +15,12 @@ const MERCHANT_TRANSITIONS: Record<string, string[]> = {
 };
 
 // The only customer-initiated transition. A customer may cancel from placement
-// until the driver has the parcel: every status before "picked_up". (It used to
-// stop at "new", the merchant's commitment point; widened so a customer is never
+// until a driver is assigned: every order status before "picked_up", and only
+// while the delivery job (if any) is still "invoked" -- once a driver has
+// accepted it (job "accepted" or later) the cancel is refused. (It used to stop
+// at "new", the merchant's commitment point; widened so a customer is never
 // stuck with an order they no longer want while it is still on the merchant's
-// side.) The delivery leg is the real cut-off: once the delivery job is
-// picked_up or later, or the order itself is, nothing here applies. Money and
+// side.) The delivery leg is the real cut-off. Money and
 // stock are made whole by the same steps a merchant reject/cancel takes.
 const CUSTOMER_TRANSITIONS: Record<string, string[]> = {
   new: ["cancelled"],
@@ -28,10 +29,11 @@ const CUSTOMER_TRANSITIONS: Record<string, string[]> = {
   ready_for_pickup: ["cancelled"],
 };
 
-// Order statuses (and delivery job statuses) at which the parcel is with a
-// driver or beyond, so a customer can no longer cancel.
+// Order statuses and delivery job statuses at which a driver is assigned or the
+// parcel is beyond that, so a customer can no longer cancel. (A "failed" job
+// never reached a driver's hands, and "cancelled" is ours, so neither blocks.)
 const WITH_DRIVER_ORDER_STATUSES = ["picked_up", "delivered", "completed"];
-const WITH_DRIVER_JOB_STATUSES = ["picked_up", "delivered"];
+const WITH_DRIVER_JOB_STATUSES = ["accepted", "picked_up", "delivered"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -60,7 +62,7 @@ Deno.serve(async (req) => {
     const customerAllowed = CUSTOMER_TRANSITIONS[mo.status] ?? [];
     if (!merchantAllowed.includes(status) && !customerAllowed.includes(status)) {
       if (status === "cancelled" && WITH_DRIVER_ORDER_STATUSES.includes(mo.status)) {
-        return jsonResponse({ error: "This order can no longer be cancelled because it is already with the driver." }, 400);
+        return jsonResponse({ error: "This order can no longer be cancelled because a driver has already been assigned to it." }, 400);
       }
       return jsonResponse(
         { error: `Cannot move from ${mo.status} to ${status}` },
@@ -90,10 +92,10 @@ Deno.serve(async (req) => {
       }
 
       // The delivery leg decides, not only the order status: a driver may have
-      // picked the parcel up a moment before the order status caught up.
+      // accepted the job a moment before anything shows on the order.
       const { data: job } = await db.from("delivery_jobs").select("status").eq("merchant_order_id", mo.id).maybeSingle();
       if (job && WITH_DRIVER_JOB_STATUSES.includes(job.status)) {
-        return jsonResponse({ error: "This order can no longer be cancelled because it is already with the driver." }, 400);
+        return jsonResponse({ error: "This order can no longer be cancelled because a driver has already been assigned to it." }, 400);
       }
     } else if (!merchantAllowed.includes(status)) {
       return jsonResponse({ error: "Not authorized for this order" }, 403);

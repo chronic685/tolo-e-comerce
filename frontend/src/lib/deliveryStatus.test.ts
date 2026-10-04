@@ -50,13 +50,14 @@ describe("canCustomerCancel", () => {
     }
   });
 
-  it("allows it while a job exists but nobody has picked up (invoked / accepted / failed / cancelled)", () => {
-    for (const s of ["invoked", "accepted", "failed", "cancelled"] as const) {
+  it("allows it while a job exists but no driver has accepted it (invoked / failed / cancelled)", () => {
+    for (const s of ["invoked", "failed", "cancelled"] as const) {
       expect(canCustomerCancel("ready_for_pickup", job(s))).toBe(true);
     }
   });
 
-  it("blocks it once the job is picked up or delivered, even if the order status has not caught up", () => {
+  it("blocks it once a driver has accepted the job or later, even if the order status has not caught up", () => {
+    expect(canCustomerCancel("ready_for_pickup", job("accepted"))).toBe(false);
     expect(canCustomerCancel("ready_for_pickup", job("picked_up"))).toBe(false);
     expect(canCustomerCancel("ready_for_pickup", job("delivered"))).toBe(false);
   });
