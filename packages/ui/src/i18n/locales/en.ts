@@ -870,8 +870,6 @@ export const en: EnglishStrings = {
   "merchantApplication.becomeAMerchantTitle": "Become a Tolo Merchant",
   "merchantApplication.becomeAMerchantDescription": "Submit your business details. Tolo will review your documents and approve your account before your store goes live.",
   "merchantApplication.businessName": "Business name",
-  "merchantApplication.categoryPlaceholder": "Category (e.g. Fashion)",
-  "merchantApplication.subcategoryPlaceholder": "Subcategory (e.g. T-Shirts)",
   "merchantApplication.businessPhone": "Business phone",
   "merchantApplication.subCity": "Sub-city",
   "merchantApplication.woreda": "Woreda",

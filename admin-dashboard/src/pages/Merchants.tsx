@@ -187,7 +187,6 @@ export function Merchants() {
           <button className="text-left" onClick={() => toggleExpand(m)}>
             <p className="font-medium text-sm hover:text-navy dark:hover:text-navy-light">{m.business_name}</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {[m.business_category, m.business_subcategory].filter(Boolean).join(" · ") || "—"} ·{" "}
               {[m.city, m.sub_city].filter(Boolean).join(", ") || m.location || "—"}
             </p>
             {m.status === "rejected" && m.rejection_reason && (

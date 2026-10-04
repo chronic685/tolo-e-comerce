@@ -922,8 +922,6 @@ export const am: AmharicStrings = {
   "merchantApplication.becomeAMerchantTitle": mt("የቶሎ ነጋዴ ይሁኑ"),
   "merchantApplication.becomeAMerchantDescription": mt("የንግድ ዝርዝሮችዎን ያስገቡ። ቶሎ ሰነዶችዎን ይገምግማል እና ሱቅዎ ገና ከመከፈቱ በፊት መለያዎን ያጸድቃል።"),
   "merchantApplication.businessName": mt("የንግድ ስም"),
-  "merchantApplication.categoryPlaceholder": mt("ምድብ (ለምሳሌ ፋሽን)"),
-  "merchantApplication.subcategoryPlaceholder": mt("ንዑስ ምድብ (ለምሳሌ ቲ-ሸርት)"),
   "merchantApplication.businessPhone": mt("የንግድ ስልክ"),
   "merchantApplication.subCity": mt("ክፍለ ከተማ"),
   "merchantApplication.woreda": mt("ወረዳ"),
