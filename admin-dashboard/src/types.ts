@@ -35,6 +35,10 @@ export interface MerchantDocument {
 export interface Category {
   id: string;
   name: string;
+  /** Optional Amharic name, shown to customers in Amharic (migration 0089). */
+  name_am: string | null;
+  icon: string;
+  color: string;
   slug: string;
   parent_id: string | null;
   is_active: boolean;

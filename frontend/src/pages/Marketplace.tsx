@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { PackageSearch, Search, SlidersHorizontal, Store as StoreIcon } from "lucide-react";
-import { Button, CUSTOMER_PAGE_SIZE, EmptyState, Input, Pagination, Sheet, SkeletonRows, totalPagesFor, usePagination, useTranslation } from "@tolo/ui";
+import { Button, CategoryIcon, CUSTOMER_PAGE_SIZE, EmptyState, Input, Pagination, Sheet, SkeletonRows, totalPagesFor, useCategoryName, usePagination, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { fetchMerchantRatings } from "../lib/merchantRatings";
 import { ProductCard } from "../components/ProductCard";
@@ -71,6 +71,7 @@ function isSortOption(value: string | null): value is SortOption {
 
 export function Marketplace() {
   const { t } = useTranslation();
+  const categoryName = useCategoryName();
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.get("q") ?? "";
   const activeCategory = searchParams.get("category");
@@ -113,7 +114,7 @@ export function Marketplace() {
   useEffect(() => {
     supabase
       .from("categories")
-      .select("id, name, slug, image_url")
+      .select("id, name, name_am, slug, icon, color")
       .eq("is_active", true)
       .order("sort_order")
       .then(({ data }) => setCategories(data ?? []));
@@ -253,7 +254,7 @@ export function Marketplace() {
         <>
           <ScrollRow title={t("marketplace.shopByCategory")}>
             {categories.map((c) => (
-              <CategoryTile key={c.id} name={c.name} imageUrl={c.image_url} onClick={() => updateParam("category", c.id)} />
+              <CategoryTile key={c.id} name={categoryName(c)} icon={c.icon} color={c.color} onClick={() => updateParam("category", c.id)} />
             ))}
           </ScrollRow>
 
@@ -336,11 +337,12 @@ export function Marketplace() {
                   key={c.id}
                   onClick={() => updateParam("category", c.id)}
                   aria-pressed={activeCategory === c.id}
-                  className={`px-3 py-1.5 rounded-full text-sm border ${
+                  className={`pl-1.5 pr-3 py-1.5 rounded-full text-sm border inline-flex items-center gap-1.5 ${
                     activeCategory === c.id ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark"
                   }`}
                 >
-                  {c.name}
+                  <CategoryIcon icon={c.icon} color={c.color} size="xs" />
+                  {categoryName(c)}
                 </button>
               ))}
             </div>

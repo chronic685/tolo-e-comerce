@@ -3,6 +3,7 @@ import { CheckCircle2 } from "lucide-react";
 import {
   toast,
   translateServerError,
+  useCategoryName,
   useTranslation,
 } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
@@ -19,6 +20,7 @@ const REQUIRED_DOCS = [
 
 export function MerchantApplication() {
   const { t } = useTranslation();
+  const categoryName = useCategoryName();
   const { user } = useAuth();
   const { refresh } = useMerchant();
 
@@ -46,7 +48,7 @@ export function MerchantApplication() {
   useEffect(() => {
     supabase
       .from("categories")
-      .select("id, name, slug")
+      .select("id, name, name_am, slug")
       .eq("is_active", true)
       .order("sort_order")
       .order("name")
@@ -188,7 +190,7 @@ export function MerchantApplication() {
           <option value="">{t("merchantApply.categoryPlaceholder")}</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.name}
+              {categoryName(c)}
             </option>
           ))}
         </select>

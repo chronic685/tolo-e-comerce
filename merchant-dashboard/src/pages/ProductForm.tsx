@@ -5,6 +5,7 @@ import {
   PRODUCT_IMAGE_PRESET,
   toast,
   translateServerError,
+  useCategoryName,
   useTranslation,
 } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
@@ -29,6 +30,7 @@ interface ImageDraft {
 
 export function ProductForm() {
   const { t } = useTranslation();
+  const categoryName = useCategoryName();
   const { id } = useParams();
   const isNew = id === "new";
   const { merchant, store } = useMerchant();
@@ -85,7 +87,7 @@ export function ProductForm() {
   }, [merchant, categoryId]);
 
   useEffect(() => {
-    supabase.from("categories").select("id, name, slug").eq("is_active", true).then(({ data }) => setCategories(data ?? []));
+    supabase.from("categories").select("id, name, name_am, slug").eq("is_active", true).then(({ data }) => setCategories(data ?? []));
   }, []);
 
   useEffect(() => {
@@ -208,7 +210,7 @@ export function ProductForm() {
           <option value="">{t("productForm.selectCategory")}</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.name}
+              {categoryName(c)}
             </option>
           ))}
         </select>

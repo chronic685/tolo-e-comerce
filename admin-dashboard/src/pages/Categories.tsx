@@ -4,6 +4,10 @@ import {
   ADMIN_PAGE_SIZE,
   Badge,
   Button,
+  CATEGORY_COLORS,
+  CATEGORY_ICON_NAMES,
+  CategoryIcon,
+  type CategoryColor,
   DataTable,
   Pagination,
   toast,
@@ -23,6 +27,24 @@ function slugify(name: string) {
     .replace(/(^-|-$)/g, "");
 }
 
+const COLOR_LABEL_KEYS: Record<CategoryColor, string> = {
+  navy: "adminCategories.color.navy",
+  rose: "adminCategories.color.rose",
+  amber: "adminCategories.color.amber",
+  violet: "adminCategories.color.violet",
+  emerald: "adminCategories.color.emerald",
+  sky: "adminCategories.color.sky",
+  teal: "adminCategories.color.teal",
+  orange: "adminCategories.color.orange",
+};
+
+interface Draft {
+  name: string;
+  nameAm: string;
+  icon: string;
+  color: string;
+}
+
 export function Categories() {
   const { t } = useTranslation();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -30,7 +52,7 @@ export function Categories() {
   const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE });
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState("");
+  const [draft, setDraft] = useState<Draft>({ name: "", nameAm: "", icon: "tag", color: "navy" });
   // How many products currently reference the category pending deletion —
   // fetched on demand so the confirmation can say "12 products will become
   // uncategorized" rather than a generic warning.
@@ -78,25 +100,24 @@ export function Categories() {
 
   function startEdit(c: Category) {
     setEditingId(c.id);
-    setEditingName(c.name);
+    setDraft({ name: c.name, nameAm: c.name_am ?? "", icon: c.icon, color: c.color });
   }
 
-  async function handleRename(c: Category) {
-    const name = editingName.trim();
-    if (!name || name === c.name) {
-      setEditingId(null);
-      return;
-    }
+  async function handleSave(c: Category) {
+    const name = draft.name.trim();
+    if (!name) return;
+    const nameAm = draft.nameAm.trim() || null;
     // Products reference category_id, not the name/slug, so renaming never
     // touches or breaks their categorization — same as PricingRules.tsx's
     // own note that editing a rule only ever affects what resolves going
-    // forward, nothing already in place.
-    const { error } = await supabase.from("categories").update({ name, slug: slugify(name) }).eq("id", c.id);
+    // forward, nothing already in place. The slug only follows an actual rename.
+    const changes = { name, name_am: nameAm, icon: draft.icon, color: draft.color, ...(name !== c.name ? { slug: slugify(name) } : {}) };
+    const { error } = await supabase.from("categories").update(changes).eq("id", c.id);
     if (error) {
       toast.error(translateServerError(error.message, t));
       return;
     }
-    setCategories((prev) => prev.map((cat) => (cat.id === c.id ? { ...cat, name, slug: slugify(name) } : cat)));
+    setCategories((prev) => prev.map((cat) => (cat.id === c.id ? { ...cat, ...changes } : cat)));
     setEditingId(null);
   }
 
@@ -129,18 +150,73 @@ export function Categories() {
       header: t("common.name"),
       render: (c) =>
         editingId === c.id ? (
-          <input
-            autoFocus
-            value={editingName}
-            onChange={(e) => setEditingName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleRename(c);
-              if (e.key === "Escape") setEditingId(null);
-            }}
-            className="border rounded-md px-2 py-1 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
-          />
+          <div className="space-y-2 min-w-[14rem]">
+            <input
+              autoFocus
+              value={draft.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSave(c);
+                if (e.key === "Escape") setEditingId(null);
+              }}
+              className="w-full border rounded-md px-2 py-1 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
+            />
+            <input
+              value={draft.nameAm}
+              onChange={(e) => setDraft({ ...draft, nameAm: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSave(c);
+                if (e.key === "Escape") setEditingId(null);
+              }}
+              placeholder={t("adminCategories.nameAmPlaceholder")}
+              aria-label={t("adminCategories.nameAm")}
+              className="w-full border rounded-md px-2 py-1 text-sm dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
+            />
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t("adminCategories.icon")}</p>
+              <div className="flex flex-wrap gap-1">
+                {CATEGORY_ICON_NAMES.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    title={name}
+                    aria-label={name}
+                    aria-pressed={draft.icon === name}
+                    onClick={() => setDraft({ ...draft, icon: name })}
+                    className={`rounded-full p-0.5 border-2 ${draft.icon === name ? "border-navy dark:border-navy-light" : "border-transparent"}`}
+                  >
+                    <CategoryIcon icon={name} color={draft.color} />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t("adminCategories.color")}</p>
+              <div className="flex flex-wrap gap-1">
+                {CATEGORY_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    title={t(COLOR_LABEL_KEYS[color])}
+                    aria-label={t(COLOR_LABEL_KEYS[color])}
+                    aria-pressed={draft.color === color}
+                    onClick={() => setDraft({ ...draft, color })}
+                    className={`rounded-full p-0.5 border-2 ${draft.color === color ? "border-navy dark:border-navy-light" : "border-transparent"}`}
+                  >
+                    <CategoryIcon icon="tag" color={color} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         ) : (
-          <span className="text-sm">{c.name}</span>
+          <div className="flex items-center gap-2">
+            <CategoryIcon icon={c.icon} color={c.color} />
+            <div>
+              <p className="text-sm">{c.name}</p>
+              {c.name_am && <p className="text-xs text-gray-500 dark:text-gray-400">{c.name_am}</p>}
+            </div>
+          </div>
         ),
       filterValue: (c) => c.name,
       sortValue: (c) => c.name,
@@ -159,7 +235,7 @@ export function Categories() {
         <div className="flex items-center gap-2 justify-end">
           {editingId === c.id ? (
             <>
-              <Button size="sm" variant="outline" onClick={() => handleRename(c)}>
+              <Button size="sm" variant="outline" onClick={() => handleSave(c)}>
                 {t("common.save")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
@@ -168,7 +244,7 @@ export function Categories() {
             </>
           ) : (
             <Button size="sm" variant="outline" onClick={() => startEdit(c)}>
-              {t("adminCategories.rename")}
+              {t("adminCategories.edit")}
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={() => toggleActive(c)}>
@@ -183,7 +259,7 @@ export function Categories() {
   ];
 
   return (
-    <div className="max-w-lg">
+    <div className="max-w-3xl">
       <h1 className="text-xl font-bold mb-4 dark:text-gray-100">{t("adminCategories.title")}</h1>
 
       <form onSubmit={handleAdd} className="flex gap-2 mb-4">

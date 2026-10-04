@@ -1,8 +1,11 @@
 export interface Category {
   id: string;
   name: string;
+  /** Optional Amharic name (categories.name_am); shown instead of `name` in Amharic. */
+  name_am: string | null;
   slug: string;
-  image_url: string | null;
+  icon: string;
+  color: string;
 }
 
 export interface ProductImage {

@@ -7,9 +7,11 @@ import {
   LazyImage,
   Pagination,
   SkeletonPage,
+  CategoryIcon,
   SkeletonRows,
   todaysHours,
   totalPagesFor,
+  useCategoryName,
   usePagination,
   useTranslation,
 } from "@tolo/ui";
@@ -30,6 +32,9 @@ const PRODUCT_SELECT = `
 interface StoreCategory {
   id: string;
   name: string;
+  name_am: string | null;
+  icon: string;
+  color: string;
 }
 
 // A storefront is only shown as open when BOTH the store's own status
@@ -55,6 +60,7 @@ function isStoreOpen(store: StorefrontStore): boolean {
 
 export function Storefront() {
   const { t } = useTranslation();
+  const categoryName = useCategoryName();
   const { slug } = useParams();
   // undefined = still loading, null = no store matches this slug at all.
   const [store, setStore] = useState<StorefrontStore | null | undefined>(undefined);
@@ -96,16 +102,16 @@ export function Storefront() {
     // itself, just what's needed to build the filter pills.
     supabase
       .from("products")
-      .select("category_id, categories ( name )")
+      .select("category_id, categories ( name, name_am, icon, color )")
       .eq("store_id", store.id)
       .eq("status", "published")
       .then(({ data }) => {
-        const rows = (data as unknown as { category_id: string | null; categories: { name: string } | null }[]) ?? [];
-        const seen = new Map<string, string>();
+        const rows = (data as unknown as { category_id: string | null; categories: Omit<StoreCategory, "id"> | null }[]) ?? [];
+        const seen = new Map<string, StoreCategory>();
         for (const row of rows) {
-          if (row.category_id && row.categories?.name) seen.set(row.category_id, row.categories.name);
+          if (row.category_id && row.categories?.name) seen.set(row.category_id, { id: row.category_id, ...row.categories });
         }
-        setCategories([...seen.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)));
+        setCategories([...seen.values()].sort((a, b) => a.name.localeCompare(b.name)));
       });
   }, [store]);
 
@@ -215,9 +221,10 @@ export function Storefront() {
             <button
               key={c.id}
               onClick={() => setActiveCategory(c.id)}
-              className={`px-3 py-1.5 rounded-full text-sm border ${activeCategory === c.id ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark"}`}
+              className={`pl-1.5 pr-3 py-1.5 rounded-full text-sm border inline-flex items-center gap-1.5 ${activeCategory === c.id ? "bg-navy text-white border-navy" : "bg-white dark:bg-navy-dark"}`}
             >
-              {c.name}
+              <CategoryIcon icon={c.icon} color={c.color} size="xs" />
+              {categoryName(c)}
             </button>
           ))}
         </div>
