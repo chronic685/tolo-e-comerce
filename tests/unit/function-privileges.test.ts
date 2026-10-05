@@ -88,6 +88,16 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   "merchant_orders_unacknowledged",
   "returns_awaiting_refund",
 
+  // Product archive / delete (migrations 0091, 0092): called by the merchant and admin
+  // dashboards as authenticated. None is security definer except product_has_orders,
+  // which checks for itself that the caller is a member of the product's merchant (or
+  // admin staff) and raises otherwise. archive_products and restore_products run as the
+  // caller, so RLS decides which products they can touch and a trigger on products
+  // decides what may be done to them (who can restore a staff-archived product).
+  "product_has_orders",
+  "archive_products",
+  "restore_products",
+
   // Group 4, item 17 (migration 0067): admin finance reconciliation
   // report (Finance.tsx). Both cross multiple tables as SECURITY DEFINER
   // (rather than being gated by any single table's own RLS), so each has
