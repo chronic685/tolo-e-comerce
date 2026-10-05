@@ -62,6 +62,8 @@ const MATCHERS: Matcher[] = [
   exact("This order is already paid.", "errors.orderAlreadyPaid"),
   exact("This order was cancelled and can no longer be paid.", "errors.orderCancelledCannotPay"),
   exact("Order cancellation is currently disabled", "errors.orderCancellationDisabled"),
+  includes("only Tolo staff can", "errors.archivedByTolo"),
+  includes("has been ordered, so it cannot be deleted", "errors.productHasOrders"),
   exact("This order can no longer be cancelled because a driver has already been assigned to it.", "errors.orderWithDriver"),
   exact("This order's status just changed. Please refresh and try again.", "errors.orderStatusChanged"),
   exact("This account does not have Tolo staff access.", "errors.notToloStaff"),

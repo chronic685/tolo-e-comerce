@@ -29,6 +29,7 @@ export { EmptyState, type EmptyStateProps } from "./components/EmptyState";
 export { Toaster, toast } from "./components/Toaster";
 export { ExportCsvButton, type ExportCsvButtonProps } from "./components/ExportCsvButton";
 export { Sheet, type SheetProps } from "./components/Sheet";
+export { ConfirmDialog, type ConfirmDialogProps } from "./components/ConfirmDialog";
 export { CategoryIcon, CATEGORY_ICON_NAMES, CATEGORY_COLORS, type CategoryIconProps, type CategoryColor } from "./components/CategoryIcon";
 export { Stepper, type StepperProps, type StepperStep } from "./components/Stepper";
 export { LazyImage, type LazyImageProps } from "./components/LazyImage";

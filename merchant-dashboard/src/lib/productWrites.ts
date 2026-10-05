@@ -31,7 +31,7 @@ export interface ProductInput {
   slug: string;
   description: string | null;
   basePrice: number;
-  status: "draft" | "published" | "submitted";
+  status: "draft" | "published" | "submitted" | "paused" | "approved";
 }
 
 export type SaveProductResult = { ok: true; productId: string } | { ok: false; error: string };
