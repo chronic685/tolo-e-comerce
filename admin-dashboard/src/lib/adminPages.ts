@@ -17,7 +17,6 @@ import {
   Settings as SettingsIcon,
   FileBarChart,
   Image as ImageIcon,
-  FileCheck2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,15 +54,8 @@ export const ADMIN_PAGES: AdminPage[] = [
   { key: "refunds", labelKey: "nav.refunds", to: "/refunds", icon: Undo2, group: "Operations" },
   { key: "support", labelKey: "nav.support", to: "/support", icon: LifeBuoy, group: "Operations" },
 
+  // Merchants and Merchant Applications are one page: the Applications tab (admin tier only) lives inside it.
   { key: "merchants", labelKey: "nav.merchants", to: "/merchants", icon: Store, group: "Catalog" },
-  {
-    key: "merchant_applications",
-    labelKey: "merchantApplications.title",
-    to: "/merchant-applications",
-    icon: FileCheck2,
-    group: "Catalog",
-    adminTierOnly: true,
-  },
   { key: "products", labelKey: "nav.products", to: "/products", icon: Package, group: "Catalog" },
   { key: "customers", labelKey: "nav.customers", to: "/customers", icon: UsersIcon, group: "Catalog" },
   { key: "banners", labelKey: "nav.banners", to: "/banners", icon: ImageIcon, group: "Catalog" },

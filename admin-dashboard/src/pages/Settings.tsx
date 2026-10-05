@@ -374,7 +374,8 @@ export function Settings() {
           [
             ["self_registration_enabled", "settings.merchantSelfRegister"],
             ["bulk_upload_enabled", "settings.bulkProductUpload"],
-            ["staff_accounts_enabled", "settings.merchantStaffAccounts"],
+            // staff_accounts_enabled: the merchant dashboard no longer has a Staff page, so no toggle here. The setting
+            // row and the merchant_staff backend are untouched, and the saved value is preserved on save.
             ["multiple_branches_enabled", "settings.multipleBranches"],
             ["settlement_requests_enabled", "settings.merchantSettlementRequests"],
           ] as const

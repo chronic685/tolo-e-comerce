@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, toast, totalPagesFor, translateServerError, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
+import { TinValue } from "../components/TinValue";
 import type { Category, Merchant, MerchantDocument } from "../types";
+import { ApplicationsPanel } from "./MerchantApplications";
 
 const STATUS_FILTERS = ["all", "registered", "under_review", "active", "suspended", "rejected", "closed"];
 
@@ -44,9 +46,76 @@ const docStatusVariant: Record<string, "default" | "info" | "success" | "danger"
   rejected: "danger",
 };
 
+const TABS = ["merchants", "applications"] as const;
+type TabKey = (typeof TABS)[number];
+
+/** One page for both ways a merchant gets onboarded: people who signed up in the merchant dashboard (the
+ * Merchants tab) and applications from the Tolo app (the Applications tab, with a pending count). Every
+ * merchant carries a source label either way. Only admin tier sees or can use the Applications tab. */
 export function Merchants() {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { isAdmin } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: TabKey = isAdmin && searchParams.get("tab") === "applications" ? "applications" : "merchants";
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+
+  async function loadPendingCount() {
+    if (!isAdmin) return;
+    const { count } = await supabase.from("merchant_applications").select("id", { count: "exact", head: true }).eq("status", "pending");
+    setPendingCount(count ?? 0);
+  }
+
+  useEffect(() => {
+    loadPendingCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
+
+  function setTab(next: TabKey) {
+    setSearchParams(next === "merchants" ? {} : { tab: next });
+  }
+
+  return (
+    <div>
+      <h1 className="text-xl font-bold mb-4 dark:text-gray-100">{t("merchants.title")}</h1>
+      {isAdmin && (
+        <div className="flex items-center gap-1 border-b dark:border-white/10 mb-4">
+          {TABS.map((key) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-2 ${
+                tab === key
+                  ? "border-navy dark:border-navy-light text-navy dark:text-navy-light"
+                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              }`}
+            >
+              {key === "merchants" ? t("merchants.tabMerchants") : t("merchantApplications.title")}
+              {key === "applications" && pendingCount !== null && pendingCount > 0 && (
+                <span
+                  className="min-w-5 h-5 px-1.5 rounded-full bg-amber-500 text-white text-[11px] leading-5 text-center font-semibold"
+                  title={t("merchants.pendingApplications", { count: pendingCount })}
+                  aria-label={t("merchants.pendingApplications", { count: pendingCount })}
+                >
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+      {tab === "applications" ? <ApplicationsPanel onReviewed={loadPendingCount} /> : <MerchantList />}
+    </div>
+  );
+}
+
+function tinOf(m: Merchant): string | null {
+  const t = m.merchant_tins;
+  return (Array.isArray(t) ? t[0]?.tin : t?.tin) ?? null;
+}
+
+function MerchantList() {
+  const { t } = useTranslation();
+  const { user, isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get("status") ?? "all";
   const [merchants, setMerchants] = useState<Merchant[]>([]);
@@ -72,6 +141,21 @@ export function Merchants() {
     supabase.from("categories").select("id, name").order("name").then(({ data }) => setCategories(data ?? []));
   }, []);
 
+  const [tinEdit, setTinEdit] = useState<{ id: string; value: string } | null>(null);
+
+  // Admin tier sets, changes or clears a merchant's TIN (set_merchant_tin, migration 0094), which also
+  // enforces the format and that no other merchant or pending application holds it.
+  async function saveTin(m: Merchant, value: string) {
+    const { error } = await supabase.rpc("set_merchant_tin", { p_merchant_id: m.id, p_tin: value || null });
+    if (error) {
+      toast.error(translateServerError(error.message, t));
+      return;
+    }
+    setMerchants((prev) => prev.map((x) => (x.id === m.id ? { ...x, merchant_tins: value ? { tin: value } : null } : x)));
+    setTinEdit(null);
+    toast.success(t("merchants.tinSaved"));
+  }
+
   // An admin confirming (or correcting) a merchant's category, e.g. one whose old
   // free-text value had no exact match. Writes the link only; the legacy text stays.
   async function setCategory(m: Merchant, categoryId: string) {
@@ -83,7 +167,7 @@ export function Merchants() {
 
   async function load() {
     setLoading(true);
-    let query = supabase.from("merchants").select("*, categories ( name )", { count: "exact" }).order("created_at", { ascending: false });
+    let query = supabase.from("merchants").select("*, categories ( name ), merchant_tins ( tin )", { count: "exact" }).order("created_at", { ascending: false });
     if (statusFilter !== "all") query = query.eq("status", statusFilter);
     const { data, count } = await query.range(from, to);
     setMerchants(data ?? []);
@@ -169,7 +253,7 @@ export function Merchants() {
   // the page on screen.
   async function handleExport() {
     const rows = await fetchAllRows<Merchant>((from, to) => {
-      let query = supabase.from("merchants").select("*, categories ( name )").order("created_at", { ascending: false });
+      let query = supabase.from("merchants").select("*, categories ( name ), merchant_tins ( tin )").order("created_at", { ascending: false });
       if (statusFilter !== "all") query = query.eq("status", statusFilter);
       return query.range(from, to);
     });
@@ -179,6 +263,8 @@ export function Merchants() {
         id: m.id,
         business_name: m.business_name,
         category: m.categories?.name ?? m.business_category ?? "",
+        source: m.source,
+        tin: tinOf(m) ?? "",
         subcategory: m.business_subcategory ?? "",
         phone: m.phone ?? "",
         email: m.email ?? "",
@@ -199,7 +285,12 @@ export function Merchants() {
       render: (m) => (
         <div>
           <button className="text-left" onClick={() => toggleExpand(m)}>
-            <p className="font-medium text-sm hover:text-navy dark:hover:text-navy-light">{m.business_name}</p>
+            <p className="font-medium text-sm hover:text-navy dark:hover:text-navy-light flex items-center gap-1.5 flex-wrap">
+              {m.business_name}
+              <Badge variant={m.source === "tolo_app" ? "info" : "default"}>
+                {m.source === "tolo_app" ? t("merchants.source.tolo_app") : t("merchants.source.dashboard")}
+              </Badge>
+            </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {m.categories?.name ?? (m.business_category ? t("merchants.legacyCategory", { name: m.business_category }) : t("merchants.categoryNotSet"))} ·{" "}
               {[m.city, m.sub_city].filter(Boolean).join(", ") || m.location || "—"}
@@ -248,6 +339,38 @@ export function Merchants() {
                   ))}
                 </select>
               </label>
+
+              {isAdmin && (
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("merchants.tin")}</p>
+                  {tinEdit?.id === m.id ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        value={tinEdit.value}
+                        onChange={(e) => setTinEdit({ id: m.id, value: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+                        inputMode="numeric"
+                        maxLength={10}
+                        placeholder="0000000000"
+                        aria-label={t("merchants.tin")}
+                        className="border rounded-md px-2 py-1 text-sm font-mono w-40 bg-white dark:bg-navy-dark dark:border-white/20 dark:text-gray-100"
+                      />
+                      <Button size="sm" onClick={() => saveTin(m, tinEdit.value)} disabled={tinEdit.value !== "" && tinEdit.value.length !== 10}>
+                        {t("common.save")}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setTinEdit(null)}>
+                        {t("common.cancel")}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-3 flex-wrap">
+                      <TinValue tin={tinOf(m)} />
+                      <Button size="sm" variant="outline" onClick={() => setTinEdit({ id: m.id, value: tinOf(m) ?? "" })}>
+                        {t("merchants.editTin")}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("merchants.performance")}</p>
               {performance ? (
@@ -328,7 +451,7 @@ export function Merchants() {
       header: "",
       render: (m) => (
         <div className="flex items-center gap-2 justify-end flex-wrap">
-          {(m.status === "registered" || m.status === "pending_verification" || m.status === "under_review") && (
+          {isAdmin && (m.status === "registered" || m.status === "pending_verification" || m.status === "under_review") && (
             <>
               <Button size="sm" onClick={() => updateStatus(m, "active")}>
                 {t("merchants.approve")}
@@ -369,8 +492,7 @@ export function Merchants() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold dark:text-gray-100">{t("merchants.title")}</h1>
+      <div className="flex items-center justify-end mb-4">
         <ExportCsvButton onExport={handleExport} disabled={merchants.length === 0} />
       </div>
 
