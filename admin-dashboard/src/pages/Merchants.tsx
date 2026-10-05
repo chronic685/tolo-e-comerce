@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, ExportCsvButton, fetchAllRows, Pagination, SkeletonRows, toast, totalPagesFor, translateServerError, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, ExportCsvButton, fetchAllRows, Pagination, Sheet, SkeletonRows, toast, totalPagesFor, translateServerError, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 import { TinValue } from "../components/TinValue";
-import type { Category, Merchant, MerchantDocument } from "../types";
+import { MerchantDetail } from "../components/MerchantDetail";
+import type { Category, Merchant, MerchantDocument, MerchantPrivate } from "../types";
 import { ApplicationsPanel } from "./MerchantApplications";
 
 const STATUS_FILTERS = ["all", "registered", "under_review", "active", "suspended", "rejected", "closed"];
@@ -108,6 +109,11 @@ export function Merchants() {
   );
 }
 
+function privOf(m: Merchant): Partial<MerchantPrivate> {
+  const p = m.merchant_private;
+  return (Array.isArray(p) ? p[0] : p) ?? {};
+}
+
 function tinOf(m: Merchant): string | null {
   const t = m.merchant_tins;
   return (Array.isArray(t) ? t[0]?.tin : t?.tin) ?? null;
@@ -142,6 +148,7 @@ function MerchantList() {
   }, []);
 
   const [tinEdit, setTinEdit] = useState<{ id: string; value: string } | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   // Admin tier sets, changes or clears a merchant's TIN (set_merchant_tin, migration 0094), which also
   // enforces the format and that no other merchant or pending application holds it.
@@ -167,7 +174,7 @@ function MerchantList() {
 
   async function load() {
     setLoading(true);
-    let query = supabase.from("merchants").select("*, categories ( name ), merchant_tins ( tin )", { count: "exact" }).order("created_at", { ascending: false });
+    let query = supabase.from("merchants").select("*, categories ( name ), merchant_tins ( tin ), merchant_private ( phone, email, owner_full_name, owner_phone, owner_email )", { count: "exact" }).order("created_at", { ascending: false });
     if (statusFilter !== "all") query = query.eq("status", statusFilter);
     const { data, count } = await query.range(from, to);
     setMerchants(data ?? []);
@@ -253,7 +260,7 @@ function MerchantList() {
   // the page on screen.
   async function handleExport() {
     const rows = await fetchAllRows<Merchant>((from, to) => {
-      let query = supabase.from("merchants").select("*, categories ( name ), merchant_tins ( tin )").order("created_at", { ascending: false });
+      let query = supabase.from("merchants").select("*, categories ( name ), merchant_tins ( tin ), merchant_private ( phone, email, owner_full_name, owner_phone, owner_email )").order("created_at", { ascending: false });
       if (statusFilter !== "all") query = query.eq("status", statusFilter);
       return query.range(from, to);
     });
@@ -266,13 +273,13 @@ function MerchantList() {
         source: m.source,
         tin: tinOf(m) ?? "",
         subcategory: m.business_subcategory ?? "",
-        phone: m.phone ?? "",
-        email: m.email ?? "",
+        phone: privOf(m).phone ?? "",
+        email: privOf(m).email ?? "",
         city: m.city ?? "",
         sub_city: m.sub_city ?? "",
         status: m.status,
-        owner_full_name: m.owner_full_name ?? "",
-        owner_phone: m.owner_phone ?? "",
+        owner_full_name: privOf(m).owner_full_name ?? "",
+        owner_phone: privOf(m).owner_phone ?? "",
         created_at: m.created_at,
       })),
     );
@@ -321,7 +328,7 @@ function MerchantList() {
             <div className="bg-gray-50 dark:bg-white/5 -mx-3 px-3 mt-3 py-3 text-sm border-t dark:border-white/10">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t("merchants.owner")}</p>
               <p className="mb-3">
-                {m.owner_full_name ?? "—"} · {m.owner_phone ?? "—"} · {m.owner_email ?? m.email ?? "—"}
+                {privOf(m).owner_full_name ?? "—"} · {privOf(m).owner_phone ?? "—"} · {privOf(m).owner_email ?? privOf(m).email ?? "—"}
               </p>
 
               <label className="block mb-3">
@@ -432,7 +439,7 @@ function MerchantList() {
           )}
         </div>
       ),
-      filterValue: (m) => `${m.business_name} ${m.owner_full_name ?? ""}`,
+      filterValue: (m) => `${m.business_name} ${privOf(m).owner_full_name ?? ""}`,
       sortValue: (m) => m.business_name,
       csvValue: (m) => m.business_name,
     },
@@ -451,6 +458,9 @@ function MerchantList() {
       header: "",
       render: (m) => (
         <div className="flex items-center gap-2 justify-end flex-wrap">
+          <Button size="sm" variant="outline" onClick={() => setDetailId(m.id)}>
+            {t("customerDetail.details")}
+          </Button>
           {isAdmin && (m.status === "registered" || m.status === "pending_verification" || m.status === "under_review") && (
             <>
               <Button size="sm" onClick={() => updateStatus(m, "active")}>
@@ -522,6 +532,19 @@ function MerchantList() {
           </div>
         </>
       )}
+
+      <Sheet open={detailId !== null} onClose={() => setDetailId(null)} title={t("merchantDetail.title")} width="wide">
+        {detailId && (
+          <MerchantDetail
+            merchantId={detailId}
+            onChanged={load}
+            onDeleted={() => {
+              setDetailId(null);
+              load();
+            }}
+          />
+        )}
+      </Sheet>
     </div>
   );
 }

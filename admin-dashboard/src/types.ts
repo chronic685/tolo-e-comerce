@@ -11,21 +11,27 @@ export interface Merchant {
   source: "dashboard" | "tolo_app";
   /** The merchant's TIN, readable by admin tier only (merchant_tins, migration 0094); null or empty for everyone else. */
   merchant_tins?: { tin: string } | { tin: string }[] | null;
-  phone: string | null;
-  email: string | null;
+  /** Contact details live in merchant_private (migration 0095); readable by staff who reach merchants, not the public. */
+  merchant_private?: MerchantPrivate | MerchantPrivate[] | null;
   location: string | null;
   city: string | null;
   sub_city: string | null;
   woreda: string | null;
   landmark: string | null;
-  owner_full_name: string | null;
-  owner_phone: string | null;
-  owner_email: string | null;
   status: string;
   rejection_reason: string | null;
   suspension_reason: string | null;
   agreement_accepted: boolean;
   created_at: string;
+}
+
+export interface MerchantPrivate {
+  phone: string | null;
+  email: string | null;
+  owner_full_name: string | null;
+  owner_phone: string | null;
+  owner_email: string | null;
+  business_registration_number: string | null;
 }
 
 export interface MerchantDocument {

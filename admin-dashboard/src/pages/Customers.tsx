@@ -6,6 +6,7 @@ import {
   Button,
   DataTable,
   Pagination,
+  Sheet,
   SkeletonRows,
   exportToCsv,
   fetchAllRows,
@@ -16,6 +17,7 @@ import {
   type DataTableColumn,
 } from "@tolo/ui";
 import type { CustomerProfile } from "../types";
+import { CustomerDetail } from "../components/CustomerDetail";
 
 export function Customers() {
   const { t } = useTranslation();
@@ -27,6 +29,7 @@ export function Customers() {
   const [orderCounts, setOrderCounts] = useState<Record<string, number>>({});
   const [reasonPromptId, setReasonPromptId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const [detailId, setDetailId] = useState<string | null>(null);
   const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE, resetKey: committedSearch });
 
   // One page of customers is small, but the CSV export covers every customer, and
@@ -141,7 +144,11 @@ export function Customers() {
     {
       key: "name",
       header: t("common.name"),
-      render: (c) => c.full_name ?? t("customers.unnamed"),
+      render: (c) => (
+        <button className="text-left font-medium hover:text-navy dark:hover:text-navy-light" onClick={() => setDetailId(c.id)}>
+          {c.full_name ?? t("customers.unnamed")}
+        </button>
+      ),
       filterValue: (c) => c.full_name ?? "",
       sortValue: (c) => c.full_name ?? "",
       csvValue: (c) => c.full_name ?? "",
@@ -182,6 +189,9 @@ export function Customers() {
       header: "",
       render: (c) => (
         <div>
+          <Button size="sm" variant="outline" className="mr-2" onClick={() => setDetailId(c.id)}>
+            {t("customerDetail.details")}
+          </Button>
           <Button size="sm" variant={c.account_status === "active" ? "outline" : "destructive"} onClick={() => toggleStatus(c)}>
             {c.account_status === "active" ? t("customers.suspend") : t("customers.reactivate")}
           </Button>
@@ -243,6 +253,10 @@ export function Customers() {
           </div>
         </>
       )}
+
+      <Sheet open={detailId !== null} onClose={() => setDetailId(null)} title={t("customerDetail.title")} width="wide">
+        {detailId && <CustomerDetail customerId={detailId} onChanged={load} />}
+      </Sheet>
     </div>
   );
 }

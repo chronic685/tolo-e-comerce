@@ -94,6 +94,20 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   // admin staff) and raises otherwise. archive_products and restore_products run as the
   // caller, so RLS decides which products they can touch and a trigger on products
   // decides what may be done to them (who can restore a staff-archived product).
+  // Admin customer and merchant management (migrations 0096, 0097): called by the admin dashboard as authenticated. All are
+  // security definer and refuse for themselves, inside the function, anyone who lacks the Customers / Merchants page
+  // (viewing and editing) or admin tier (phone numbers, anonymize, close, hard delete); see
+  // docs/admin-customer-merchant-management.md. The audit and masking helpers they share are not callable at all.
+  "admin_customer_detail",
+  "admin_update_customer",
+  "admin_update_customer_address",
+  "admin_anonymize_customer",
+  "admin_merchant_detail",
+  "admin_update_merchant",
+  "admin_close_merchant",
+  "admin_reopen_merchant",
+  "admin_delete_merchant",
+
   // Merchant TIN (migration 0094): the dashboards call it as authenticated. It is security definer and
   // checks for itself that the caller is an admin (any merchant) or the merchant's own owner (once,
   // while none is on file), raising otherwise.

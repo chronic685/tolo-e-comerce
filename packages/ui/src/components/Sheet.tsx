@@ -13,12 +13,14 @@ export interface SheetProps {
    * (default) docks it to the right as a panel, "center" keeps it a
    * bottom sheet at every width (e.g. a mobile-only picker). */
   desktopVariant?: "side" | "center";
+  /** "wide" gives a side panel room for a detail view (about 44rem on desktop, taller on phones). */
+  width?: "narrow" | "wide";
 }
 
 /** Bottom sheet on phones, side panel or bottom sheet on desktop depending
  * on `desktopVariant`. Used for filters, and any other mobile-first
  * overlay picker. */
-export function Sheet({ open, onClose, title, children, footer, desktopVariant = "side" }: SheetProps) {
+export function Sheet({ open, onClose, title, children, footer, desktopVariant = "side", width = "narrow" }: SheetProps) {
   const { t } = useTranslation();
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -51,7 +53,7 @@ export function Sheet({ open, onClose, title, children, footer, desktopVariant =
 
   const panelPosition =
     desktopVariant === "side"
-      ? "inset-x-0 bottom-0 rounded-t-2xl md:inset-y-0 md:right-0 md:left-auto md:w-96 md:rounded-none"
+      ? `inset-x-0 bottom-0 rounded-t-2xl md:inset-y-0 md:right-0 md:left-auto ${width === "wide" ? "md:w-[44rem]" : "md:w-96"} md:rounded-none`
       : "inset-x-0 bottom-0 rounded-t-2xl";
 
   return (
@@ -61,7 +63,8 @@ export function Sheet({ open, onClose, title, children, footer, desktopVariant =
         ref={panelRef}
         tabIndex={-1}
         className={cn(
-          "absolute bg-white dark:bg-navy-dark flex flex-col max-h-[85vh] md:max-h-none shadow-xl outline-none",
+          "absolute bg-white dark:bg-navy-dark flex flex-col md:max-h-none shadow-xl outline-none",
+          width === "wide" ? "max-h-[92vh]" : "max-h-[85vh]",
           panelPosition,
         )}
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
