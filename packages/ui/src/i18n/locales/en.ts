@@ -676,6 +676,9 @@ export const en: EnglishStrings = {
   "productForm.archivedNotice": "This product is archived. Restore it from the Archived tab to edit it.",
   "productForm.archivedByAdminNotice": "Tolo archived this product. Only Tolo staff can restore or change it.",
   "errors.archivedByTolo": "This product was archived by Tolo, so only Tolo staff can change it.",
+  "errors.tinAlreadyRegistered": "This TIN is already registered to another merchant or application.",
+  "errors.invalidTin": "A TIN must be exactly 10 digits.",
+  "errors.adminOnly": "Only an admin or super admin can do this.",
   "errors.productHasOrders": "This product has been ordered, so it can't be deleted. Archive it instead.",
 
   // merchant orders (merchant-dashboard/src/pages/Orders.tsx) -------------
@@ -873,6 +876,9 @@ export const en: EnglishStrings = {
 
   // legacy merchant application (merchant-dashboard/src/pages/MerchantApplication.tsx) --
   "merchantApplication.agreementRequired": "You must accept the merchant agreement to continue.",
+  "merchantApplication.tin": "Taxpayer Identification Number (TIN)",
+  "merchantApplication.tinHint": "Your 10-digit TIN, digits only. Tolo staff verify it manually.",
+  "merchantApplication.tinInvalid": "Enter your 10-digit TIN, digits only.",
   "merchantApplication.saveError": "Could not submit your application. Please try again.",
   "merchantApplication.uploadError": "Could not upload this document. Please try again.",
   "merchantApplication.uploadDocsTitle": "Upload verification documents",
@@ -1530,6 +1536,10 @@ export const en: EnglishStrings = {
   "merchantApply.address": "Business address",
   "merchantApply.license": "Business license photo",
   "merchantApply.licenseHint": "JPEG, PNG or WebP, up to 5 MB.",
+  "merchantApply.tin": "Taxpayer Identification Number (TIN)",
+  "merchantApply.tinHint": "Your 10-digit TIN, digits only.",
+  "merchantApply.error.invalid_tin": "Enter your 10-digit TIN, digits only.",
+  "merchantApply.error.tin_already_registered": "This TIN is already registered to another merchant or application. If it is yours, contact Tolo support.",
   "merchantApply.submit": "Submit application",
   "merchantApply.submitting": "Submitting...",
   "merchantApply.done": "Done",

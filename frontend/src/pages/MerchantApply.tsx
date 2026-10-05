@@ -4,7 +4,7 @@ import { SkeletonPage, useCategoryName, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { closeApp, isEmbedMode } from "../lib/appBridge";
-import { LICENSE_BUCKET, licensePath, submitErrorKey, validateLicenseFile } from "../lib/merchantApplication";
+import { isValidTin, LICENSE_BUCKET, LICENSE_UPLOAD_ENABLED, licensePath, submitErrorKey, validateLicenseFile } from "../lib/merchantApplication";
 import type { Category } from "../types";
 
 interface Application {
@@ -33,6 +33,7 @@ export function MerchantApply() {
   const [businessName, setBusinessName] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [address, setAddress] = useState("");
+  const [tin, setTin] = useState("");
   const [license, setLicense] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -78,16 +79,20 @@ export function MerchantApply() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!user || !license) return;
+    if (!user || !isValidTin(tin) || (LICENSE_UPLOAD_ENABLED && !license)) return;
     setError(null);
     setSubmitting(true);
 
-    const path = licensePath(user.id, license, crypto.randomUUID());
-    const { error: uploadError } = await supabase.storage.from(LICENSE_BUCKET).upload(path, license, { contentType: license.type });
-    if (uploadError) {
-      setSubmitting(false);
-      setError(t("merchantApply.error.upload"));
-      return;
+    // The photo is optional now (off by default): only uploaded, and only sent, when the switch is on.
+    let path: string | null = null;
+    if (LICENSE_UPLOAD_ENABLED && license) {
+      path = licensePath(user.id, license, crypto.randomUUID());
+      const { error: uploadError } = await supabase.storage.from(LICENSE_BUCKET).upload(path, license, { contentType: license.type });
+      if (uploadError) {
+        setSubmitting(false);
+        setError(t("merchantApply.error.upload"));
+        return;
+      }
     }
 
     const { data, error: submitError } = await supabase
@@ -95,7 +100,8 @@ export function MerchantApply() {
         p_business_name: businessName,
         p_category_id: categoryId,
         p_address: address,
-        p_license_photo_url: path,
+        p_tin: tin,
+        ...(path ? { p_license_photo_url: path } : {}),
       })
       .single();
     setSubmitting(false);
@@ -188,23 +194,44 @@ export function MerchantApply() {
         </label>
 
         <label className="block">
-          <span className="block text-sm font-medium mb-1 dark:text-gray-200">{t("merchantApply.license")}</span>
+          <span className="block text-sm font-medium mb-1 dark:text-gray-200">{t("merchantApply.tin")}</span>
           <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => handleFile(e.target.files?.[0])}
+            value={tin}
+            onChange={(e) => setTin(e.target.value.replace(/\D/g, "").slice(0, 10))}
+            inputMode="numeric"
+            autoComplete="off"
             required
-            className="block w-full text-sm dark:text-gray-300"
+            minLength={10}
+            maxLength={10}
+            pattern="[0-9]{10}"
+            title={t("merchantApply.tinHint")}
+            className={inputClass}
           />
-          <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">{t("merchantApply.licenseHint")}</span>
+          <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">{t("merchantApply.tinHint")}</span>
         </label>
-        {preview && <img src={preview} alt={t("merchantApply.license")} className="max-h-48 rounded-md border dark:border-white/20" />}
+
+        {LICENSE_UPLOAD_ENABLED && (
+          <>
+            <label className="block">
+              <span className="block text-sm font-medium mb-1 dark:text-gray-200">{t("merchantApply.license")}</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => handleFile(e.target.files?.[0])}
+                required
+                className="block w-full text-sm dark:text-gray-300"
+              />
+              <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">{t("merchantApply.licenseHint")}</span>
+            </label>
+            {preview && <img src={preview} alt={t("merchantApply.license")} className="max-h-48 rounded-md border dark:border-white/20" />}
+          </>
+        )}
 
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
         <button
           type="submit"
-          disabled={submitting || !license}
+          disabled={submitting || !isValidTin(tin) || (LICENSE_UPLOAD_ENABLED && !license)}
           className="w-full bg-navy text-white py-2.5 rounded-md font-medium hover:bg-navy-dark disabled:opacity-60"
         >
           {submitting ? t("merchantApply.submitting") : t("merchantApply.submit")}
