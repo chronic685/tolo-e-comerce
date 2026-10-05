@@ -4,8 +4,6 @@ export interface Merchant {
   business_name: string;
   business_category: string | null;
   business_subcategory: string | null;
-  phone: string | null;
-  email: string | null;
   location: string | null;
   city: string | null;
   sub_city: string | null;
@@ -13,9 +11,6 @@ export interface Merchant {
   landmark: string | null;
   latitude: number | null;
   longitude: number | null;
-  owner_full_name: string | null;
-  owner_phone: string | null;
-  owner_email: string | null;
   status: string;
 }
 

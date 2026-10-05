@@ -26,6 +26,12 @@ import {
 
 const num = (v: unknown): number => Number(v ?? 0);
 
+// The merchant's phone lives in merchant_private (migration 0095); PostgREST embeds the 1:1 row as an object.
+function merchantPhone(merchant: unknown): string | null {
+  const row = (merchant as { merchant_private?: { phone?: string | null } | { phone?: string | null }[] | null } | null)?.merchant_private;
+  return (Array.isArray(row) ? row[0]?.phone : row?.phone) ?? null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed." }, 405);
@@ -53,7 +59,7 @@ Deno.serve(async (req) => {
           db.from("merchant_orders").select("id, subtotal, status").eq("order_id", mo.order_id).order("created_at").order("id"),
           db.from("order_items").select("product_name_snapshot, quantity").eq("merchant_order_id", mo.id).eq("item_status", "active"),
           db.from("stores").select("name, latitude, longitude, pickup_address").eq("merchant_id", mo.merchant_id).maybeSingle(),
-          db.from("merchants").select("business_name, phone").eq("id", mo.merchant_id).single(),
+          db.from("merchants").select("business_name, merchant_private ( phone )").eq("id", mo.merchant_id).single(),
         ]);
         if (!order) return null;
 
@@ -91,7 +97,7 @@ Deno.serve(async (req) => {
             address: store?.pickup_address ?? null,
             latitude: store?.latitude ?? null,
             longitude: store?.longitude ?? null,
-            phone: merchant?.phone ?? null,
+            phone: merchantPhone(merchant),
           },
           dropoff: {
             name: (address?.recipient_name as string | undefined) ?? null,

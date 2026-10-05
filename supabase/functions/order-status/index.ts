@@ -22,6 +22,12 @@ import {
   WITH_DRIVER_ORDER_STATUSES,
 } from "./transitions.ts";
 
+// The merchant's phone lives in merchant_private (migration 0095); PostgREST embeds the 1:1 row as an object.
+function merchantPhone(merchant: unknown): string | null {
+  const row = (merchant as { merchant_private?: { phone?: string | null } | { phone?: string | null }[] | null } | null)?.merchant_private;
+  return (Array.isArray(row) ? row[0]?.phone : row?.phone) ?? null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -214,7 +220,7 @@ Deno.serve(async (req) => {
       // for again at delivery-creation time (spec: "No Duplicate Data Entry").
       const [{ data: store }, { data: merchant }, { data: orderRow }] = await Promise.all([
         db.from("stores").select("latitude, longitude, pickup_address, name").eq("merchant_id", mo.merchant_id).maybeSingle(),
-        db.from("merchants").select("business_name, phone").eq("id", mo.merchant_id).single(),
+        db.from("merchants").select("business_name, merchant_private ( phone )").eq("id", mo.merchant_id).single(),
         db
           .from("merchant_orders")
           .select("orders!inner(addresses!inner(recipient_name, phone, line1, city, latitude, longitude))")
@@ -230,7 +236,7 @@ Deno.serve(async (req) => {
         pickup_longitude: store?.longitude ?? null,
         pickup_address: store?.pickup_address ?? null,
         pickup_contact_name: store?.name ?? merchant?.business_name ?? null,
-        pickup_contact_phone: merchant?.phone ?? null,
+        pickup_contact_phone: merchantPhone(merchant),
         dropoff_latitude: address?.latitude ?? null,
         dropoff_longitude: address?.longitude ?? null,
         dropoff_address: address ? `${address.line1}, ${address.city}` : null,

@@ -98,8 +98,6 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
         owner_id: merchantAUserId,
         business_name: "QA TEST — Merchant A — DO NOT USE",
         business_category: "Electronics",
-        phone: "+251900000001",
-        email: QA_MERCHANT_A_EMAIL,
         location: "QA Fixture",
         status: "active",
         is_test: true,
@@ -110,6 +108,7 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
       .single();
     if (insertResult.error) throw insertResult.error;
     merchantA = insertResult.data;
+    await db.from("merchant_private").upsert({ merchant_id: merchantA.id, phone: "+251900000001", email: QA_MERCHANT_A_EMAIL });
     await db.from("merchant_staff").insert({ merchant_id: merchantA.id, user_id: merchantAUserId, role: "owner" });
   }
 
@@ -121,8 +120,6 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
         owner_id: merchantBUserId,
         business_name: "QA TEST — Merchant B — DO NOT USE",
         business_category: "Electronics",
-        phone: "+251900000002",
-        email: QA_MERCHANT_B_EMAIL,
         location: "QA Fixture",
         status: "active",
         is_test: true,
@@ -133,6 +130,7 @@ export async function ensureQaFixtures(): Promise<QaFixtures> {
       .single();
     if (insertResult.error) throw insertResult.error;
     merchantB = insertResult.data;
+    await db.from("merchant_private").upsert({ merchant_id: merchantB.id, phone: "+251900000002", email: QA_MERCHANT_B_EMAIL });
     await db.from("merchant_staff").insert({ merchant_id: merchantB.id, user_id: merchantBUserId, role: "owner" });
   }
 

@@ -76,8 +76,8 @@ export function MerchantApplication() {
     }
     setSubmitting(true);
 
-    if (merchantId && tinSaved) {
-      await saveTin(merchantId);
+    if (merchantId) {
+      await saveContactAndTin(merchantId);
       return;
     }
 
@@ -87,16 +87,11 @@ export function MerchantApplication() {
         owner_id: user.id,
         business_name: form.business_name,
         category_id: form.category_id,
-        phone: form.phone,
-        email: user.email,
         location: [form.city, form.sub_city].filter(Boolean).join(", ") || null,
         city: form.city || null,
         sub_city: form.sub_city || null,
         woreda: form.woreda || null,
         landmark: form.landmark || null,
-        owner_full_name: form.owner_full_name || null,
-        owner_phone: form.owner_phone || null,
-        owner_email: form.owner_email || user.email,
         agreement_accepted: true,
       })
       .select("id")
@@ -108,10 +103,24 @@ export function MerchantApplication() {
       return;
     }
     setMerchantId(data.id);
-    await saveTin(data.id);
+    await saveContactAndTin(data.id);
   }
 
-  async function saveTin(id: string) {
+  // Contact details live in merchant_private (migration 0095), not on the publicly readable merchants row.
+  async function saveContactAndTin(id: string) {
+    const { error: contactError } = await supabase.from("merchant_private").upsert({
+      merchant_id: id,
+      phone: form.phone,
+      email: user?.email ?? null,
+      owner_full_name: form.owner_full_name || null,
+      owner_phone: form.owner_phone || null,
+      owner_email: form.owner_email || user?.email || null,
+    });
+    if (contactError) {
+      setSubmitting(false);
+      toast.error(translateServerError(contactError.message, t));
+      return;
+    }
     const { error } = await supabase.rpc("set_merchant_tin", { p_merchant_id: id, p_tin: form.tin });
     setSubmitting(false);
     if (error) {
@@ -150,7 +159,7 @@ export function MerchantApplication() {
     setUploadedTypes((prev) => new Set(prev).add(docType));
   }
 
-  if (merchantId) {
+  if (merchantId && tinSaved) {
     return (
       <div className="max-w-md mx-auto mt-12 bg-white dark:bg-navy-dark border rounded-lg p-6">
         <h1 className="text-lg font-bold mb-1">{t("merchantApplication.uploadDocsTitle")}</h1>

@@ -41,6 +41,35 @@ describe("ConfirmDialog", () => {
     expect(onCancel).toHaveBeenCalledTimes(2);
   });
 
+  it("with requireText, keeps confirm disabled until the exact text is typed (case-sensitive)", () => {
+    const { onConfirm } = setup({ requireText: "DELETE", requireTextLabel: 'Type "DELETE" to confirm' });
+    const confirm = screen.getByRole("button", { name: "Delete" });
+    expect(confirm).toBeDisabled();
+    const field = screen.getByLabelText('Type "DELETE" to confirm');
+    fireEvent.change(field, { target: { value: "delete" } });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(field, { target: { value: "DELETE" } });
+    expect(confirm).toBeEnabled();
+    fireEvent.click(confirm);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it("with requireText, starts empty again when reopened", () => {
+    const onConfirm = vi.fn();
+    const onCancel = vi.fn();
+    const ui = (open: boolean) => (
+      <I18nProvider>
+        <ConfirmDialog open={open} title="T" confirmLabel="Delete" requireText="Shop" requireTextLabel="Type the name" onConfirm={onConfirm} onCancel={onCancel} />
+      </I18nProvider>
+    );
+    const { rerender } = render(ui(true));
+    fireEvent.change(screen.getByLabelText("Type the name"), { target: { value: "Shop" } });
+    expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled();
+    rerender(ui(false));
+    rerender(ui(true));
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+  });
+
   it("locks both buttons and shows the busy label while the action runs", () => {
     const { onCancel } = setup({ busy: true, busyLabel: "Deleting..." });
     expect(screen.getByRole("button", { name: "Deleting..." })).toBeDisabled();
