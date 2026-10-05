@@ -94,6 +94,10 @@ const ALLOWED_ANON_OR_AUTHENTICATED_FUNCTIONS = new Set([
   // admin staff) and raises otherwise. archive_products and restore_products run as the
   // caller, so RLS decides which products they can touch and a trigger on products
   // decides what may be done to them (who can restore a staff-archived product).
+  // Merchant TIN (migration 0094): the dashboards call it as authenticated. It is security definer and
+  // checks for itself that the caller is an admin (any merchant) or the merchant's own owner (once,
+  // while none is on file), raising otherwise.
+  "set_merchant_tin",
   "product_has_orders",
   "archive_products",
   "restore_products",
