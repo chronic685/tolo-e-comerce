@@ -48,6 +48,13 @@ export function ProductForm() {
   const [saving, setSaving] = useState(false);
   const [commissionRate, setCommissionRate] = useState<number | null>(null);
   const [uploadingImageIdx, setUploadingImageIdx] = useState<number | null>(null);
+  // An existing product keeps its status when edited (a hidden product stays hidden, a live one stays
+  // live); only a draft or a new product chooses one with the buttons below.
+  const [currentStatus, setCurrentStatus] = useState<string | null>(null);
+  const [archivedBy, setArchivedBy] = useState<"merchant" | "staff" | null>(null);
+  const [removedVariantIds, setRemovedVariantIds] = useState<string[]>([]);
+  const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
+  const isArchived = currentStatus === "archived";
 
   async function handleImageUpload(idx: number, file: File) {
     if (!merchant) return;
@@ -95,7 +102,7 @@ export function ProductForm() {
     supabase
       .from("products")
       .select(
-        `name, description, category_id, base_price,
+        `name, description, category_id, base_price, status, archived_by_role,
          product_variants ( id, sku, attributes, price, inventory ( stock_quantity, low_stock_threshold ) ),
          product_images ( id, url )`,
       )
@@ -107,6 +114,8 @@ export function ProductForm() {
         setDescription(data.description ?? "");
         setCategoryId(data.category_id ?? "");
         setBasePrice(String(data.base_price));
+        setCurrentStatus(data.status as string);
+        setArchivedBy((data.archived_by_role as "merchant" | "staff" | null) ?? null);
         const vs =
           (data.product_variants as unknown as (ProductVariant & {
             inventory: { stock_quantity: number; low_stock_threshold: number } | null;
@@ -130,8 +139,8 @@ export function ProductForm() {
       });
   }, [id, isNew]);
 
-  async function handleSave(targetStatus: "draft" | "published" | "submitted") {
-    if (!merchant || !store) return;
+  async function handleSave(targetStatus: "draft" | "published" | "submitted" | "paused" | "approved") {
+    if (!merchant || !store || isArchived) return;
     if (!name.trim() || !basePrice) {
       toast.error(t("productForm.nameRequired"));
       return;
@@ -142,7 +151,7 @@ export function ProductForm() {
     // product needs every priced variant to individually qualify: there's
     // no way to hide just one non-qualifying variant while the rest of the
     // product stays listed, so one failing variant blocks the whole save.
-    if (targetStatus !== "draft") {
+    if (targetStatus === "published" || targetStatus === "submitted") {
       const pricedVariants = variants.filter((v) => v.price.trim());
       const allEligible =
         pricedVariants.length > 0 && pricedVariants.every((v) => isEligibleForListing(Number(v.price), Number(v.stock) || 0));
@@ -180,11 +189,26 @@ export function ProductForm() {
       isNew ? undefined : id,
     );
 
-    setSaving(false);
     if (!result.ok) {
+      setSaving(false);
       toast.error(translateServerError(result.error, t));
       return;
     }
+
+    // Removals go after the save so the product is never left without a variant. A variant customers
+    // have ordered cannot be deleted (order_items keeps it), so that is reported rather than hidden.
+    if (removedImageIds.length > 0) {
+      await supabase.from("product_images").delete().in("id", removedImageIds);
+    }
+    if (removedVariantIds.length > 0) {
+      const { error } = await supabase.from("product_variants").delete().in("id", removedVariantIds);
+      if (error) {
+        setSaving(false);
+        toast.error(error.code === "23503" ? t("productForm.variantInUse") : translateServerError(error.message, t));
+        return;
+      }
+    }
+    setSaving(false);
     navigate("/products");
   }
 
@@ -192,6 +216,13 @@ export function ProductForm() {
     <div className="max-w-xl">
       <h1 className="text-xl font-bold mb-4">{isNew ? t("productForm.newProductTitle") : t("productForm.editProductTitle")}</h1>
 
+      {isArchived && (
+        <p className="mb-4 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-500/40 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+          {archivedBy === "staff" ? t("productForm.archivedByAdminNotice") : t("productForm.archivedNotice")}
+        </p>
+      )}
+
+      <fieldset disabled={isArchived} className="min-w-0 border-0 p-0 m-0">
       <div className="bg-white dark:bg-navy-dark border rounded-lg p-4 space-y-3 mb-4">
         <input
           placeholder={t("productForm.namePlaceholder")}
@@ -245,7 +276,7 @@ export function ProductForm() {
           </button>
         </div>
         {variants.map((v, idx) => (
-          <div key={idx} className="grid grid-cols-5 gap-2 mb-2">
+          <div key={idx} className="grid grid-cols-[repeat(4,minmax(0,1fr))_auto] sm:grid-cols-[repeat(5,minmax(0,1fr))_auto] gap-2 mb-2 items-center">
             <input
               placeholder={t("productForm.attributesPlaceholder")}
               value={v.attributesText}
@@ -291,6 +322,19 @@ export function ProductForm() {
               }}
               className="border rounded-md px-2 py-1.5 text-sm"
             />
+            <button
+              type="button"
+              disabled={variants.length === 1}
+              title={t("productForm.removeVariant")}
+              aria-label={t("productForm.removeVariant")}
+              onClick={() => {
+                if (v.id) setRemovedVariantIds((prev) => [...prev, v.id!]);
+                setVariants(variants.filter((_, i) => i !== idx));
+              }}
+              className="text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:hover:text-gray-400 px-1 text-lg leading-none"
+            >
+              ×
+            </button>
           </div>
         ))}
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t("productForm.lowStockAlertNote")}</p>
@@ -331,26 +375,52 @@ export function ProductForm() {
                 }}
               />
             </label>
+            <button
+              type="button"
+              title={t("productForm.removePhoto")}
+              aria-label={t("productForm.removePhoto")}
+              onClick={() => {
+                if (img.id) setRemovedImageIds((prev) => [...prev, img.id!]);
+                setImages(images.length === 1 ? [{ url: "" }] : images.filter((_, i) => i !== idx));
+              }}
+              className="text-gray-400 hover:text-red-600 px-1 text-lg leading-none flex-shrink-0"
+            >
+              ×
+            </button>
           </div>
         ))}
       </div>
 
-      <div className="flex gap-2">
-        <button
-          onClick={() => handleSave("draft")}
-          disabled={saving}
-          className="border px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 dark:bg-white/5 disabled:opacity-60"
-        >
-          {t("productForm.saveAsDraft")}
-        </button>
-        <button
-          onClick={() => handleSave(store?.status === "active" ? "published" : "submitted")}
-          disabled={saving}
-          className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
-        >
-          {saving ? t("common.saving") : t("merchantProducts.publish")}
-        </button>
-      </div>
+      </fieldset>
+
+      {isArchived ? null : !isNew && currentStatus && currentStatus !== "draft" ? (
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleSave(currentStatus as "published" | "submitted" | "paused" | "approved")}
+            disabled={saving}
+            className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
+          >
+            {saving ? t("common.saving") : t("productForm.saveChanges")}
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleSave("draft")}
+            disabled={saving}
+            className="border px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 dark:bg-white/5 disabled:opacity-60"
+          >
+            {t("productForm.saveAsDraft")}
+          </button>
+          <button
+            onClick={() => handleSave(store?.status === "active" ? "published" : "submitted")}
+            disabled={saving}
+            className="bg-navy text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-navy-dark disabled:opacity-60"
+          >
+            {saving ? t("common.saving") : t("merchantProducts.publish")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
