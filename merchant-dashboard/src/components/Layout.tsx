@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, ClipboardList, Wallet as WalletIcon, Store, Users, LogOut, Menu, Search, Volume2, VolumeX, X, Package, Tag, LifeBuoy } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Wallet as WalletIcon, Store, LogOut, Menu, Search, Volume2, VolumeX, X, Package, Tag, LifeBuoy } from "lucide-react";
 import {
   CommandPalette,
   LanguageSwitcher,
@@ -49,7 +49,6 @@ export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
-  const [staffAccountsEnabled, setStaffAccountsEnabled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const paletteRef = useRef<CommandPaletteHandle>(null);
 
@@ -64,27 +63,10 @@ export function Layout() {
   ];
 
   useEffect(() => {
-    // Same platform-wide toggle Staff.tsx itself re-checks — hidden from
-    // the nav here, but the page also gates itself in case Tolo turns this
-    // off while a merchant already has the URL open or bookmarked.
-    supabase
-      .from("system_settings")
-      .select("value")
-      .eq("key", "merchant_features")
-      .maybeSingle()
-      .then(({ data }) => {
-        const features = data?.value as { staff_accounts_enabled?: boolean } | null;
-        setStaffAccountsEnabled(features?.staff_accounts_enabled ?? false);
-      });
-  }, []);
-
-  useEffect(() => {
     setMenuOpen(false);
   }, [location.pathname]);
 
-  const navItems = staffAccountsEnabled
-    ? [...BASE_NAV_ITEMS, { to: "/staff", label: t("nav.staff"), end: undefined, icon: Users }]
-    : BASE_NAV_ITEMS;
+  const navItems = BASE_NAV_ITEMS;
 
   // Item 5: the same nav item list the sidebar renders, so the palette can
   // never offer a page this merchant's sidebar doesn't already show (staff
