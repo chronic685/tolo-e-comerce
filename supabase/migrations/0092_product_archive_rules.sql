@@ -98,6 +98,8 @@ begin
 end;
 $$;
 
+revoke execute on function trg_enforce_product_archive_rules() from public, anon, authenticated;
+
 create trigger products_enforce_archive_rules
   before insert or update on products
   for each row execute function trg_enforce_product_archive_rules();

@@ -50,6 +50,10 @@ begin
 end;
 $$;
 
+-- Trigger functions are never called directly; keep them off the default PUBLIC grant
+-- (see tests/unit/function-privileges.test.ts). The trigger still fires.
+revoke execute on function trg_guard_product_delete() from public, anon, authenticated;
+
 create trigger products_guard_delete
   before delete on products
   for each row execute function trg_guard_product_delete();
