@@ -7,6 +7,10 @@ export interface Merchant {
   business_subcategory: string | null;
   category_id: string | null;
   categories?: { name: string } | null;
+  /** Which onboarding path created it (migration 0093). */
+  source: "dashboard" | "tolo_app";
+  /** The merchant's TIN, readable by admin tier only (merchant_tins, migration 0094); null or empty for everyone else. */
+  merchant_tins?: { tin: string } | { tin: string }[] | null;
   phone: string | null;
   email: string | null;
   location: string | null;

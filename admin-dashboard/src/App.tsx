@@ -7,7 +7,6 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Dashboard } from "./pages/Dashboard";
 import { Merchants } from "./pages/Merchants";
-import { MerchantApplications } from "./pages/MerchantApplications";
 import { Products } from "./pages/Products";
 import { Customers } from "./pages/Customers";
 import { Orders } from "./pages/Orders";
@@ -52,14 +51,8 @@ export default function App() {
               </PageGuard>
             }
           />
-          <Route
-            path="/merchant-applications"
-            element={
-              <PageGuard pageKey="merchant_applications">
-                <MerchantApplications />
-              </PageGuard>
-            }
-          />
+          {/* Merged into the Merchants page as its Applications tab; the old address keeps working. */}
+          <Route path="/merchant-applications" element={<Navigate to="/merchants?tab=applications" replace />} />
           <Route
             path="/products"
             element={

@@ -145,9 +145,28 @@ https://<marketplace>/auth/handoff?code=<code>&embed=app&next=/merchant/apply
   to the customer's account in `tolo_phone_links` (see "Phone matching").
   The application is stored against that phone.
 - The applicant enters business name, category (from the marketplace's
-  admin-managed categories), address, and a business license photo (JPEG,
-  PNG or WebP, at most 5 MB). Submitting creates a `pending` application
-  and shows a confirmation screen.
+  admin-managed categories), address, and a **10-digit TIN** (Taxpayer
+  Identification Number, digits only, required). Submitting creates a
+  `pending` application and shows a confirmation screen.
+- **The business license photo is no longer asked for.** The upload is
+  switched off in the form (`LICENSE_UPLOAD_ENABLED` in
+  `frontend/src/lib/merchantApplication.ts`) but nothing was removed: the
+  storage bucket, the optional photo argument of
+  `submit_merchant_application()` and the admin "View photo" button for old
+  applications all still work, so turning the constant back on restores it
+  alongside the TIN.
+- **The TIN is provided by the applicant and not verified by the system.**
+  Admins see it with a copy button and the note "Provided by applicant,
+  verify manually".
+- **A TIN can belong to only one merchant at a time.** It is unique across
+  all `pending` and `approved` applications and all merchants, enforced in
+  the database. Submitting a TIN that is already taken fails with
+  `tin_already_registered`, a malformed one with `invalid_tin`. A rejected
+  application frees its TIN. Approving an application carries its TIN over to
+  the merchant (`merchant_tins`), and an admin can correct it afterwards.
+- `submit_merchant_application(p_business_name, p_category_id, p_address,
+  p_tin, p_license_photo_url default null)` replaced the four-argument
+  version (migration 0094).
 - Only one application per phone can be pending. After a rejection the
   applicant can reapply; the form shows the admin's note. An approved
   applicant can't apply again.
@@ -156,11 +175,16 @@ https://<marketplace>/auth/handoff?code=<code>&embed=app&next=/merchant/apply
 
 ## Review
 
-Applications are reviewed in the admin dashboard (**Merchant Applications**)
-by **admin and super_admin accounts only**. Staff with page permissions
-(including "Merchants") can't see or review them. Approval creates an
-`active` merchant owned by the applicant's account. Rejection records an
-optional note, which is shown to the applicant.
+Applications are reviewed in the admin dashboard, on the **Merchants** page
+under its **Merchant Applications** tab (the tab shows a count of pending
+applications; the old `/merchant-applications` address redirects there). Only
+**admin and super_admin accounts** see the tab or can approve and reject:
+staff with the Merchants page permission can't, and the database refuses them
+too (migrations 0073 and 0093), not only the hidden buttons. Approval creates
+an `active` merchant owned by the applicant's account, labelled as coming from
+the Tolo app; merchants who signed up in the merchant dashboard are labelled
+"Dashboard sign-up" in the same list. Rejection records an optional note,
+which is shown to the applicant.
 
 ## Bridge signal: when to show the "Merchant" button
 

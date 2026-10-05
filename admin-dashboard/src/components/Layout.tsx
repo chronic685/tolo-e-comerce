@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { ClipboardList, KeyRound, LogOut, Menu, Package, Search, X } from "lucide-react";
+import { ClipboardList, FileCheck2, KeyRound, LogOut, Menu, Package, Search, X } from "lucide-react";
 import {
   CommandPalette,
   LanguageSwitcher,
@@ -62,6 +62,16 @@ export function Layout() {
     icon: item.icon,
     group: t("commandPalette.pages"),
   }));
+  // Applications are a tab of the Merchants page now, but still worth a direct palette entry for admin tier.
+  if (adminTier) {
+    paletteItems.push({
+      key: "merchant_applications",
+      label: t("merchantApplications.title"),
+      to: "/merchants?tab=applications",
+      icon: FileCheck2,
+      group: t("commandPalette.pages"),
+    });
+  }
 
   async function searchOrdersAndProducts(query: string): Promise<CommandPaletteItem[]> {
     const results: CommandPaletteItem[] = [];
