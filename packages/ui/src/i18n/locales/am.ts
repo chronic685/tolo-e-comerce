@@ -751,6 +751,9 @@ export const am: AmharicStrings = {
   "productForm.archivedNotice": mt("ይህ ምርት በማህደር ተቀምጧል። ለማረም ከ\"በማህደር የተቀመጡ\" ትር ይመልሱት።"),
   "productForm.archivedByAdminNotice": mt("ቶሎ ይህን ምርት በማህደር አስቀምጦታል። መመለስ ወይም መቀየር የሚችሉት የቶሎ ሰራተኞች ብቻ ናቸው።"),
   "errors.archivedByTolo": mt("ይህ ምርት በቶሎ በማህደር ስለተቀመጠ መቀየር የሚችሉት የቶሎ ሰራተኞች ብቻ ናቸው።"),
+  "errors.tinAlreadyRegistered": mt("ይህ TIN ቀድሞ ለሌላ ነጋዴ ወይም ማመልከቻ ተመዝግቧል።"),
+  "errors.invalidTin": mt("TIN በትክክል 10 አሃዝ መሆን አለበት።"),
+  "errors.adminOnly": mt("ይህን ማድረግ የሚችሉት አስተዳዳሪ ወይም ዋና አስተዳዳሪ ብቻ ናቸው።"),
   "errors.productHasOrders": mt("ይህ ምርት ታዟል፤ ስለዚህ መሰረዝ አይቻልም። በምትኩ በማህደር ያስቀምጡት።"),
 
   // merchant orders (merchant-dashboard/src/pages/Orders.tsx) -------------
@@ -948,6 +951,9 @@ export const am: AmharicStrings = {
 
   // legacy merchant application (merchant-dashboard/src/pages/MerchantApplication.tsx) --
   "merchantApplication.agreementRequired": mt("ለመቀጠል የነጋዴ ስምምነቱን መቀበል አለብዎት።"),
+  "merchantApplication.tin": mt("የግብር ከፋይ መለያ ቁጥር (TIN)"),
+  "merchantApplication.tinHint": mt("የእርስዎ ባለ 10 አሃዝ TIN፣ አሃዞች ብቻ። የቶሎ ሰራተኞች በእጅ ያረጋግጡታል።"),
+  "merchantApplication.tinInvalid": mt("ባለ 10 አሃዝ TIN ያስገቡ፣ አሃዞች ብቻ።"),
   "merchantApplication.saveError": mt("ማመልከቻዎን ማስገባት አልተቻለም። እባክዎ እንደገና ይሞክሩ።"),
   "merchantApplication.uploadError": mt("ይህን ሰነድ መስቀል አልተቻለም። እባክዎ እንደገና ይሞክሩ።"),
   "merchantApplication.uploadDocsTitle": mt("የማረጋገጫ ሰነዶችን ይስቀሉ"),
@@ -1605,6 +1611,10 @@ export const am: AmharicStrings = {
   "merchantApply.address": mt("የንግድ አድራሻ"),
   "merchantApply.license": mt("የንግድ ፈቃድ ፎቶ"),
   "merchantApply.licenseHint": mt("JPEG፣ PNG ወይም WebP፣ እስከ 5 MB።"),
+  "merchantApply.tin": mt("የግብር ከፋይ መለያ ቁጥር (TIN)"),
+  "merchantApply.tinHint": mt("የእርስዎ ባለ 10 አሃዝ TIN፣ አሃዞች ብቻ።"),
+  "merchantApply.error.invalid_tin": mt("ባለ 10 አሃዝ TIN ያስገቡ፣ አሃዞች ብቻ።"),
+  "merchantApply.error.tin_already_registered": mt("ይህ TIN ቀድሞ ለሌላ ነጋዴ ወይም ማመልከቻ ተመዝግቧል። የእርስዎ ከሆነ የቶሎ ድጋፍን ያነጋግሩ።"),
   "merchantApply.submit": mt("ማመልከቻ አስገባ"),
   "merchantApply.submitting": mt("በማስገባት ላይ..."),
   "merchantApply.done": mt("ተጠናቋል"),

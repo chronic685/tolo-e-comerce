@@ -5,6 +5,18 @@
 
 export const LICENSE_BUCKET = "merchant-application-licenses";
 
+/** The application asks for a TIN (migration 0094) instead of a license photo. The photo upload is kept
+ * and still works end to end (storage bucket, submit_merchant_application's optional photo argument, the
+ * admin "View photo" button for old applications); this switch just hides it. Flip it to true to bring the
+ * upload back alongside the TIN. */
+export const LICENSE_UPLOAD_ENABLED = false;
+
+/** A Taxpayer Identification Number: exactly 10 digits. Mirrors the database check. */
+const TIN_PATTERN = /^[0-9]{10}$/;
+export function isValidTin(value: string): boolean {
+  return TIN_PATTERN.test(value);
+}
+
 // Must match migration 0073's bucket config.
 export const LICENSE_MAX_BYTES = 5 * 1024 * 1024;
 export const LICENSE_MIME_TYPES: Record<string, string> = {
@@ -33,6 +45,8 @@ const SUBMIT_ERRORS = [
   "account_inactive",
   "invalid_category",
   "invalid_license_photo",
+  "invalid_tin",
+  "tin_already_registered",
   "already_merchant",
   "application_pending",
   "invalid_details",
