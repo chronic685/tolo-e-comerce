@@ -112,12 +112,13 @@ describe("order-status: customer self-cancellation", () => {
     expect(mo!.status).toBe("cancelled");
     expect(await reservedQuantity(variantId)).toBe(reservedBefore - 1);
 
-    // A second request (a double tap) is refused rather than releasing again.
+    // A second request (a double tap) is a no-op: it succeeds, changes nothing and does not release again.
     const again = await callFunction("order-status", {
       token: customerToken,
       body: { merchant_order_id: merchantOrderId, status: "cancelled" },
     });
-    expect(again.status).toBe(400);
+    expect(again.status).toBe(200);
+    expect(again.json).toMatchObject({ ok: true, unchanged: true });
     expect(await reservedQuantity(variantId)).toBe(reservedBefore - 1);
   });
 

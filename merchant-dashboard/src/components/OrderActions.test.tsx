@@ -4,6 +4,7 @@ import { I18nProvider } from "@tolo/ui";
 import { OrderActions } from "./OrderActions";
 
 const advance = vi.hoisted(() => vi.fn());
+vi.mock("../lib/supabase", () => ({ supabase: {} }));
 vi.mock("../lib/orderFlow", async (importOriginal) => ({ ...(await importOriginal<typeof import("../lib/orderFlow")>()), advanceOrder: advance }));
 
 // A fresh order id per test: the cooldown that stops a late second tap is kept per order, like in the real app.

@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+// orderFlow talks to Supabase only inside advanceOrder; keep the client (which needs the app's env) out of a pure-logic test.
+vi.mock("./supabase", () => ({ supabase: {} }));
+
 import { nextStep, reasonNote, rejectStep } from "./orderFlow";
 
 describe("nextStep: the one primary button", () => {

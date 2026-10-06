@@ -32,6 +32,8 @@ as $$
   );
 $$;
 
+revoke execute on function merchant_order_transition_ok(merchant_order_status, merchant_order_status) from public, anon, authenticated;
+
 create or replace function trg_enforce_merchant_order_transitions()
 returns trigger
 language plpgsql security definer set search_path = public

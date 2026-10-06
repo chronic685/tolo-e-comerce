@@ -50,8 +50,9 @@ describe("order-status: the one-button flow", () => {
     expect(mo!.received_by).not.toBeNull();
 
     const { data: history } = await db.from("order_status_history").select("status, changed_at").eq("merchant_order_id", merchantOrderId);
-    expect((history ?? []).map((h) => h.status).sort()).toEqual(["accepted", "processing"]);
-    expect(history![0].changed_at).toBe(history![1].changed_at); // the same instant: nothing half-done in between
+    const rows = (history ?? []).filter((h) => h.status !== "new"); // checkout wrote the first row, "new"
+    expect(rows.map((h) => h.status).sort()).toEqual(["accepted", "processing"]);
+    expect(rows[0].changed_at).toBe(rows[1].changed_at); // the same instant: nothing half-done in between
   });
 
   it("sends the customer ONE message for it, not 'received' then 'preparing'", async () => {
