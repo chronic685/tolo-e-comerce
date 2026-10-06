@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, inject, it } from "vitest";
 import { anonClient, env, signIn } from "../env.ts";
 import { createClient } from "@supabase/supabase-js";
 
-// Migration 0095: a merchant's phone, email, owner name/phone/email and registration number moved off the publicly
+// Migrations 0099 (expand) and 0100 (contract): a merchant's phone, email, owner name/phone/email and registration number moved off the publicly
 // readable merchants row into merchant_private. Until then the public anon key could read all of them for every
 // active merchant. This replicates what a visitor (anon) and a signed-in customer can do, against the real API.
 describe("merchant contact details are not public", () => {

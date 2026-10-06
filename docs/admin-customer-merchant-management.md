@@ -1,7 +1,7 @@
 # Admin: customer and merchant management
 
 What an admin can see, edit, delete and close, and who is allowed to. Every rule here is
-enforced by the database (migrations 0093 to 0097); the admin dashboard also hides the buttons
+enforced by the database (migrations 0093 to 0099); the admin dashboard also hides the buttons
 a member of staff may not use, but that is a convenience, not the protection.
 
 "Admin tier" below means an `admin` or `super_admin` account. "Staff" means a Tolo account
@@ -29,7 +29,7 @@ Every edit, anonymize, close, reopen and delete writes an `audit_logs` row: who,
 (before and after for edits). Phone numbers and the registration number are masked to their last four
 characters in the log, and the TIN is audited by its last four digits only.
 
-## Customers (migration 0096)
+## Customers (migration 0099)
 
 **Detail** (`admin_customer_detail`): profile, email and last sign-in (from the login), Tolo link status
 (admin tier sees the linked phone, staff see that a link exists), addresses, order history with totals and
@@ -55,7 +55,7 @@ language in the browser, not on the account.*
   `pending`, and for staff or admin accounts and for anyone who owns or works for a merchant.
 - The admin must type `DELETE`. An anonymized account cannot be edited or switched back on by any client.
 
-## Merchants (migrations 0093 to 0097)
+## Merchants (migrations 0093 to 0099)
 
 **Detail** (`admin_merchant_detail`): business, owner and contact, store (hours, logo, cover, pickup
 address, preparation time), source label (Tolo app or Dashboard sign-up), status, product and order counts,
@@ -91,12 +91,30 @@ adjustment; otherwise the dashboard offers Close. The admin must type the mercha
   dashboard deletes them through the Storage API straight after; anything missed is an unreferenced file, never a
   dangling reference.
 
-## Private contact details (migration 0095)
+## Private contact details: expand, then contract (migrations 0099 and 0100)
 
-A merchant's phone, email, owner name, owner phone, owner email and registration number used to sit on the
-`merchants` row, which any visitor could read for an active merchant. They now live in `merchant_private`,
-readable only by the merchant's own owner and staff and by Tolo staff whose pages reach merchants. The
-storefront and the Tolo-embedded marketplace never read those columns, so they are unchanged. Anonymous
-visitors and signed-in customers get only the safe public columns of `merchants` (name, category, status, area,
-coordinates, rating through the computed columns). Tests: `supabase/tests/admin_detail_controls.test.ts` (SQL)
-and `tests/smoke/merchant-contacts-private.test.ts` (against the real API).
+A merchant's phone, email, owner name, owner phone, owner email and registration number sit on the `merchants` row, which
+any visitor can read for an active merchant. They move to `merchant_private`, readable only by the merchant's own owner and
+staff and by Tolo staff whose pages reach merchants. The storefront and the Tolo-embedded marketplace never read those columns, so they
+are unchanged.
+
+Dropping the columns in one step would break any code still reading them, so it ships in two phases that never break anything:
+
+1. **Expand, `0099_expand_merchant_private_and_admin_controls.sql`.** Additive only. It creates `merchant_private`, backfills it, keeps the
+   two copies identical with a trigger in each direction, and adds the safe `merchants_public` view and the admin customer / merchant
+   functions. Old code (reads and writes `merchants.phone`) and new code (reads and writes `merchant_private`) both work. **It does not close the
+   exposure**, and cannot without breaking old code. New code must *upsert* into `merchant_private`: during this phase inserting a merchant already
+   creates its (empty) private row.
+2. **Contract, `0100_contract_drop_public_merchant_contacts.sql`.** Apply it **only after every Edge Function and dashboard that reads the old
+   columns is deployed**. It stops the sync, drops the six columns from `merchants` (which closes the exposure: anonymous visitors and signed-in
+   customers read none of them) and makes the approval write `merchant_private` directly.
+
+The code is written to be deployed before or after the expand migration, in any order: `order-status` and `delivery-handoff` read the
+phone through `_shared/merchant_contact.ts` (try `merchant_private`, fall back to `merchants.phone` only if that query fails), the merchant
+dashboard saves contacts with `saveMerchantContact` (the same fallback), and the admin Merchants page tries the `merchant_private` embed and
+falls back to the old columns. None of them needs a change for the contract migration.
+
+**Rollout order:** back up; apply 0099; deploy `order-status`, `delivery-handoff`, `review-merchant-application`, then the dashboards; check nothing
+still selects the old columns; back up again; apply 0100. Tests: `supabase/tests/merchant_contacts_phases.test.ts` (both phases, including that an
+anonymous request reads none of the sensitive fields after 0100), `supabase/tests/admin_detail_controls.test.ts`, and
+`tests/smoke/merchant-contacts-private.test.ts` (against the real API, with all migrations applied).

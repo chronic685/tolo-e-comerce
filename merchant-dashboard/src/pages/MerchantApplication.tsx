@@ -9,6 +9,7 @@ import {
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import { useMerchant } from "../lib/MerchantContext";
+import { saveMerchantContact } from "../lib/merchantContact";
 import type { Category } from "../types";
 
 const REQUIRED_DOCS = [
@@ -106,10 +107,10 @@ export function MerchantApplication() {
     await saveContactAndTin(data.id);
   }
 
-  // Contact details live in merchant_private (migration 0095), not on the publicly readable merchants row.
+  // Contact details live in merchant_private (migration 0099), not on the publicly readable merchants row; saveMerchantContact falls back to
+  // the old columns while that table does not exist yet, so this works before and after the migration.
   async function saveContactAndTin(id: string) {
-    const { error: contactError } = await supabase.from("merchant_private").upsert({
-      merchant_id: id,
+    const { error: contactError } = await saveMerchantContact(id, {
       phone: form.phone,
       email: user?.email ?? null,
       owner_full_name: form.owner_full_name || null,

@@ -100,7 +100,7 @@ to stop that from filling the project up.
 16. **Contact details never sit on a publicly readable row.** `merchants` is readable
     by anyone for an active merchant (the storefront embeds it), so a merchant's phone,
     email, owner name and registration number live in `merchant_private` (migration
-    0095), and the TIN in `merchant_tins` (0094), each with its own row-level security.
+    0099/0100), and the TIN in `merchant_tins` (0094), each with its own row-level security.
     A new sensitive field goes in one of those, never on `merchants`, `stores` or
     `products`. A test must show an anonymous request cannot read it.
 17. **Deleting a person means anonymizing, and what an admin may do is enforced in the

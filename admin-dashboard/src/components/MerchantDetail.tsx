@@ -124,7 +124,7 @@ function storageTarget(url: string): { bucket: string; path: string } | null {
 
 /** Everything about one merchant, for an admin: business, store, contact, TIN, status, numbers, payouts, applications,
  * documents and the audit trail. Reads through admin_merchant_detail() and writes through admin_update_merchant(),
- * set_merchant_tin(), admin_close_merchant(), admin_reopen_merchant() and admin_delete_merchant() (migrations 0094-0097),
+ * set_merchant_tin(), admin_close_merchant(), admin_reopen_merchant() and admin_delete_merchant() (migrations 0094, 0099),
  * which enforce who may do what; the buttons staff may not use are not rendered for them. */
 export function MerchantDetail({ merchantId, onChanged, onDeleted }: { merchantId: string; onChanged?: () => void; onDeleted?: () => void }) {
   const { t } = useTranslation();

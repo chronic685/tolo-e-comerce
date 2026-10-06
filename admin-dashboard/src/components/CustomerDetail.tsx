@@ -82,7 +82,7 @@ function auditSummary(row: AuditRow): string {
 
 /** Everything about one customer, for an admin: profile, addresses, orders, refunds, reviews, cart, audit trail.
  * Reads through admin_customer_detail() and writes through admin_update_customer(), admin_update_customer_address()
- * and admin_anonymize_customer() (migration 0096), which enforce who may do what. The buttons for what a member of
+ * and admin_anonymize_customer() (migration 0099), which enforce who may do what. The buttons for what a member of
  * staff may not do (change a phone, delete the customer) are not rendered for them; the database refuses them anyway. */
 export function CustomerDetail({ customerId, onChanged }: { customerId: string; onChanged?: () => void }) {
   const { t } = useTranslation();

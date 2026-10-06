@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, ExportCsvButton, fetchAllRows, Pagination, Sheet, SkeletonRows, toast, totalPagesFor, translateServerError, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, ExportCsvButton, fetchAllRows, Pagination, Sheet, SkeletonRows, toast, totalPagesFor, translateServerError, usePagination, useTranslation, type DataTableColumn, type FetchPageResult } from "@tolo/ui";
 import { useAuth } from "../lib/AuthContext";
 import { TinValue } from "../components/TinValue";
 import { MerchantDetail } from "../components/MerchantDetail";
@@ -109,10 +109,18 @@ export function Merchants() {
   );
 }
 
+// Contact details come from merchant_private; while the old columns still exist on the row (before migration 0099, or between 0099 and 0100)
+// they are the fallback, so the page works at every stage of the rollout.
 function privOf(m: Merchant): Partial<MerchantPrivate> {
   const p = m.merchant_private;
-  return (Array.isArray(p) ? p[0] : p) ?? {};
+  const embedded = Array.isArray(p) ? p[0] : p;
+  if (embedded) return embedded;
+  return { phone: m.phone, email: m.email, owner_full_name: m.owner_full_name, owner_phone: m.owner_phone, owner_email: m.owner_email };
 }
+
+const MERCHANT_SELECT = "*, categories ( name ), merchant_tins ( tin ), merchant_private ( phone, email, owner_full_name, owner_phone, owner_email )";
+// Without the contact embed, for a database where merchant_private does not exist yet (before 0099): the old columns come with "*".
+const MERCHANT_SELECT_LEGACY = "*, categories ( name ), merchant_tins ( tin )";
 
 function tinOf(m: Merchant): string | null {
   const t = m.merchant_tins;
@@ -174,10 +182,15 @@ function MerchantList() {
 
   async function load() {
     setLoading(true);
-    let query = supabase.from("merchants").select("*, categories ( name ), merchant_tins ( tin ), merchant_private ( phone, email, owner_full_name, owner_phone, owner_email )", { count: "exact" }).order("created_at", { ascending: false });
-    if (statusFilter !== "all") query = query.eq("status", statusFilter);
-    const { data, count } = await query.range(from, to);
-    setMerchants(data ?? []);
+    const page = (select: string) => {
+      let query = supabase.from("merchants").select(select, { count: "exact" }).order("created_at", { ascending: false });
+      if (statusFilter !== "all") query = query.eq("status", statusFilter);
+      return query.range(from, to);
+    };
+    let result = await page(MERCHANT_SELECT);
+    if (result.error) result = await page(MERCHANT_SELECT_LEGACY);
+    const { data, count } = result;
+    setMerchants((data as unknown as Merchant[]) ?? []);
     setTotalCount(count ?? 0);
     setLoading(false);
   }
@@ -259,10 +272,12 @@ function MerchantList() {
   // Exports every merchant matching the current status filter, not just
   // the page on screen.
   async function handleExport() {
+    const probe = await supabase.from("merchants").select(MERCHANT_SELECT).limit(1);
+    const exportSelect = probe.error ? MERCHANT_SELECT_LEGACY : MERCHANT_SELECT;
     const rows = await fetchAllRows<Merchant>((from, to) => {
-      let query = supabase.from("merchants").select("*, categories ( name ), merchant_tins ( tin ), merchant_private ( phone, email, owner_full_name, owner_phone, owner_email )").order("created_at", { ascending: false });
+      let query = supabase.from("merchants").select(exportSelect).order("created_at", { ascending: false });
       if (statusFilter !== "all") query = query.eq("status", statusFilter);
-      return query.range(from, to);
+      return query.range(from, to) as unknown as PromiseLike<FetchPageResult<Merchant>>;
     });
     exportToCsv(
       `merchants-${statusFilter}-${new Date().toISOString().slice(0, 10)}.csv`,
