@@ -339,7 +339,7 @@ export function OrderDetail() {
           ) : (
             <div className="mb-3 -mx-1 overflow-x-auto">
               <Stepper
-                steps={buildTrackSteps(mo.order_status_history, trackIndex)}
+                steps={buildTrackSteps(mo.order_status_history, trackIndex, t)}
                 currentIndex={trackIndex}
                 className="min-w-[300px] px-1"
               />

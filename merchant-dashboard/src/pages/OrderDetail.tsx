@@ -2,6 +2,9 @@
 import { useParams } from "react-router-dom";
 import { Calendar } from "lucide-react";
 import { extractServerErrorText, formatOrderNumber, SkeletonPage, toast, translateServerError, useTranslation } from "@tolo/ui";
+import { OrderActions } from "../components/OrderActions";
+import { advanceOrder } from "../lib/orderFlow";
+import { useOrderRefresh } from "../lib/useOrderRefresh";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 
@@ -55,21 +58,6 @@ export function OrderDetail() {
     cancel_order: t("substitution.customerAskedCancel"),
   };
 
-  const TRANSITIONS: Record<string, { status: string; label: string; primary?: boolean }[]> = {
-    new: [
-      { status: "accepted", label: t("merchant.orderReceived"), primary: true },
-      { status: "rejected", label: t("merchant.rejectOrder") },
-    ],
-    accepted: [
-      { status: "processing", label: t("merchant.startPreparing"), primary: true },
-      { status: "cancelled", label: t("orders.cancelOrder") },
-    ],
-    processing: [
-      { status: "ready_for_pickup", label: t("orderStatus.ready_for_pickup"), primary: true },
-      { status: "cancelled", label: t("orders.cancelOrder") },
-    ],
-  };
-
   async function load() {
     const { data } = await supabase
       .from("merchant_orders")
@@ -88,6 +76,9 @@ export function OrderDetail() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // The button follows the order: refreshed in place when the status changes elsewhere (another device, the driver).
+  useOrderRefresh(`merchant-order-${id}`, id ? `id=eq.${id}` : undefined, load);
 
   async function openResolvePanel(item: OrderItemRow) {
     setResolvingItemId(item.id);
@@ -135,19 +126,13 @@ export function OrderDetail() {
   // waiting on a re-fetch to see it.
   async function handleTransition(status: string) {
     setBusy(true);
-    const { error } = await supabase.functions.invoke("order-status", {
-      body: { merchant_order_id: id, status },
-    });
+    const result = await advanceOrder(id!, status);
     setBusy(false);
-    if (error) {
-      toast.error(translateServerError(await extractServerErrorText(error), t));
+    if (!result.ok) {
+      toast.error(translateServerError(result.error, t));
       return;
     }
-    setOrder((prev) =>
-      prev
-        ? { ...prev, status, order_status_history: [...prev.order_status_history, { status, changed_at: new Date().toISOString(), note: null }] }
-        : prev,
-    );
+    await load();
   }
 
   async function handleConfirmCash(paymentId: string) {
@@ -168,8 +153,6 @@ export function OrderDetail() {
   }
 
   if (!order) return <SkeletonPage />;
-
-  const actions = TRANSITIONS[order.status] ?? [];
 
   return (
     <div className="max-w-xl">
@@ -309,22 +292,7 @@ export function OrderDetail() {
         </div>
       )}
 
-      {actions.length > 0 && (
-        <div className="flex gap-2 mb-4">
-          {actions.map((a) => (
-            <button
-              key={a.status}
-              onClick={() => handleTransition(a.status)}
-              disabled={busy}
-              className={`px-4 py-2 rounded-md text-sm font-medium disabled:opacity-60 ${
-                a.primary ? "bg-navy text-white hover:bg-navy-dark" : "border hover:bg-gray-50 dark:bg-white/5"
-              }`}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <OrderActions orderId={order.id} status={order.status} onMoved={() => load()} />
 
       <div className="bg-white dark:bg-navy-dark border rounded-lg p-4">
         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t("orders.statusHistory")}</p>

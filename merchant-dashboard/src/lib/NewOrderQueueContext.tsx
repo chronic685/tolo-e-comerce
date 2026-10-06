@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { supabase } from "./supabase";
 import { useMerchant } from "./MerchantContext";
 import { loadSoundEnabled, persistSoundEnabled } from "./soundPreference";
+import { advanceOrder } from "./orderFlow";
 
 export interface PendingOrder {
   id: string;
@@ -13,7 +14,8 @@ export interface PendingOrder {
 
 interface NewOrderQueueState {
   queue: PendingOrder[];
-  acknowledge: (id: string) => Promise<void>;
+  /** Accepts the order and starts preparing it, in one step. Resolves false (and keeps the order in the queue) if it failed. */
+  acknowledge: (id: string) => Promise<boolean>;
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
   alertSettings: { vibrate: boolean; reminder_interval_minutes: number; escalate_after_minutes: number };
@@ -130,9 +132,12 @@ export function NewOrderQueueProvider({ children }: { children: ReactNode }) {
   }, [current, alertSettings, soundEnabled]);
 
   const acknowledge = useCallback(async (id: string) => {
-    await supabase.functions.invoke("order-status", { body: { merchant_order_id: id, status: "accepted" } });
+    // One tap: straight to "processing" (accepted and preparing together). A repeat is a no-op on the server.
+    const result = await advanceOrder(id, "processing");
+    if (!result.ok) return false;
     navigator.vibrate?.(0);
     setQueue((prev) => prev.filter((o) => o.id !== id));
+    return true;
   }, []);
 
   const value = useMemo(

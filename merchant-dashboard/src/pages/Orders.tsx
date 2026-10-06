@@ -9,15 +9,19 @@ import {
   formatOrderNumber,
   Pagination,
   SkeletonRows,
+  toast,
   totalPagesFor,
   usePagination,
   useTranslation,
   type DataTableColumn,
 } from "@tolo/ui";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useMerchant } from "../lib/MerchantContext";
 import type { MerchantOrder } from "../types";
+import { OrderActions } from "../components/OrderActions";
+import { advanceOrder } from "../lib/orderFlow";
+import { useOrderRefresh } from "../lib/useOrderRefresh";
 
 const statusVariant: Record<string, "warning" | "info" | "success" | "danger" | "default"> = {
   new: "warning",
@@ -53,30 +57,54 @@ export function Orders() {
   const [orders, setOrders] = useState<MerchantOrder[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [filter, setFilter] = useState("all");
-  const [loading, setLoading] = useState(true);
   const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE, resetKey: filter });
+  // The skeleton shows only while the CURRENT view (merchant, filter, page) has not loaded yet; a refresh of a view that is
+  // already on screen (realtime, polling, after an action) swaps the rows in place without blanking the table.
+  const viewKey = `${merchant?.id ?? ""}:${filter}:${from}:${to}`;
+  const [loadedKey, setLoadedKey] = useState("");
+  const loading = loadedKey !== viewKey;
+
+  const load = useCallback(
+    () => {
+      if (!merchant) return;
+      let query = supabase
+        .from("merchant_orders")
+        .select(
+          "id, order_id, merchant_id, status, subtotal, commission_amount, merchant_payable, created_at, scheduled_for, " +
+            "order_items ( id, product_name_snapshot, quantity ), orders ( order_number )",
+          { count: "exact" },
+        )
+        .eq("merchant_id", merchant.id)
+        .order("created_at", { ascending: false });
+
+      if (filter !== "all") query = query.eq("status", filter);
+
+      query.range(from, to).then(({ data, count }) => {
+        setOrders((data as unknown as MerchantOrder[]) ?? []);
+        setTotalCount(count ?? 0);
+        setLoadedKey(viewKey);
+      });
+    },
+    [merchant, filter, from, to, viewKey],
+  );
 
   useEffect(() => {
-    if (!merchant) return;
-    setLoading(true);
-    let query = supabase
-      .from("merchant_orders")
-      .select(
-        "id, order_id, merchant_id, status, subtotal, commission_amount, merchant_payable, created_at, scheduled_for, " +
-          "order_items ( id, product_name_snapshot, quantity ), orders ( order_number )",
-        { count: "exact" },
-      )
-      .eq("merchant_id", merchant.id)
-      .order("created_at", { ascending: false });
+    load();
+  }, [load]);
 
-    if (filter !== "all") query = query.eq("status", filter);
+  // The button on a row follows the order: when another device, the driver or a customer changes it, the row updates.
+  useOrderRefresh(`merchant-orders-list-${merchant?.id ?? "none"}`, merchant ? `merchant_id=eq.${merchant.id}` : undefined, () => load());
 
-    query.range(from, to).then(({ data, count }) => {
-      setOrders((data as unknown as MerchantOrder[]) ?? []);
-      setTotalCount(count ?? 0);
-      setLoading(false);
-    });
-  }, [merchant, filter, from, to]);
+  // Bulk accept: every selected new order, one request each (each is its own atomic accept), then one refresh.
+  async function bulkAccept(selected: MerchantOrder[]) {
+    const fresh = selected.filter((o) => o.status === "new");
+    if (fresh.length === 0) return;
+    const results = await Promise.all(fresh.map((o) => advanceOrder(o.id, "processing")));
+    const failed = results.filter((r) => !r.ok).length;
+    if (failed === 0) toast.success(t("merchantOrders.bulkAccepted", { count: fresh.length }));
+    else toast.error(t("merchantOrders.bulkAcceptPartial", { done: fresh.length - failed, failed }));
+    load();
+  }
 
   const columns: DataTableColumn<MerchantOrder>[] = [
     {
@@ -125,6 +153,11 @@ export function Orders() {
       ),
       csvValue: (o) => o.status,
     },
+    {
+      key: "action",
+      header: "",
+      render: (o) => <OrderActions compact orderId={o.id} status={o.status} onMoved={(to) => setOrders((prev) => prev.map((x) => (x.id === o.id ? { ...x, status: to } : x)))} />,
+    },
   ];
 
   return (
@@ -150,7 +183,14 @@ export function Orders() {
         <EmptyState icon={Inbox} title={t("merchantOrders.noOrdersTitle")} description={t("merchantOrders.noOrdersDescription")} />
       ) : (
         <>
-          <DataTable storageKey="merchant.orders" columns={columns} rows={orders} getRowId={(o) => o.id} csvFilename={`orders-${filter}.csv`} />
+          <DataTable
+            storageKey="merchant.orders"
+            columns={columns}
+            rows={orders}
+            getRowId={(o) => o.id}
+            csvFilename={`orders-${filter}.csv`}
+            bulkActions={[{ label: t("merchant.acceptAndStart"), onAction: bulkAccept }]}
+          />
           <div className="mt-4">
             <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
           </div>
