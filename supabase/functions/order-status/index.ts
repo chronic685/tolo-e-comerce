@@ -3,37 +3,24 @@
 // Validates the requested transition, checks the caller is staff of the
 // owning merchant (or Tolo staff), applies it, and logs it to
 // order_status_history. Reaching "ready_for_pickup" opens a delivery record.
+// The transition rules live in transitions.ts (and, for every client write, in migration 0098).
+//
+// One button per order: a new order goes straight to "processing" in ONE update that also records when it was
+// accepted and when preparation started, with both history rows written in one insert, so there is never a
+// half-accepted order. Asking for the status an order is already in succeeds without doing anything (a double tap,
+// or two screens open), so retrying is always safe.
 import { serviceClient, userClient } from "../_shared/client.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { sendNotification } from "../_shared/notify.ts";
 import { formatOrderNumber } from "../_shared/format.ts";
-
-const MERCHANT_TRANSITIONS: Record<string, string[]> = {
-  new: ["accepted", "rejected"],
-  accepted: ["processing", "cancelled"],
-  processing: ["ready_for_pickup", "cancelled"],
-};
-
-// The only customer-initiated transition. A customer may cancel from placement
-// until a driver is assigned: every order status before "picked_up", and only
-// while the delivery job (if any) is still "invoked" -- once a driver has
-// accepted it (job "accepted" or later) the cancel is refused. (It used to stop
-// at "new", the merchant's commitment point; widened so a customer is never
-// stuck with an order they no longer want while it is still on the merchant's
-// side.) The delivery leg is the real cut-off. Money and
-// stock are made whole by the same steps a merchant reject/cancel takes.
-const CUSTOMER_TRANSITIONS: Record<string, string[]> = {
-  new: ["cancelled"],
-  accepted: ["cancelled"],
-  processing: ["cancelled"],
-  ready_for_pickup: ["cancelled"],
-};
-
-// Order statuses and delivery job statuses at which a driver is assigned or the
-// parcel is beyond that, so a customer can no longer cancel. (A "failed" job
-// never reached a driver's hands, and "cancelled" is ours, so neither blocks.)
-const WITH_DRIVER_ORDER_STATUSES = ["picked_up", "delivered", "completed"];
-const WITH_DRIVER_JOB_STATUSES = ["accepted", "picked_up", "delivered"];
+import {
+  CUSTOMER_TRANSITIONS,
+  customerNotificationFor,
+  isAcceptAndStart,
+  MERCHANT_TRANSITIONS,
+  WITH_DRIVER_JOB_STATUSES,
+  WITH_DRIVER_ORDER_STATUSES,
+} from "./transitions.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -57,6 +44,20 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!mo) return jsonResponse({ error: "Merchant order not found" }, 404);
+
+    // Already there (a double tap, a retry after a dropped response, two screens open): nothing to do, so no error. Only
+    // someone who could have made the change in the first place gets that answer.
+    if (mo.status === status) {
+      const [{ data: orderOwner }, { data: staffRow }, { data: ownerRow }] = await Promise.all([
+        db.from("orders").select("customer_id").eq("id", mo.order_id).single(),
+        db.from("merchant_staff").select("id").eq("merchant_id", mo.merchant_id).eq("user_id", userData.user.id).maybeSingle(),
+        db.from("merchants").select("id").eq("id", mo.merchant_id).eq("owner_id", userData.user.id).maybeSingle(),
+      ]);
+      if (orderOwner?.customer_id !== userData.user.id && !staffRow && !ownerRow) {
+        return jsonResponse({ error: "Not authorized for this order" }, 403);
+      }
+      return jsonResponse({ ok: true, unchanged: true, status: mo.status });
+    }
 
     const merchantAllowed = MERCHANT_TRANSITIONS[mo.status] ?? [];
     const customerAllowed = CUSTOMER_TRANSITIONS[mo.status] ?? [];
@@ -119,12 +120,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Cancelling after the order is ready: allowed until a driver has accepted the job, whoever cancels.
+    if (status === "cancelled" && mo.status === "ready_for_pickup" && !isCustomerAction) {
+      const { data: job } = await db.from("delivery_jobs").select("status").eq("merchant_order_id", mo.id).maybeSingle();
+      if (job && WITH_DRIVER_JOB_STATUSES.includes(job.status)) {
+        return jsonResponse({ error: "This order can no longer be cancelled because a driver has already been assigned to it." }, 400);
+      }
+    }
+
+    const acceptAndStart = isAcceptAndStart(mo.status, status);
     const update: Record<string, unknown> = { status };
     const now = new Date().toISOString();
     // "accepted" is the spec's "ORDER RECEIVED" acknowledgement — this
     // timestamp, not the notification, is what counts as the merchant
     // having actually seen the order.
-    if (status === "accepted") {
+    if (status === "accepted" || acceptAndStart) {
       update.order_received_at = now;
       update.received_by = userData.user.id;
     }
@@ -138,12 +148,16 @@ Deno.serve(async (req) => {
     if (!moved || moved.length === 0) {
       return jsonResponse({ error: "This order's status just changed. Please refresh and try again." }, 409);
     }
-    await db.from("order_status_history").insert({
-      merchant_order_id: mo.id,
-      status,
-      changed_by: userData.user.id,
-      note: note ?? (isCustomerAction && status === "cancelled" ? "Cancelled by customer" : undefined),
-    });
+    const historyNote = note ?? (isCustomerAction && status === "cancelled" ? "Cancelled by customer" : undefined);
+    await db.from("order_status_history").insert(
+      acceptAndStart
+        ? [
+            // The same instant for both: the customer's timeline shows "preparing" from the accept time.
+            { merchant_order_id: mo.id, status: "accepted", changed_by: userData.user.id, changed_at: now, note: historyNote },
+            { merchant_order_id: mo.id, status: "processing", changed_by: userData.user.id, changed_at: now, note: "Accepted and started preparing" },
+          ]
+        : [{ merchant_order_id: mo.id, status, changed_by: userData.user.id, note: historyNote }],
+    );
 
     if (status === "rejected" || status === "cancelled") {
       // Gives the stock back and cancels any delivery job/record that nobody has
@@ -162,14 +176,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const CUSTOMER_NOTIFY_EVENTS: Record<string, string> = {
-      accepted: "order_received",
-      processing: "order_preparing",
-      ready_for_pickup: "order_ready_for_pickup",
-      rejected: "order_rejected",
-      cancelled: "order_cancelled",
-    };
-    const notifyEvent = CUSTOMER_NOTIFY_EVENTS[status];
+    // One message for accept-and-start; see customerNotificationFor().
+    const notifyEvent = customerNotificationFor(mo.status, status);
     if (notifyEvent) {
       const [{ data: orderInfo }, { data: merchantInfo }] = await Promise.all([
         db
