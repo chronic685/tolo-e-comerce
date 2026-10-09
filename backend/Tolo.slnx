@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Tolo.Api/Tolo.Api.csproj" />
+    <Project Path="src/Tolo.Domain/Tolo.Domain.csproj" />
+    <Project Path="src/Tolo.Infrastructure/Tolo.Infrastructure.csproj" />
+    <Project Path="src/Tolo.Worker/Tolo.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Tolo.Tests/Tolo.Tests.csproj" />
+  </Folder>
+</Solution>
