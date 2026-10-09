@@ -1,6 +1,7 @@
 name: Backend (C#)
 
-# Runs only when the C# backend (or this workflow, or the one migration its database tests read) changes.
+# Runs only when backend/ (or this workflow) changes. The database tests load every migration into a throwaway Postgres,
+# so they check the schema as of the branch being tested.
 # The JS pipeline in ci.yml is unchanged and independent.
 on:
   push:
@@ -8,12 +9,10 @@ on:
     paths:
       - "backend/**"
       - ".github/workflows/backend.yml"
-      - "supabase/migrations/0072_tolo_phone_links.sql"
   pull_request:
     paths:
       - "backend/**"
       - ".github/workflows/backend.yml"
-      - "supabase/migrations/0072_tolo_phone_links.sql"
   workflow_dispatch:
 
 permissions:

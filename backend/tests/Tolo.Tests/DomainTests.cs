@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Tolo.Domain;
 using Tolo.Domain.Abstractions;
+using Tolo.Domain.Common;
+using Tolo.Domain.Identity;
 using Tolo.Domain.Services;
 using Tolo.Infrastructure.Fakes;
 using Tolo.Worker;
@@ -23,6 +25,50 @@ public sealed class DomainTests
     [InlineData(null, null)]
     public void Phone_normalization_matches_the_edge_function(string? input, string? expected) =>
         Assert.Equal(expected, PhoneNumber.NormalizeEthiopian(input));
+
+    // --- roles: the C# twin of has_admin_page() ---
+
+    private static ToloPrincipal Who(params string[] roles) => new() { UserId = Guid.NewGuid(), Roles = roles.ToHashSet() };
+
+    [Fact]
+    public void Admin_tiers_reach_every_page_and_staff_only_the_pages_they_hold()
+    {
+        Assert.True(Who(Roles.Admin).HasAdminPage("anything"));
+        Assert.True(Who(Roles.SuperAdmin).HasAdminPage("anything"));
+
+        var staff = Who(Roles.Staff) with { Pages = new HashSet<string> { "orders", "merchants" } };
+        Assert.True(staff.HasAdminPage("merchants"));
+        Assert.True(staff.HasAdminPage("products", "orders")); // any of the keys, like has_admin_page(array[...])
+        Assert.False(staff.HasAdminPage("products"));
+    }
+
+    [Fact]
+    public void Pages_mean_nothing_without_the_staff_role()
+    {
+        var customerWithPages = Who(Roles.Customer) with { Pages = new HashSet<string> { "merchants" } };
+        Assert.False(customerWithPages.HasAdminPage("merchants"));
+        Assert.False(Who(Roles.MerchantOwner).HasAdminPage("merchants"));
+    }
+
+    [Fact]
+    public void Merchant_membership_is_per_merchant()
+    {
+        var mine = Guid.NewGuid();
+        var who = Who(Roles.MerchantOwner) with { MerchantIds = new HashSet<Guid> { mine } };
+        Assert.True(who.IsMemberOf(mine));
+        Assert.False(who.IsMemberOf(Guid.NewGuid()));
+    }
+
+    [Theory]
+    [InlineData(0, 0, 1, 20)]
+    [InlineData(-5, 500, 1, 100)]
+    [InlineData(3, 10, 3, 10)]
+    public void Paging_is_clamped(int page, int size, int expectedPage, int expectedSize)
+    {
+        var p = new PageRequest(page, size).Normalized();
+        Assert.Equal((expectedPage, expectedSize), (p.Page, p.PageSize));
+        Assert.Equal((expectedPage - 1) * expectedSize, p.Skip);
+    }
 
     // --- tolo_phone_links protection (migration 0072) ---
 
@@ -76,7 +122,6 @@ public sealed class DomainTests
 
         await Assert.ThrowsAsync<PhoneAlreadyLinkedException>(() => svc.LinkNewAccountAsync(Guid.NewGuid(), "+251912345678"));
         await Assert.ThrowsAsync<PhoneAlreadyLinkedException>(() => svc.LinkNewAccountAsync(victim, "0922222222"));
-        // The victim's link is untouched.
         Assert.Equal(victim, (await svc.MatchAsync("+251912345678")).UserId);
     }
 

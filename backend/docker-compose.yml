@@ -5,7 +5,8 @@
 #
 # Database tests (they refuse any non-local host):
 #   docker compose up -d db
-#   TOLO_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:54329/postgres dotnet test
+#   TOLO_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:54329/postgres dotnet test Tolo.slnx
+# The tests create their own throwaway database next to this one, load supabase/migrations into it and drop it afterwards.
 services:
   db:
     image: postgres:17

@@ -27,4 +27,8 @@
     <ProjectReference Include="..\..\src\Tolo.Worker\Tolo.Worker.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Database\supabase_stubs.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

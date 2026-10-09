@@ -2,59 +2,79 @@ using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using Tolo.Domain.Abstractions;
-using Tolo.Domain.Services;
+using Tolo.Domain.Identity;
 using Tolo.Infrastructure.Fakes;
+using Tolo.Infrastructure.Identity;
 
 namespace Tolo.Tests.Support;
 
-/// <summary>The API in memory, configured only through the same environment-style keys production uses. No database, no network.</summary>
+/// <summary>
+/// The API in memory, configured only through the same environment-style keys production uses. Without a database URL, accounts live in
+/// <see cref="Accounts"/> and every data route answers 503; with one (a LOCAL test database), the real readers and account directory run.
+/// </summary>
 public sealed class ApiFactory : WebApplicationFactory<Program>
 {
     public const string SharedKey = "test-shared-key-not-a-secret";
-    public const string InboundKey = "test-inbound-key-not-a-secret";
+    public const string Issuer = "https://tolo.test/issuer";
+    public const string Audience = "tolo-marketplace-api";
+    public const string SigningKey = "test-signing-key-test-signing-key-0123456789";
 
     private readonly Dictionary<string, string?> _settings;
+    private readonly string _environment;
     private readonly Action<IServiceCollection>? _configure;
 
-    public ApiFactory(Dictionary<string, string?>? overrides = null, IMarketplaceClient? marketplace = null, Action<IServiceCollection>? configure = null)
+    public ApiFactory(Dictionary<string, string?>? overrides = null, string? databaseUrl = null, string environment = "Production", Action<IServiceCollection>? configure = null)
     {
         _settings = new Dictionary<string, string?>
         {
             ["TOLO_BACKEND_SHARED_KEY"] = SharedKey,
-            ["TOLO_BACKEND_INBOUND_KEY"] = InboundKey,
-            ["TOLO_ALLOW_FAKE_APP_AUTH"] = "true",
+            ["TOLO_JWT_ISSUER"] = Issuer,
+            ["TOLO_JWT_AUDIENCE"] = Audience,
+            ["TOLO_JWT_SIGNING_KEY"] = SigningKey,
         };
+        if (databaseUrl is not null) _settings["DATABASE_URL"] = databaseUrl;
         if (overrides is not null) foreach (var (k, v) in overrides) _settings[k] = v;
-        Marketplace = marketplace;
+        _environment = environment;
         _configure = configure;
     }
 
-    public IMarketplaceClient? Marketplace { get; }
+    public InMemoryAccountDirectory Accounts => Services.GetRequiredService<InMemoryAccountDirectory>();
 
-    public InMemoryCustomerDirectory Customers => Services.GetRequiredService<InMemoryCustomerDirectory>();
-
-    public InMemoryDeliveryJobStore Jobs => Services.GetRequiredService<InMemoryDeliveryJobStore>();
-
-    public LoginCodeService Codes => Services.GetRequiredService<LoginCodeService>();
+    public DevTokenIssuer Tokens => Services.GetRequiredService<DevTokenIssuer>();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseEnvironment(_environment);
         foreach (var (k, v) in _settings) builder.UseSetting(k, v);
-        builder.ConfigureServices(services =>
-        {
-            _configure?.Invoke(services);
-            if (Marketplace is null) return;
-            foreach (var d in services.Where(d => d.ServiceType == typeof(IMarketplaceClient)).ToList()) services.Remove(d);
-            services.AddSingleton(Marketplace);
-        });
+        builder.ConfigureServices(services => _configure?.Invoke(services));
     }
 
-    /// <summary>A client carrying the marketplace-to-Tolo key.</summary>
-    public HttpClient MarketplaceClient(string? key = SharedKey)
+    /// <summary>A client signed in as <paramref name="userId"/> (the token's subject), or anonymous when null.</summary>
+    public HttpClient ClientFor(Guid? userId, string? phone = null)
     {
         var client = CreateClient();
-        if (key is not null) client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", key);
+        if (userId is { } id) client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Tokens.Issue(id.ToString(), phone));
         return client;
+    }
+
+    public HttpClient ClientWithToken(string token)
+    {
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
+    }
+
+    /// <summary>Adds an in-memory account (no-database mode) and returns its id.</summary>
+    public Guid AddAccount(string[] roles, string[]? pages = null, Guid[]? merchants = null)
+    {
+        var id = Guid.NewGuid();
+        Accounts.Add(new ToloPrincipal
+        {
+            UserId = id,
+            Roles = roles.ToHashSet(),
+            Pages = (pages ?? []).ToHashSet(),
+            MerchantIds = (merchants ?? []).ToHashSet(),
+        });
+        return id;
     }
 }
