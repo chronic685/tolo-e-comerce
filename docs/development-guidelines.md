@@ -7,9 +7,12 @@ usage audit on 2026-10-03; free-tier limits are Supabase's published ones
 (500 MB database, 1 GB storage, 5 GB egress, 500,000 Edge Function invocations
 a month, 50,000 monthly active users).
 
-There is **one Supabase project and no separate test database**, so the test
-suite runs against live data (see `tests/README.md`). Most of these rules exist
-to stop that from filling the project up.
+There is **one Supabase project and no separate hosted test database**. The
+Supabase-backed test suite therefore runs only against a throwaway local
+Supabase (`npx supabase start`, or the stack CI starts) and refuses any other
+host before making a request (`tests/localGuard.ts`; see `tests/README.md`).
+Most of these rules exist because it used to run against live data, and to stop
+anything that does from filling the project up.
 
 ## Tests and the live database
 

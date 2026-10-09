@@ -134,6 +134,5 @@ previews. The database does not move: Postgres stays on Supabase, reached throug
 - Two runtimes (Deno and .NET) coexist for a while; the payoff is moving one module at a time.
 - A few rules are duplicated in C# (phone normalization, key comparison, `has_admin_page`). Tests mirror the SQL and
   edge-function behaviour so drift is caught.
-- The backend CI job runs on `backend/` changes only, as asked. Its database tests load the migrations as they are on the
-  branch, so a migration-only PR does not re-run them; run the workflow manually (`workflow_dispatch`) when migrations change.
+- The backend CI job runs on changes to `backend/**` and `supabase/migrations/**`, so a migration that breaks the backend's mapping fails there. It also builds the Docker images (no push) and validates the compose file.
 - Nothing is deployed and no secrets are set by this change.
