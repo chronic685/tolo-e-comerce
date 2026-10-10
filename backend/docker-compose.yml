@@ -1,0 +1,49 @@
+# Local development only. Nothing here points at the live Supabase project.
+#
+#   cp .env.example .env        # then fill in throwaway values
+#   docker compose up --build   # api on http://localhost:8080, local Postgres on localhost:54329
+#
+# Database tests (they refuse any non-local host):
+#   docker compose up -d db
+#   TOLO_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:54329/postgres dotnet test Tolo.slnx
+# The tests create their own throwaway database next to this one, load supabase/migrations into it and drop it afterwards.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: postgres # local throwaway database, bound to loopback only
+    ports:
+      - "127.0.0.1:54329:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      args:
+        PROJECT: Tolo.Api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/postgres
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      args:
+        PROJECT: Tolo.Worker
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy

@@ -1,0 +1,77 @@
+name: Backend (C#)
+
+# Runs only when backend/, this workflow or a migration changes. The database tests load every migration into a throwaway
+# Postgres, so a migration that breaks the backend's mapping fails here.
+# The JS pipeline in ci.yml is unchanged and independent.
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+      - "supabase/migrations/**"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+      - "supabase/migrations/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Format, build, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    # A throwaway Postgres inside the runner for the database tests. The credentials exist only for this job's container
+    # and are not secrets; the tests also refuse any host that is not local.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      TOLO_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      DOTNET_NOLOGO: "1"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore Tolo.slnx
+      - name: Format check
+        run: dotnet format Tolo.slnx --verify-no-changes --no-restore
+      - run: dotnet build Tolo.slnx -c Release --no-restore
+      - name: Test
+        run: dotnet test Tolo.slnx -c Release --no-build --logger "console;verbosity=normal"
+
+  docker:
+    name: Docker image and compose config
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      # Build only: nothing is pushed anywhere.
+      - name: Build the API image
+        run: docker build --tag tolo-api:ci .
+      - name: Build the worker image
+        run: docker build --tag tolo-worker:ci --build-arg PROJECT=Tolo.Worker .
+      # docker-compose.yml reads .env (git-ignored); the example is enough to validate the file.
+      - name: Validate docker-compose.yml
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
