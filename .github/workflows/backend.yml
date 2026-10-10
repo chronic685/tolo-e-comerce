@@ -1,7 +1,7 @@
 name: Backend (C#)
 
-# Runs only when backend/ (or this workflow) changes. The database tests load every migration into a throwaway Postgres,
-# so they check the schema as of the branch being tested.
+# Runs only when backend/, this workflow or a migration changes. The database tests load every migration into a throwaway
+# Postgres, so a migration that breaks the backend's mapping fails here.
 # The JS pipeline in ci.yml is unchanged and independent.
 on:
   push:
@@ -9,10 +9,12 @@ on:
     paths:
       - "backend/**"
       - ".github/workflows/backend.yml"
+      - "supabase/migrations/**"
   pull_request:
     paths:
       - "backend/**"
       - ".github/workflows/backend.yml"
+      - "supabase/migrations/**"
   workflow_dispatch:
 
 permissions:
@@ -54,3 +56,22 @@ jobs:
       - run: dotnet build Tolo.slnx -c Release --no-restore
       - name: Test
         run: dotnet test Tolo.slnx -c Release --no-build --logger "console;verbosity=normal"
+
+  docker:
+    name: Docker image and compose config
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      # Build only: nothing is pushed anywhere.
+      - name: Build the API image
+        run: docker build --tag tolo-api:ci .
+      - name: Build the worker image
+        run: docker build --tag tolo-worker:ci --build-arg PROJECT=Tolo.Worker .
+      # docker-compose.yml reads .env (git-ignored); the example is enough to validate the file.
+      - name: Validate docker-compose.yml
+        run: |
+          cp .env.example .env
+          docker compose config --quiet

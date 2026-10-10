@@ -20,7 +20,7 @@ This suite exists to make that specific class of bug — missing auth, missing C
 
 ## What is and isn't covered
 
-Run `npm test` from the repo root. Copy `tests/.env.test.example` to `tests/.env.test` and fill it in for local runs; CI uses repository secrets instead.
+Run `npm test` from the repo root. The Supabase-backed tests (the "backend" vitest project: `tests/smoke`, `tests/unit`) only ever run against a throwaway **local** Supabase (`npx supabase start`, then `npx supabase status -o env` for the URL and keys, which go in `tests/.env.test`; CI starts its own). With no `SUPABASE_URL` the project is skipped with a message and everything database-free still runs. A `SUPABASE_URL` that is not localhost/127.0.0.1 stops the run before any request is made (`tests/localGuard.ts`, covered by `tests/guard`).
 
 | Category | Status |
 |---|---|
@@ -36,7 +36,7 @@ Run `npm test` from the repo root. Copy `tests/.env.test.example` to `tests/.env
 
 ### Known gaps (NOT COVERED, and why)
 
-There is **no isolated test database** for this project — it is one live Supabase project, and Docker isn't available in this environment to run `supabase start` locally. Every test that touches a *shared* fixture either reads data or performs an action that must be *rejected* (so nothing changes); tests that need to exercise a real, successful, state-changing transition instead create their own disposable order via `create_order()` (the real checkout path, not a direct insert) and leave the shared fixtures untouched — see `smoke/merchant-authorization.test.ts`'s D1 test, or any of the Phase 5c/5d `createDisposableOrder` helpers, for the pattern. One happy-path still isn't exercised end-to-end for a different reason:
+The tests used to run against the one live Supabase project. They no longer can: they run on a local Supabase only (see above). Every test that touches a *shared* fixture either reads data or performs an action that must be *rejected* (so nothing changes); tests that need to exercise a real, successful, state-changing transition instead create their own disposable order via `create_order()` (the real checkout path, not a direct insert) and leave the shared fixtures untouched — see `smoke/merchant-authorization.test.ts`'s D1 test, or any of the Phase 5c/5d `createDisposableOrder` helpers, for the pattern. One happy-path still isn't exercised end-to-end for a different reason:
 
 - **The `create_order()` discount clamp** (`least(amount, subtotal)`, preventing a discount larger than the order from producing a negative total) — verified by reading the source directly (see `unit/discount.test.ts`), not by creating a real order through checkout on every test run.
 
