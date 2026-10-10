@@ -24,7 +24,7 @@ export interface ApplicantProfile {
   active: boolean;
 }
 
-export type ApproveOutcome = { ok: true; merchantId: string } | { ok: false; error: "not_found" | "already_reviewed" | "already_merchant" };
+export type ApproveOutcome = { ok: true; merchantId: string } | { ok: false; error: "not_found" | "already_reviewed" | "already_merchant" | "tin_already_registered" };
 export type RejectOutcome = { ok: true } | { ok: false; error: "not_found_or_reviewed" };
 
 export interface ReviewDeps extends PhoneAccountDeps {
@@ -96,6 +96,7 @@ export async function handleReview(body: unknown, deps: ReviewDeps): Promise<Rev
   if (!outcome.ok) {
     if (outcome.error === "not_found") return { ok: false, status: 404, error: "Application not found." };
     if (outcome.error === "already_reviewed") return { ok: false, status: 409, error: "This application has already been reviewed." };
+    if (outcome.error === "tin_already_registered") return { ok: false, status: 409, error: "This application's TIN is already registered to another merchant or application." };
     return { ok: false, status: 409, error: "The applicant already owns a merchant account." };
   }
   return { ok: true, status: "approved", merchantId: outcome.merchantId, ownerId };

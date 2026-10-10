@@ -81,9 +81,12 @@ export interface Product {
   base_price: number;
   discount_price: number | null;
   status: string;
+  /** Set by the database when status becomes archived (migration 0092). */
+  archived_at: string | null;
+  archived_by_role: "merchant" | "staff" | null;
   product_variants: ProductVariant[];
   product_images: ProductImage[];
-  categories: { name: string } | null;
+  categories: { name: string; name_am?: string | null } | null;
 }
 
 // Only the fields a merchant can actually set (Group 3, item 10,
@@ -128,14 +131,6 @@ export interface MerchantOrder {
     order_number: number;
     addresses: { recipient_name: string; phone: string; line1: string; city: string } | null;
   } | null;
-}
-
-export interface MerchantStaffRow {
-  id: string;
-  role: string;
-  created_at: string;
-  user_id: string;
-  profiles: { full_name: string | null; phone: string | null } | null;
 }
 
 export interface WalletTransaction {

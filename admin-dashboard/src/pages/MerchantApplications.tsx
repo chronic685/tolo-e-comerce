@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { edgeFunctionError } from "../lib/edgeFunctionError";
+import { TinValue } from "../components/TinValue";
 import {
   ADMIN_PAGE_SIZE,
   Badge,
@@ -20,15 +21,16 @@ import {
   type FetchPageResult,
 } from "@tolo/ui";
 
-// Applications submitted from the Tolo app (migration 0073). Reviewed by
-// admin/super_admin only -- the route is adminTierOnly in adminPages.ts and
-// RLS returns nothing to anyone else.
+// Applications submitted from the Tolo app (migration 0073): the "Applications" tab of the Merchants page.
+// Reviewed by admin/super_admin only -- RLS returns nothing to anyone else and the tab is hidden from
+// staff -- and approving or rejecting is enforced again in the database (the review guard, 0073/0093).
 interface MerchantApplication {
   id: string;
   applicant_phone: string;
   business_name: string;
   address: string;
-  license_photo_url: string;
+  license_photo_url: string | null;
+  tin: string | null;
   status: "pending" | "approved" | "rejected";
   admin_note: string | null;
   reviewed_at: string | null;
@@ -41,7 +43,7 @@ interface MerchantApplication {
 const STATUS_FILTERS = ["pending", "approved", "rejected", "all"] as const;
 const LICENSE_BUCKET = "merchant-application-licenses";
 const SELECT =
-  "id, applicant_phone, business_name, address, license_photo_url, status, admin_note, reviewed_at, merchant_id, created_at, categories ( name ), reviewer:profiles!merchant_applications_reviewed_by_fkey ( full_name )";
+  "id, applicant_phone, business_name, address, license_photo_url, tin, status, admin_note, reviewed_at, merchant_id, created_at, categories ( name ), reviewer:profiles!merchant_applications_reviewed_by_fkey ( full_name )";
 
 const statusVariant = { pending: "warning", approved: "success", rejected: "danger" } as const;
 
@@ -52,7 +54,7 @@ const APPLICATION_STATUS_KEYS: Record<string, string> = {
   all: "applicationStatus.all",
 };
 
-export function MerchantApplications() {
+export function ApplicationsPanel({ onReviewed }: { onReviewed?: () => void }) {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get("status") ?? "pending";
@@ -86,6 +88,7 @@ export function MerchantApplications() {
   // The bucket is private (migration 0074): a short-lived signed URL,
   // created only when an admin actually opens the photo.
   async function viewLicense(a: MerchantApplication) {
+    if (!a.license_photo_url) return;
     const { data, error } = await supabase.storage.from(LICENSE_BUCKET).createSignedUrl(a.license_photo_url, 300);
     if (error || !data) {
       toast.error(t("merchantApplications.licenseOpenError"));
@@ -118,6 +121,7 @@ export function MerchantApplications() {
     );
     setReview(null);
     setNote("");
+    onReviewed?.();
     const status = data?.status as MerchantApplication["status"];
     // Same in-place update as Merchants.tsx: drop the row if it no longer
     // matches the active status tab, otherwise update it where it is.
@@ -144,6 +148,7 @@ export function MerchantApplications() {
         business_name: a.business_name,
         category: a.categories?.name ?? "",
         phone: a.applicant_phone,
+        tin: a.tin ?? "",
         address: a.address,
         status: a.status,
         admin_note: a.admin_note ?? "",
@@ -185,13 +190,24 @@ export function MerchantApplications() {
       csvValue: (a) => a.created_at,
     },
     {
+      key: "tin",
+      header: t("merchantApplications.tinColumn"),
+      render: (a) => <TinValue tin={a.tin} />,
+      filterValue: (a) => a.tin ?? "",
+      csvValue: (a) => a.tin ?? "",
+    },
+    {
+      // Applications made before the TIN replaced it still carry a photo; new ones have none.
       key: "license",
       header: t("merchantApplications.licenseColumn"),
-      render: (a) => (
-        <Button size="sm" variant="outline" onClick={() => viewLicense(a)}>
-          {t("merchantApplications.viewPhoto")}
-        </Button>
-      ),
+      render: (a) =>
+        a.license_photo_url ? (
+          <Button size="sm" variant="outline" onClick={() => viewLicense(a)}>
+            {t("merchantApplications.viewPhoto")}
+          </Button>
+        ) : (
+          <span className="text-gray-400 dark:text-gray-500">—</span>
+        ),
     },
     {
       key: "status",
@@ -254,16 +270,13 @@ export function MerchantApplications() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <h1 className="text-xl font-bold dark:text-gray-100">{t("merchantApplications.title")}</h1>
-      </div>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t("merchantApplications.description")}</p>
 
       <div className="flex gap-2 mb-4">
         {STATUS_FILTERS.map((s) => (
           <button
             key={s}
-            onClick={() => setSearchParams(s === "pending" ? {} : { status: s })}
+            onClick={() => setSearchParams(s === "pending" ? { tab: "applications" } : { tab: "applications", status: s })}
             className={`px-3 py-1.5 rounded-md text-sm font-medium capitalize ${
               statusFilter === s
                 ? "bg-navy text-white dark:bg-navy-light"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LICENSE_MAX_BYTES, licensePath, submitErrorKey, validateLicenseFile } from "./merchantApplication";
+import { isValidTin, LICENSE_MAX_BYTES, LICENSE_UPLOAD_ENABLED, licensePath, submitErrorKey, validateLicenseFile } from "./merchantApplication";
 
 describe("validateLicenseFile", () => {
   it("accepts JPEG, PNG and WebP up to 5 MB", () => {
@@ -24,7 +24,31 @@ describe("licensePath", () => {
   });
 });
 
+describe("isValidTin", () => {
+  it("accepts exactly ten digits", () => {
+    expect(isValidTin("0123456789")).toBe(true);
+    expect(isValidTin("9999999999")).toBe(true);
+  });
+
+  it("rejects anything else", () => {
+    for (const bad of ["", "123456789", "12345678901", "12345abcde", "123 456 789", "١٢٣٤٥٦٧٨٩٠", " 1234567890", "1234567890\n"]) {
+      expect(isValidTin(bad)).toBe(false);
+    }
+  });
+});
+
+describe("license upload switch", () => {
+  it("is off: the form asks for a TIN, not a photo (flip LICENSE_UPLOAD_ENABLED to bring it back)", () => {
+    expect(LICENSE_UPLOAD_ENABLED).toBe(false);
+  });
+});
+
 describe("submitErrorKey", () => {
+  it("maps the TIN errors to their own messages", () => {
+    expect(submitErrorKey("invalid_tin")).toBe("merchantApply.error.invalid_tin");
+    expect(submitErrorKey("tin_already_registered")).toBe("merchantApply.error.tin_already_registered");
+  });
+
   it("maps known server errors to their own message", () => {
     expect(submitErrorKey("application_pending")).toBe("merchantApply.error.application_pending");
     expect(submitErrorKey("phone_not_verified")).toBe("merchantApply.error.phone_not_verified");

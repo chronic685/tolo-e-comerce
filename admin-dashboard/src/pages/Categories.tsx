@@ -4,6 +4,7 @@ import {
   ADMIN_PAGE_SIZE,
   Badge,
   Button,
+  ConfirmDialog,
   CATEGORY_COLORS,
   CATEGORY_ICON_NAMES,
   CategoryIcon,
@@ -288,34 +289,20 @@ export function Categories() {
         <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
       </div>
 
-      {deleteTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-navy-dark rounded-lg p-5 max-w-sm w-full">
-            <h2 className="font-semibold mb-2 dark:text-gray-100">{t("adminCategories.deleteTitle", { name: deleteTarget.category.name })}</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              {deleteTarget.productCount > 0
-                ? t("adminCategories.productsWillBeUncategorized", { count: deleteTarget.productCount })
-                : t("adminCategories.noProductsUseCategory")}
-            </p>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                disabled={deleting}
-                className="text-sm border dark:border-white/20 dark:text-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-white/5 disabled:opacity-60"
-              >
-                {t("common.cancel")}
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="text-sm bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-700 disabled:opacity-60"
-              >
-                {deleting ? t("adminCategories.deleting") : t("adminCategories.deleteCategory")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={deleteTarget ? t("adminCategories.deleteTitle", { name: deleteTarget.category.name }) : ""}
+        message={
+          deleteTarget && deleteTarget.productCount > 0
+            ? t("adminCategories.productsWillBeUncategorized", { count: deleteTarget.productCount })
+            : t("adminCategories.noProductsUseCategory")
+        }
+        confirmLabel={t("adminCategories.deleteCategory")}
+        busyLabel={t("adminCategories.deleting")}
+        busy={deleting}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

@@ -27,6 +27,7 @@ export function MerchantApplication() {
   const [form, setForm] = useState({
     business_name: "",
     category_id: "",
+    tin: "",
     phone: "",
     city: "",
     sub_city: "",
@@ -40,7 +41,11 @@ export function MerchantApplication() {
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // The merchant row is created first, then its TIN is set (set_merchant_tin, migration 0094). If the TIN is
+  // refused (already registered), the merchant exists but is not "done": the form stays up so the TIN can be
+  // corrected and retried against the same merchant instead of creating a second one.
   const [merchantId, setMerchantId] = useState<string | null>(null);
+  const [tinSaved, setTinSaved] = useState(false);
   const [uploadedTypes, setUploadedTypes] = useState<Set<string>>(new Set());
   const [uploadingType, setUploadingType] = useState<string | null>(null);
 
@@ -65,7 +70,16 @@ export function MerchantApplication() {
     // A pick from the categories list, stored as a link (merchants.category_id,
     // migration 0090), never as typed text. business_category is legacy and not written.
     if (!categories.some((c) => c.id === form.category_id)) return;
+    if (!/^[0-9]{10}$/.test(form.tin)) {
+      toast.error(t("merchantApplication.tinInvalid"));
+      return;
+    }
     setSubmitting(true);
+
+    if (merchantId && tinSaved) {
+      await saveTin(merchantId);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("merchants")
@@ -88,12 +102,23 @@ export function MerchantApplication() {
       .select("id")
       .single();
 
+    if (error) {
+      setSubmitting(false);
+      toast.error(translateServerError(error.message, t));
+      return;
+    }
+    setMerchantId(data.id);
+    await saveTin(data.id);
+  }
+
+  async function saveTin(id: string) {
+    const { error } = await supabase.rpc("set_merchant_tin", { p_merchant_id: id, p_tin: form.tin });
     setSubmitting(false);
     if (error) {
       toast.error(translateServerError(error.message, t));
       return;
     }
-    setMerchantId(data.id);
+    setTinSaved(true);
   }
 
   async function handleUpload(docType: string, file: File) {
@@ -179,6 +204,22 @@ export function MerchantApplication() {
           required
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
+        <label className="block">
+          <input
+            placeholder={t("merchantApplication.tin")}
+            value={form.tin}
+            onChange={(e) => setForm({ ...form, tin: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+            inputMode="numeric"
+            autoComplete="off"
+            required
+            minLength={10}
+            maxLength={10}
+            pattern="[0-9]{10}"
+            title={t("merchantApplication.tinHint")}
+            className="w-full border rounded-md px-3 py-2 text-sm"
+          />
+          <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">{t("merchantApplication.tinHint")}</span>
+        </label>
         <select
           value={form.category_id}
           onChange={(e) => setForm({ ...form, category_id: e.target.value })}

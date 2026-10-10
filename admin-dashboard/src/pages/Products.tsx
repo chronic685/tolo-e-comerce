@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Star } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { exportToCsv } from "../lib/csvExport";
-import { ADMIN_PAGE_SIZE, Badge, Button, DataTable, fetchAllRows, formatCurrency, Pagination, SkeletonRows, totalPagesFor, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
+import { ADMIN_PAGE_SIZE, Badge, Button, ConfirmDialog, DataTable, fetchAllRows, formatCurrency, formatDate, Pagination, SkeletonRows, toast, totalPagesFor, translateServerError, usePagination, useTranslation, type DataTableColumn } from "@tolo/ui";
 import type { AdminProduct } from "../types";
 import { Categories } from "./Categories";
 
@@ -89,6 +89,8 @@ function ProductCatalog() {
   const [loading, setLoading] = useState(true);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [archiveTargets, setArchiveTargets] = useState<AdminProduct[] | null>(null);
+  const [archiving, setArchiving] = useState(false);
   const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE, resetKey: `${statusFilter}:${committedSearch}` });
 
   async function load() {
@@ -96,7 +98,7 @@ function ProductCatalog() {
     let query = supabase
       .from("products")
       .select(
-        "id, merchant_id, name, slug, sku, base_price, status, rejection_reason, is_featured, created_at, merchants ( business_name ), categories ( name )",
+        "id, merchant_id, name, slug, sku, base_price, status, rejection_reason, is_featured, created_at, archived_at, archived_by_role, merchants ( business_name ), categories ( name )",
         { count: "exact" },
       )
       .order("created_at", { ascending: false });
@@ -156,10 +158,39 @@ function ProductCatalog() {
     setProducts((prev) => prev.map((prod) => (prod.id === p.id ? { ...prod, is_featured: !prod.is_featured } : prod)));
   }
 
-  async function bulkArchive(rows: AdminProduct[]) {
+  // Archiving asks first: the merchant cannot undo an archive Tolo makes.
+  function askArchive(rows: AdminProduct[]) {
     const targets = rows.filter((p) => p.status !== "archived");
+    if (targets.length > 0) setArchiveTargets(targets);
+  }
+
+  async function confirmArchive() {
+    if (!archiveTargets) return;
+    setArchiving(true);
+    const { data, error } = await supabase.rpc("archive_products", { p_ids: archiveTargets.map((p) => p.id) });
+    setArchiving(false);
+    setArchiveTargets(null);
+    if (error) {
+      toast.error(translateServerError(error.message, t));
+      return;
+    }
+    toast.success(t("adminProducts.archivedToast", { count: Number(data ?? 0) }));
+    await load();
+  }
+
+  // Staff restore any archived product, whoever archived it. Restored products come back hidden (paused)
+  // or as drafts, never straight to published.
+  async function restore(rows: AdminProduct[]) {
+    const targets = rows.filter((p) => p.status === "archived");
     if (targets.length === 0) return;
-    await supabase.from("products").update({ status: "archived" }).in("id", targets.map((p) => p.id));
+    const { data, error } = await supabase.rpc("restore_products", { p_ids: targets.map((p) => p.id) }).single();
+    if (error) {
+      toast.error(translateServerError(error.message, t));
+      return;
+    }
+    const result = data as { restored: number; blocked: number };
+    if (result.restored > 0) toast.success(t("adminProducts.restoredToast", { count: result.restored }));
+    if (result.blocked > 0) toast.error(t("adminProducts.restoreBlocked", { count: result.blocked }));
     await load();
   }
 
@@ -169,7 +200,7 @@ function ProductCatalog() {
     const rows = (await fetchAllRows((from, to) => {
       let query = supabase
         .from("products")
-        .select("id, merchant_id, name, slug, sku, base_price, status, rejection_reason, is_featured, created_at, merchants ( business_name ), categories ( name )")
+        .select("id, merchant_id, name, slug, sku, base_price, status, rejection_reason, is_featured, created_at, archived_at, archived_by_role, merchants ( business_name ), categories ( name )")
         .order("created_at", { ascending: false });
       if (statusFilter === "rejected") query = query.eq("status", "draft").not("rejection_reason", "is", null);
       else if (statusFilter !== "all") query = query.eq("status", statusFilter);
@@ -210,6 +241,12 @@ function ProductCatalog() {
             {p.merchants?.business_name ?? "—"} · {p.categories?.name ?? t("adminProducts.uncategorized")} · {formatCurrency(p.base_price)}
             {p.sku && t("adminProducts.skuSuffix", { sku: p.sku })}
           </p>
+          {p.status === "archived" && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              {p.archived_by_role === "merchant" ? t("adminProducts.archivedByMerchant") : t("adminProducts.archivedByAdmin")}
+              {p.archived_at && ` · ${formatDate(p.archived_at)}`}
+            </p>
+          )}
           {p.status === "draft" && p.rejection_reason && (
             <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">{t("adminProducts.rejectedPrefix", { reason: p.rejection_reason })}</p>
           )}
@@ -271,8 +308,13 @@ function ProductCatalog() {
             </Button>
           )}
           {p.status !== "archived" && (
-            <Button size="sm" variant="outline" onClick={() => setStatus(p, "archived")}>
+            <Button size="sm" variant="outline" onClick={() => askArchive([p])}>
               {t("adminProducts.archive")}
+            </Button>
+          )}
+          {p.status === "archived" && (
+            <Button size="sm" onClick={() => restore([p])}>
+              {t("adminProducts.restore")}
             </Button>
           )}
         </div>
@@ -315,13 +357,31 @@ function ProductCatalog() {
             getRowId={(p) => p.id}
             onExportAll={handleExport}
             emptyMessage={t("adminProducts.noneInView")}
-            bulkActions={[{ label: t("adminProducts.archive"), onAction: bulkArchive, variant: "destructive" }]}
+            bulkActions={[
+              { label: t("adminProducts.restore"), onAction: restore },
+              { label: t("adminProducts.archive"), onAction: askArchive, variant: "destructive" },
+            ]}
           />
           <div className="mt-4">
             <Pagination page={page} totalPages={totalPagesFor(totalCount, ADMIN_PAGE_SIZE)} onPageChange={setPage} />
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={archiveTargets !== null}
+        title={
+          archiveTargets && archiveTargets.length === 1
+            ? t("adminProducts.archiveTitle", { name: archiveTargets[0].name })
+            : t("adminProducts.archiveManyTitle", { count: archiveTargets?.length ?? 0 })
+        }
+        message={t("adminProducts.archiveMessage")}
+        confirmLabel={t("adminProducts.archive")}
+        busyLabel={t("adminProducts.archiving")}
+        busy={archiving}
+        onConfirm={confirmArchive}
+        onCancel={() => setArchiveTargets(null)}
+      />
     </div>
   );
 }

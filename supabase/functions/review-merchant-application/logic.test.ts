@@ -127,6 +127,14 @@ describe("handleReview -- approve", () => {
       error: "The applicant already owns a merchant account.",
     });
   });
+
+  it("reports a TIN that is already registered as a conflict, not a server error", async () => {
+    const taken = makeDeps({ approve: vi.fn(async () => ({ ok: false as const, error: "tin_already_registered" as const })) });
+    expect(await handleReview({ application_id: APP_ID, action: "approve" }, taken)).toMatchObject({
+      status: 409,
+      error: expect.stringContaining("TIN is already registered"),
+    });
+  });
 });
 
 describe("handleReview -- reject", () => {

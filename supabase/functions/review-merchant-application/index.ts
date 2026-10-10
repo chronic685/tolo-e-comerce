@@ -12,7 +12,7 @@ import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { phoneAccountStore } from "../_shared/phone_account_store.ts";
 import { handleReview, type ReviewDeps } from "./logic.ts";
 
-const APPROVE_ERRORS = ["not_found", "already_reviewed", "already_merchant"] as const;
+const APPROVE_ERRORS = ["not_found", "already_reviewed", "already_merchant", "tin_already_registered"] as const;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });

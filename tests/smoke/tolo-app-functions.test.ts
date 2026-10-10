@@ -59,8 +59,12 @@ describe.skipIf(!INBOUND_KEY)("Tolo-app Edge Functions under the Deno runtime", 
   let adminToken: string;
   let previousRateLimits: unknown;
 
+  // A TIN is unique across pending and approved applications, so every test applicant gets its own.
+  let tinCounter = 2000000000 + Math.floor(Math.random() * 500000000);
+  const newTin = () => String(tinCounter++);
+
   /** Signs a new customer in through tolo-app-login and submits an application as them. */
-  async function applicant(): Promise<{ phone: string; session: Session; userId: string; applicationId: string }> {
+  async function applicant(tin: string = newTin()): Promise<{ phone: string; session: Session; userId: string; applicationId: string }> {
     const phone = newPhone();
     const session = await toloLogin(phone);
     const client = await clientFor(session);
@@ -73,6 +77,7 @@ describe.skipIf(!INBOUND_KEY)("Tolo-app Edge Functions under the Deno runtime", 
         p_business_name: "CI TEST — Tolo applicant",
         p_category_id: categoryId,
         p_address: "CI Test Address, Addis Ababa",
+        p_tin: tin,
         p_license_photo_url: path,
       })
       .single();
@@ -185,9 +190,31 @@ describe.skipIf(!INBOUND_KEY)("Tolo-app Edge Functions under the Deno runtime", 
         p_business_name: "CI TEST — reapplied",
         p_category_id: categoryId,
         p_address: "CI Test Address, Addis Ababa",
+        p_tin: newTin(),
         p_license_photo_url: path,
       });
       expect(again.error).toBeNull();
+    });
+  });
+
+  describe("TIN", () => {
+    it("refuses an application whose TIN a pending application already has, and a malformed one", async () => {
+      const tin = newTin();
+      const first = await applicant(tin);
+
+      const phone = newPhone();
+      const session = await toloLogin(phone);
+      const client = await clientFor(session);
+      const base = { p_business_name: "CI TEST — same TIN", p_category_id: categoryId, p_address: "CI Test Address, Addis Ababa" };
+      const duplicate = await client.rpc("submit_merchant_application", { ...base, p_tin: tin });
+      expect(duplicate.error?.message).toBe("tin_already_registered");
+      const malformed = await client.rpc("submit_merchant_application", { ...base, p_tin: "12345" });
+      expect(malformed.error?.message).toBe("invalid_tin");
+
+      // Rejecting the first application frees the TIN.
+      expect((await review(first.applicationId, "reject")).status).toBe(200);
+      const retry = await client.rpc("submit_merchant_application", { ...base, p_tin: tin });
+      expect(retry.error).toBeNull();
     });
   });
 
