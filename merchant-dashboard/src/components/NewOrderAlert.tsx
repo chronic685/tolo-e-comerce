@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { formatOrderNumber, useTranslation } from "@tolo/ui";
 import { useNewOrderQueue } from "../lib/NewOrderQueueContext";
 
@@ -9,13 +9,21 @@ export function NewOrderAlert() {
   const { t } = useTranslation();
   const { queue, acknowledge } = useNewOrderQueue();
   const [acknowledging, setAcknowledging] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const lock = useRef(false);
   const current = queue[0];
 
+  // One tap accepts and starts preparing. Locked the moment it is pressed, so a double tap sends one request; if it
+  // fails the order stays here with a Retry rather than silently disappearing.
   async function handleReceived() {
-    if (!current) return;
+    if (!current || lock.current) return;
+    lock.current = true;
     setAcknowledging(true);
-    await acknowledge(current.id);
+    setFailed(false);
+    const ok = await acknowledge(current.id);
+    lock.current = false;
     setAcknowledging(false);
+    if (!ok) setFailed(true);
   }
 
   if (!current) return null;
@@ -54,8 +62,13 @@ export function NewOrderAlert() {
           disabled={acknowledging}
           className="w-full bg-navy dark:bg-navy-light text-white py-3 rounded-md font-bold text-lg hover:bg-navy-dark dark:hover:bg-navy disabled:opacity-60"
         >
-          {acknowledging ? "..." : t("merchant.orderReceived")}
+          {acknowledging ? "..." : failed ? t("merchant.retry") : t("merchant.acceptAndStart")}
         </button>
+        {failed && (
+          <p role="alert" className="text-xs text-red-600 dark:text-red-400 text-center mt-2">
+            {t("merchant.actionFailed")}
+          </p>
+        )}
         {queue.length > 1 && (
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-2">
             {t("newOrderAlert.moreNewOrders", { count: queue.length - 1 })}

@@ -44,6 +44,7 @@ import { isSmsConfigured, sendSms } from "./sms.ts";
 // today needs SMS to reach a wider or narrower set of events than email.
 const OUT_OF_APP_ALERT_EVENTS = new Set([
   "order_new",
+  "order_accepted_preparing",
   "order_received",
   "order_preparing",
   "order_ready_for_pickup",

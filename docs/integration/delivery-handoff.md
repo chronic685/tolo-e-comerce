@@ -215,6 +215,24 @@ needs a new handoff (not built).
 
 A late callback never moves a cancelled or rejected order.
 
+### The merchant's side of the order status
+
+The merchant dashboard shows ONE primary button per order, and the `order-status` function (and, for every client
+write, a database trigger, migration 0098) only lets the merchant take the next legal step on its own orders:
+
+| Order status | Primary button | Moves to |
+|---|---|---|
+| `new` | Accept & start preparing | `processing` (one atomic update; `accepted` is recorded in the history at the same instant) |
+| `processing` | Ready for pickup | `ready_for_pickup` (opens the delivery record and, when enabled, hands the job to the Tolo Delivery app) |
+| `ready_for_pickup` | Handed to driver (Picked up by customer for a self-pickup order) | `picked_up` |
+
+Rejecting a new order, or cancelling one that is being prepared or ready, is a separate secondary action with a
+reason; cancelling stays possible until the driver job is `accepted`. `delivered` and `completed` are driven by the
+driver and the callbacks above, and the merchant gets no button for them. The `accepted` value stays in the status
+enum for orders that sit in it and for this contract; the one-button accept simply no longer stops there, so a customer
+receives one message ("accepted and is being prepared"), and the customer's tracking shows Accepted and Preparing as
+one "Preparing your order" step. **The payloads and callbacks in this document are unchanged.**
+
 ## `delivery_jobs` table
 
 One row per merchant order (`merchant_order_id`, unique). Columns: `status`

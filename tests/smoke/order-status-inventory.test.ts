@@ -92,14 +92,20 @@ describe("order-status: releases reserved inventory on reject/cancel", () => {
     const { merchantOrderId } = await createDisposableOrder(customerUserId, addressId, variantId, 1);
     await callFunction("order-status", { token: merchantAToken, body: { merchant_order_id: merchantOrderId, status: "rejected" } });
 
-    const secondAttempt = await callFunction("order-status", {
+    // The same request again (a double tap, a retry) is a no-op, not an error, and releases nothing a second time.
+    const repeat = await callFunction("order-status", {
       token: merchantAToken,
       body: { merchant_order_id: merchantOrderId, status: "rejected" },
     });
-    // MERCHANT_TRANSITIONS has no entry for "rejected" as a source status —
-    // this must be rejected as an invalid transition, which is also what
-    // structurally prevents release_stock from ever running twice for the
-    // same order.
+    expect(repeat.status).toBe(200);
+    expect(repeat.json).toMatchObject({ ok: true, unchanged: true });
+
+    // Moving it anywhere else is refused: MERCHANT_TRANSITIONS has no entry for "rejected" as a source status, which is
+    // also what structurally prevents release_stock from ever running twice for the same order.
+    const secondAttempt = await callFunction("order-status", {
+      token: merchantAToken,
+      body: { merchant_order_id: merchantOrderId, status: "cancelled" },
+    });
     expect(secondAttempt.status).toBe(400);
   });
 });
