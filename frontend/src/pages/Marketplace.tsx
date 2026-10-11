@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { PackageSearch, Search, SlidersHorizontal, Store as StoreIcon } from "lucide-react";
 import { Button, CategoryIcon, CUSTOMER_PAGE_SIZE, EmptyState, Input, Pagination, Sheet, SkeletonRows, totalPagesFor, useCategoryName, usePagination, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
+import { catalogue, type Shop } from "../data/catalogue";
 import { fetchMerchantRatings } from "../lib/merchantRatings";
 import { ProductCard } from "../components/ProductCard";
 import { CategoryTile } from "../components/CategoryTile";
@@ -16,41 +17,6 @@ interface Banner {
   image_url: string;
   link_url: string | null;
   title: string | null;
-}
-
-// merchants!inner ( is_test ) lets every query below exclude QA/CI fixture
-// merchants (migration 0079) -- their products deliberately carry
-// status: 'published' too, so nothing else here would tell them apart
-// from a real listing. The `!inner` hint is required for the
-// merchants.is_test filter below to actually exclude a matching row --
-// without it, PostgREST leaves `products` as a left join and a failing
-// filter just nulls the merchants embed instead (see BrowseShops.tsx).
-const PRODUCT_SELECT = `
-  id, merchant_id, store_id, category_id, name, slug, description, base_price, discount_price, status,
-  customer_price:products_customer_price,
-  product_variants ( id, sku, attributes, price, discount_price, is_default, stock_status:variant_stock_status, stock_remaining:variant_stock_remaining ),
-  product_images ( id, url, is_primary, variant_id ),
-  stores ( name, slug ),
-  merchants!inner ( is_test )
-`;
-
-interface ShopHit {
-  id: string;
-  name: string;
-  slug: string;
-  logo_url: string | null;
-  status: string;
-  merchants: { status: string; is_test: boolean } | null;
-}
-
-// Same "open" definition BrowseShops.tsx/Storefront.tsx use, plus
-// excluding a QA/CI fixture merchant the same way PRODUCT_SELECT does.
-function isStoreOpen(store: ShopHit): boolean {
-  return (
-    store.status === "active" &&
-    (store.merchants?.status === "active" || store.merchants?.status === "approved") &&
-    store.merchants?.is_test !== true
-  );
 }
 
 type SortOption = "newest" | "price_asc" | "price_desc" | "rating_desc";
@@ -90,11 +56,11 @@ export function Marketplace() {
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [featured, setFeatured] = useState<Product[] | null>(null);
-  const [shops, setShops] = useState<ShopHit[] | null>(null);
-  const [shopMatches, setShopMatches] = useState<ShopHit[]>([]);
+  const [shops, setShops] = useState<Shop[] | null>(null);
+  const [shopMatches, setShopMatches] = useState<Shop[]>([]);
   const [ratings, setRatings] = useState<Map<string, MerchantRating>>(new Map());
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
-  const { page, from, to, setPage } = usePagination({
+  const { page, setPage } = usePagination({
     pageSize: CUSTOMER_PAGE_SIZE,
     resetKey: `${activeCategory ?? ""}:${search}:${minPrice}:${maxPrice}:${sort}`,
   });
@@ -112,12 +78,7 @@ export function Marketplace() {
   }
 
   useEffect(() => {
-    supabase
-      .from("categories")
-      .select("id, name, name_am, slug, icon, color")
-      .eq("is_active", true)
-      .order("sort_order")
-      .then(({ data }) => setCategories(data ?? []));
+    catalogue.listCategories().then(setCategories);
     // Group 4, item 18. is_active is also enforced server-side (RLS,
     // migration 0068) -- filtering it here too just avoids a flash of a
     // banner an admin just deactivated before the next full reload.
@@ -135,54 +96,31 @@ export function Marketplace() {
 
   useEffect(() => {
     setLoading(true);
-    let query = supabase
-      .from("products")
-      .select(PRODUCT_SELECT, { count: "exact" })
-      .eq("status", "published")
-      .eq("merchants.is_test", false);
-
-    if (activeCategory) query = query.eq("category_id", activeCategory);
-    if (search.trim()) query = query.ilike("name", `%${search.trim()}%`);
-    // Filtered/ordered against the same server-computed customer_price
-    // ProductCard/ProductDetail always display — never base_price, which
-    // isn't what a customer actually pays.
-    if (minPrice) query = query.gte("products_customer_price", Number(minPrice));
-    if (maxPrice) query = query.lte("products_customer_price", Number(maxPrice));
-
-    if (sort === "price_asc") query = query.order("products_customer_price", { ascending: true });
-    else if (sort === "price_desc") query = query.order("products_customer_price", { ascending: false });
-    // Ordered server-side via products_avg_rating (migration 0053) so this
-    // stays correct one page at a time — an unrated product has a null
-    // average, sorted last (nullsFirst: false) rather than as "0 stars".
-    else if (sort === "rating_desc") query = query.order("products_avg_rating", { ascending: false, nullsFirst: false });
-    else query = query.order("created_at", { ascending: false });
-
-    query.range(from, to).then(({ data, count }) => {
-      setProducts((data as unknown as Product[]) ?? []);
-      setTotalCount(count ?? 0);
-      setLoading(false);
-    });
-  }, [activeCategory, search, minPrice, maxPrice, sort, from, to]);
+    // Price filters and the price sorts apply to what the customer pays (the same customer_price the cards show), never the merchant's own price.
+    catalogue
+      .listProducts({
+        page,
+        pageSize: CUSTOMER_PAGE_SIZE,
+        categoryId: activeCategory,
+        search,
+        minPrice: minPrice ? Number(minPrice) : undefined,
+        maxPrice: maxPrice ? Number(maxPrice) : undefined,
+        sort,
+      })
+      .then(({ items, total }) => {
+        setProducts(items);
+        setTotalCount(total);
+        setLoading(false);
+      });
+  }, [activeCategory, search, minPrice, maxPrice, sort, page]);
 
   // Home-mode sections (featured products, shop teaser row) only fetched
   // when browsing, not while filtering/searching — same product-status
   // rule as the main grid, just a second bounded query.
   useEffect(() => {
     if (hasActiveFilters) return;
-    supabase
-      .from("products")
-      .select(PRODUCT_SELECT)
-      .eq("status", "published")
-      .eq("is_featured", true)
-      .eq("merchants.is_test", false)
-      .limit(10)
-      .then(({ data }) => setFeatured((data as unknown as Product[]) ?? []));
-
-    supabase
-      .from("stores")
-      .select("id, name, slug, logo_url, status, merchants ( status, is_test )")
-      .limit(12)
-      .then(({ data }) => setShops(((data as unknown as ShopHit[]) ?? []).filter(isStoreOpen)));
+    catalogue.listProducts({ page: 1, pageSize: 10, featured: true }).then(({ items }) => setFeatured(items));
+    catalogue.listShops({ page: 1, pageSize: 12 }).then(({ items }) => setShops(items));
   }, [hasActiveFilters]);
 
   // Shop-name matches for the unified search box — same simple ilike
@@ -192,12 +130,7 @@ export function Marketplace() {
       setShopMatches([]);
       return;
     }
-    supabase
-      .from("stores")
-      .select("id, name, slug, logo_url, status, merchants ( status, is_test )")
-      .ilike("name", `%${search.trim()}%`)
-      .limit(6)
-      .then(({ data }) => setShopMatches(((data as unknown as ShopHit[]) ?? []).filter(isStoreOpen)));
+    catalogue.listShops({ page: 1, pageSize: 6, search }).then(({ items }) => setShopMatches(items));
   }, [search]);
 
   useEffect(() => {

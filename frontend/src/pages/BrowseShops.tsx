@@ -1,76 +1,28 @@
 ﻿import { useEffect, useState, type ReactNode } from "react";
 import { Store } from "lucide-react";
 import { CategoryIcon, CUSTOMER_PAGE_SIZE, EmptyState, Pagination, SkeletonRows, totalPagesFor, useCategoryName, usePagination, useTranslation } from "@tolo/ui";
-import { supabase } from "../lib/supabase";
+import { catalogue, type Shop, type ShopSummary } from "../data/catalogue";
 import { ShopCard } from "../components/ShopCard";
 import { fetchMerchantRatings } from "../lib/merchantRatings";
 import type { MerchantRating } from "../types";
 
-interface ShopRow {
-  id: string;
-  name: string;
-  slug: string;
-  logo_url: string | null;
-  status: string;
-  merchant_id: string;
-  merchants: { status: string; is_test: boolean } | null;
-}
-
-interface SummaryCategory {
-  name: string;
-  name_am: string | null;
-  icon: string;
-  color: string;
-}
-
-interface ShopSummary {
-  categories: SummaryCategory[];
-  productNames: string[];
-  // The shop's most-recently-added product image, used as the card photo
-  // when the shop has no logo_url of its own.
-  latestProductImage: { url: string; createdAt: string } | null;
-}
-
 export function BrowseShops() {
   const { t } = useTranslation();
   const categoryName = useCategoryName();
-  const [shops, setShops] = useState<ShopRow[] | null>(null);
+  const [shops, setShops] = useState<Shop[] | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [summaries, setSummaries] = useState<Map<string, ShopSummary>>(new Map());
   const [ratings, setRatings] = useState<Map<string, MerchantRating>>(new Map());
-  const { page, from, to, setPage } = usePagination({ pageSize: CUSTOMER_PAGE_SIZE });
+  const { page, setPage } = usePagination({ pageSize: CUSTOMER_PAGE_SIZE });
 
   useEffect(() => {
     setShops(null);
-    // Same "open" definition Storefront.tsx used to apply client-side — a
-    // store row can be RLS-visible (status='active') while its merchant
-    // account is suspended, which isn't something a browse listing should
-    // surface as a live shop either. Pushed into the query itself (rather
-    // than filtered after fetching) so .range()/count reflect the real,
-    // filtered page -- this REQUIRES the `!inner` embed hint below, or
-    // PostgREST treats merchants as a left join: a row whose merchant
-    // fails the filter comes back with merchants: null instead of being
-    // excluded, leaving the store (and the wrong product/shop) in the
-    // result set. (A previous version of this comment claimed PostgREST
-    // did this automatically -- it doesn't; that was the actual bug that
-    // let "QA TEST Store — DO NOT USE" stay publicly listed even once a
-    // status/is_test filter was added here, see migration 0079.)
-    // merchants.is_test excludes QA/CI fixture merchants -- they're
-    // otherwise indistinguishable from a real one here, since the fixture
-    // deliberately sets status: 'active' too.
-    supabase
-      .from("stores")
-      .select("id, name, slug, logo_url, status, merchant_id, merchants!inner ( status, is_test )", { count: "exact" })
-      .eq("status", "active")
-      .in("merchants.status", ["active", "approved"])
-      .eq("merchants.is_test", false)
-      .order("name")
-      .range(from, to)
-      .then(({ data, count }) => {
-        setShops((data as unknown as ShopRow[]) ?? []);
-        setTotalCount(count ?? 0);
-      });
-  }, [from, to]);
+    // Only shops a customer may see (open, not a QA/CI fixture) come back, already filtered, so the page and count are the real ones.
+    catalogue.listShops({ page, pageSize: CUSTOMER_PAGE_SIZE }).then(({ items, total }) => {
+      setShops(items);
+      setTotalCount(total);
+    });
+  }, [page]);
 
   useEffect(() => {
     if (!shops || shops.length === 0) return;
@@ -81,44 +33,11 @@ export function BrowseShops() {
 
   useEffect(() => {
     if (!shops || shops.length === 0) return;
-    // One query for every shop's products rather than N+1 per-card queries
-    // — this page only needs category names + a few product names, not the
-    // full product rows Storefront.tsx/ProductCard need.
-    supabase
-      .from("products")
-      .select("store_id, name, created_at, categories ( name, name_am, icon, color ), product_images ( url, is_primary )")
-      .eq("status", "published")
-      .in(
-        "store_id",
-        shops.map((s) => s.id),
-      )
-      .then(({ data }) => {
-        const rows =
-          (data as unknown as {
-            store_id: string;
-            name: string;
-            created_at: string;
-            categories: SummaryCategory | null;
-            product_images: { url: string; is_primary: boolean }[];
-          }[]) ?? [];
-        const map = new Map<string, ShopSummary>();
-        for (const row of rows) {
-          const entry = map.get(row.store_id) ?? { categories: [], productNames: [], latestProductImage: null };
-          if (row.categories?.name && !entry.categories.some((c) => c.name === row.categories!.name)) entry.categories.push(row.categories);
-          entry.productNames.push(row.name);
-
-          const image = row.product_images.find((i) => i.is_primary) ?? row.product_images[0];
-          if (image && (!entry.latestProductImage || row.created_at > entry.latestProductImage.createdAt)) {
-            entry.latestProductImage = { url: image.url, createdAt: row.created_at };
-          }
-
-          map.set(row.store_id, entry);
-        }
-        setSummaries(map);
-      });
+    // This page only needs category names + a few product names + a photo per shop, not the full product rows.
+    catalogue.getShopSummaries(shops).then(setSummaries);
   }, [shops]);
 
-  function photoUrl(shop: ShopRow): string | null {
+  function photoUrl(shop: Shop): string | null {
     return shop.logo_url ?? summaries.get(shop.id)?.latestProductImage?.url ?? null;
   }
 

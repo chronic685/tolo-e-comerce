@@ -2,19 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 import { Button, LazyImage, Skeleton, formatCurrency, useTranslation } from "@tolo/ui";
-import { supabase } from "../lib/supabase";
+import { catalogue } from "../data/catalogue";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
 import { recordProductView } from "../lib/recentlyViewed";
 import type { Product } from "../types";
-
-const PRODUCT_SELECT = `
-  id, merchant_id, store_id, category_id, name, slug, description, base_price, discount_price, status,
-  product_variants ( id, sku, attributes, price, discount_price, is_default, customer_price:product_variants_customer_price,
-    stock_status:variant_stock_status, stock_remaining:variant_stock_remaining ),
-  product_images ( id, url, is_primary, variant_id ),
-  merchants!inner ( is_test )
-`;
 
 export interface QuickViewProps {
   slug: string;
@@ -39,22 +31,11 @@ export function QuickView({ slug, onClose }: QuickViewProps) {
 
   useEffect(() => {
     setProduct(null);
-    // merchants.is_test excludes a QA/CI fixture product (migration 0079) —
-    // see ProductDetail.tsx's identical by-slug fetch (including why the
-    // embed needs `!inner`).
-    supabase
-      .from("products")
-      .select(PRODUCT_SELECT)
-      .eq("slug", slug)
-      .eq("status", "published")
-      .eq("merchants.is_test", false)
-      .maybeSingle()
-      .then(({ data }) => {
-        const p = data as unknown as Product | null;
-        setProduct(p);
-        setVariantId(p?.product_variants.find((v) => v.is_default)?.id ?? p?.product_variants[0]?.id ?? null);
-        if (p) recordProductView(p.id);
-      });
+    catalogue.getProduct(slug).then((p) => {
+      setProduct(p);
+      setVariantId(p?.product_variants.find((v) => v.is_default)?.id ?? p?.product_variants[0]?.id ?? null);
+      if (p) recordProductView(p.id);
+    });
   }, [slug]);
 
   useEffect(() => {
