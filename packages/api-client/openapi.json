@@ -110,6 +110,110 @@
         }
       }
     },
+    "/api/auth/handoff": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Exchanges the one-time code from the Tolo app for a session token",
+        "operationId": "Auth_HandoffItem",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandoffRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandoffResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          { }
+        ]
+      }
+    },
     "/api/customer/categories": {
       "get": {
         "tags": [
@@ -215,6 +319,82 @@
           "Customer"
         ],
         "operationId": "Customer_ListMerchants",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search text over the shop's name, description and city (typos forgiven).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category_id",
+            "in": "query",
+            "description": "Only shops in this category.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "description": "Only shops in this city.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Order: relevance (default when q is set), newest (default otherwise), name, rating.",
+            "schema": {
+              "enum": [
+                "relevance",
+                "newest",
+                "name",
+                "rating"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "Only these items, as ids separated by commas (at most 50). Items that are not publicly visible are left out, and the rest come back in the order given unless q or sort is set.",
+            "explode": false,
+            "schema": {
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -315,10 +495,10 @@
           {
             "name": "id",
             "in": "path",
+            "description": "The shop's id (uuid) or its slug.",
             "required": true,
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           }
         ],
@@ -418,6 +598,125 @@
           "Customer"
         ],
         "operationId": "Customer_ListProducts",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search text: every word must match the start of a word, appear inside the text, or be close to a word (typos forgiven).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category_id",
+            "in": "query",
+            "description": "Only products in this category.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's products.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "min_price",
+            "in": "query",
+            "description": "Lowest price the customer pays.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "max_price",
+            "in": "query",
+            "description": "Highest price the customer pays.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "featured",
+            "in": "query",
+            "description": "Only featured (true) or only not featured (false) products.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "in_stock",
+            "in": "query",
+            "description": "Only products with at least one variant in stock (true).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "min_rating",
+            "in": "query",
+            "description": "Lowest average rating.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Order: relevance (default when q is set), newest (default otherwise), price_asc, price_desc, name, rating.",
+            "schema": {
+              "enum": [
+                "relevance",
+                "newest",
+                "price_asc",
+                "price_desc",
+                "name",
+                "rating"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "Only these items, as ids separated by commas (at most 50). Items that are not publicly visible are left out, and the rest come back in the order given unless q or sort is set.",
+            "explode": false,
+            "schema": {
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -518,10 +817,10 @@
           {
             "name": "id",
             "in": "path",
+            "description": "The product's id (uuid) or its slug.",
             "required": true,
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           }
         ],
@@ -601,7 +900,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProductDto"
+                  "$ref": "#/components/schemas/PublicProductDto"
                 }
               }
             }
@@ -919,6 +1218,95 @@
           "Merchant"
         ],
         "operationId": "Merchant_ListMerchants",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search text over the shop's name, description and city (typos forgiven).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category_id",
+            "in": "query",
+            "description": "Only shops in this category.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "description": "Only shops in this city.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Order: relevance (default when q is set), newest (default otherwise), name, rating.",
+            "schema": {
+              "enum": [
+                "relevance",
+                "newest",
+                "name",
+                "rating"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "Only these items, as ids separated by commas (at most 50). Items that are not publicly visible are left out, and the rest come back in the order given unless q or sort is set.",
+            "explode": false,
+            "schema": {
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only shops with this status.",
+            "schema": {
+              "enum": [
+                "active",
+                "suspended",
+                "closed"
+              ],
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -1336,6 +1724,146 @@
           "Merchant"
         ],
         "operationId": "Merchant_ListProducts",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search text: every word must match the start of a word, appear inside the text, or be close to a word (typos forgiven).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category_id",
+            "in": "query",
+            "description": "Only products in this category.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's products.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "min_price",
+            "in": "query",
+            "description": "Lowest price the customer pays.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "max_price",
+            "in": "query",
+            "description": "Highest price the customer pays.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "featured",
+            "in": "query",
+            "description": "Only featured (true) or only not featured (false) products.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "in_stock",
+            "in": "query",
+            "description": "Only products with at least one variant in stock (true).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "min_rating",
+            "in": "query",
+            "description": "Lowest average rating.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Order: relevance (default when q is set), newest (default otherwise), price_asc, price_desc, name, rating.",
+            "schema": {
+              "enum": [
+                "relevance",
+                "newest",
+                "price_asc",
+                "price_desc",
+                "name",
+                "rating"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "Only these items, as ids separated by commas (at most 50). Items that are not publicly visible are left out, and the rest come back in the order given unless q or sort is set.",
+            "explode": false,
+            "schema": {
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only products with this status.",
+            "schema": {
+              "enum": [
+                "draft",
+                "published",
+                "hidden"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "description": "Only archived (true) or only not archived (false) products.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -2922,6 +3450,42 @@
           "Admin"
         ],
         "operationId": "Admin_ListMerchantApplications",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only applications with this status.",
+            "schema": {
+              "enum": [
+                "pending",
+                "approved",
+                "rejected"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -3232,6 +3796,95 @@
           "Admin"
         ],
         "operationId": "Admin_ListMerchants",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search text over the shop's name, description and city (typos forgiven).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category_id",
+            "in": "query",
+            "description": "Only shops in this category.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "description": "Only shops in this city.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Order: relevance (default when q is set), newest (default otherwise), name, rating.",
+            "schema": {
+              "enum": [
+                "relevance",
+                "newest",
+                "name",
+                "rating"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "Only these items, as ids separated by commas (at most 50). Items that are not publicly visible are left out, and the rest come back in the order given unless q or sort is set.",
+            "explode": false,
+            "schema": {
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only shops with this status.",
+            "schema": {
+              "enum": [
+                "active",
+                "suspended",
+                "closed"
+              ],
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -4489,6 +5142,146 @@
           "Admin"
         ],
         "operationId": "Admin_ListProducts",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search text: every word must match the start of a word, appear inside the text, or be close to a word (typos forgiven).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category_id",
+            "in": "query",
+            "description": "Only products in this category.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's products.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "min_price",
+            "in": "query",
+            "description": "Lowest price the customer pays.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "max_price",
+            "in": "query",
+            "description": "Highest price the customer pays.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "featured",
+            "in": "query",
+            "description": "Only featured (true) or only not featured (false) products.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "in_stock",
+            "in": "query",
+            "description": "Only products with at least one variant in stock (true).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "min_rating",
+            "in": "query",
+            "description": "Lowest average rating.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Order: relevance (default when q is set), newest (default otherwise), price_asc, price_desc, name, rating.",
+            "schema": {
+              "enum": [
+                "relevance",
+                "newest",
+                "price_asc",
+                "price_desc",
+                "name",
+                "rating"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "Only these items, as ids separated by commas (at most 50). Items that are not publicly visible are left out, and the rest come back in the order given unless q or sort is set.",
+            "explode": false,
+            "schema": {
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only products with this status.",
+            "schema": {
+              "enum": [
+                "draft",
+                "published",
+                "hidden"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "description": "Only archived (true) or only not archived (false) products.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -5199,6 +5992,45 @@
           "Admin"
         ],
         "operationId": "Admin_GetAuditLog",
+        "parameters": [
+          {
+            "name": "entity_type",
+            "in": "query",
+            "description": "Only entries about this kind of thing (for example product, merchant, order).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "query",
+            "description": "Only entries about this id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -5294,6 +6126,38 @@
           "Notifications"
         ],
         "operationId": "Notifications_GetNotifications",
+        "parameters": [
+          {
+            "name": "unread",
+            "in": "query",
+            "description": "Only unread notifications (true).",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -6002,6 +6866,137 @@
           "Customer orders"
         ],
         "operationId": "Customer_ListOrders",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only orders in these statuses, separated by commas (status=pending,accepted).",
+            "explode": false,
+            "schema": {
+              "uniqueItems": true,
+              "type": "array",
+              "items": {
+                "enum": [
+                  "new",
+                  "processing",
+                  "ready_for_pickup",
+                  "picked_up",
+                  "delivered",
+                  "completed",
+                  "rejected",
+                  "cancelled"
+                ],
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's orders.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "customer_id",
+            "in": "query",
+            "description": "Only this customer's orders.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search text over the order number and the customer's name and phone.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Only orders created at or after this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Only orders created before this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "payment_status",
+            "in": "query",
+            "description": "Only orders with this payment status.",
+            "schema": {
+              "enum": [
+                "pending",
+                "paid",
+                "refunded"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "payment_method",
+            "in": "query",
+            "description": "Only orders paid this way.",
+            "schema": {
+              "enum": [
+                "cash_on_delivery",
+                "online"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "needs_action",
+            "in": "query",
+            "description": "Only orders waiting for the caller's action (true).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "is_test",
+            "in": "query",
+            "description": "Only test orders (true) or only real orders (false).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -6325,6 +7320,137 @@
           "Merchant orders"
         ],
         "operationId": "Merchant_ListOrders",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only orders in these statuses, separated by commas (status=pending,accepted).",
+            "explode": false,
+            "schema": {
+              "uniqueItems": true,
+              "type": "array",
+              "items": {
+                "enum": [
+                  "new",
+                  "processing",
+                  "ready_for_pickup",
+                  "picked_up",
+                  "delivered",
+                  "completed",
+                  "rejected",
+                  "cancelled"
+                ],
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's orders.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "customer_id",
+            "in": "query",
+            "description": "Only this customer's orders.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search text over the order number and the customer's name and phone.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Only orders created at or after this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Only orders created before this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "payment_status",
+            "in": "query",
+            "description": "Only orders with this payment status.",
+            "schema": {
+              "enum": [
+                "pending",
+                "paid",
+                "refunded"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "payment_method",
+            "in": "query",
+            "description": "Only orders paid this way.",
+            "schema": {
+              "enum": [
+                "cash_on_delivery",
+                "online"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "needs_action",
+            "in": "query",
+            "description": "Only orders waiting for the caller's action (true).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "is_test",
+            "in": "query",
+            "description": "Only test orders (true) or only real orders (false).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -7213,6 +8339,137 @@
           "Admin orders"
         ],
         "operationId": "Admin_ListOrders",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only orders in these statuses, separated by commas (status=pending,accepted).",
+            "explode": false,
+            "schema": {
+              "uniqueItems": true,
+              "type": "array",
+              "items": {
+                "enum": [
+                  "new",
+                  "processing",
+                  "ready_for_pickup",
+                  "picked_up",
+                  "delivered",
+                  "completed",
+                  "rejected",
+                  "cancelled"
+                ],
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's orders.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "customer_id",
+            "in": "query",
+            "description": "Only this customer's orders.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search text over the order number and the customer's name and phone.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Only orders created at or after this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Only orders created before this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "payment_status",
+            "in": "query",
+            "description": "Only orders with this payment status.",
+            "schema": {
+              "enum": [
+                "pending",
+                "paid",
+                "refunded"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "payment_method",
+            "in": "query",
+            "description": "Only orders paid this way.",
+            "schema": {
+              "enum": [
+                "cash_on_delivery",
+                "online"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "needs_action",
+            "in": "query",
+            "description": "Only orders waiting for the caller's action (true).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "is_test",
+            "in": "query",
+            "description": "Only test orders (true) or only real orders (false).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -8866,6 +10123,37 @@
           "Admin pricing"
         ],
         "operationId": "Admin_ListDiscountRules",
+        "parameters": [
+          {
+            "name": "active",
+            "in": "query",
+            "description": "Only active rules (true) or only inactive ones (false).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -9284,6 +10572,79 @@
           "Merchant payouts"
         ],
         "operationId": "Merchant_ListPayouts",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "query",
+            "description": "Only payouts in this batch.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's payouts.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only payouts with this status.",
+            "schema": {
+              "enum": [
+                "pending",
+                "approved",
+                "paid",
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Only payouts created at or after this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Only payouts created before this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -9591,6 +10952,38 @@
           "Merchant payouts"
         ],
         "operationId": "Merchant_ListEarnings",
+        "parameters": [
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's earnings.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -9807,6 +11200,43 @@
           "Admin payouts"
         ],
         "operationId": "Admin_ListPayoutBatches",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only batches with this status.",
+            "schema": {
+              "enum": [
+                "pending",
+                "approved",
+                "paid",
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -10230,6 +11660,79 @@
           "Admin payouts"
         ],
         "operationId": "Admin_ListPayouts",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "query",
+            "description": "Only payouts in this batch.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's payouts.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only payouts with this status.",
+            "schema": {
+              "enum": [
+                "pending",
+                "approved",
+                "paid",
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Only payouts created at or after this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Only payouts created before this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -10325,6 +11828,58 @@
           "Admin payouts"
         ],
         "operationId": "Admin_GetPayoutsExport",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "query",
+            "description": "Only payouts in this batch.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's payouts.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only payouts with this status.",
+            "schema": {
+              "enum": [
+                "pending",
+                "approved",
+                "paid",
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Only payouts created at or after this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Only payouts created before this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -10864,6 +12419,17 @@
           "Admin payouts"
         ],
         "operationId": "Admin_ListPayoutAdjustments",
+        "parameters": [
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's adjustments.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -11386,6 +12952,106 @@
           "Customer returns"
         ],
         "operationId": "Customer_ListReturns",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only returns in these statuses, separated by commas.",
+            "explode": false,
+            "schema": {
+              "uniqueItems": true,
+              "type": "array",
+              "items": {
+                "enum": [
+                  "requested",
+                  "approved",
+                  "rejected",
+                  "escalated",
+                  "declined",
+                  "picked_up",
+                  "returned",
+                  "disputed",
+                  "refunded",
+                  "cancelled"
+                ],
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "order_id",
+            "in": "query",
+            "description": "Only returns of this order.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's returns.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search text over the order number and the customer's name and phone.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Only returns created at or after this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Only returns created before this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "needs_action",
+            "in": "query",
+            "description": "Only returns waiting for the caller's action (true).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -11921,6 +13587,106 @@
           "Merchant returns"
         ],
         "operationId": "Merchant_ListReturns",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only returns in these statuses, separated by commas.",
+            "explode": false,
+            "schema": {
+              "uniqueItems": true,
+              "type": "array",
+              "items": {
+                "enum": [
+                  "requested",
+                  "approved",
+                  "rejected",
+                  "escalated",
+                  "declined",
+                  "picked_up",
+                  "returned",
+                  "disputed",
+                  "refunded",
+                  "cancelled"
+                ],
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "order_id",
+            "in": "query",
+            "description": "Only returns of this order.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's returns.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search text over the order number and the customer's name and phone.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Only returns created at or after this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Only returns created before this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "needs_action",
+            "in": "query",
+            "description": "Only returns waiting for the caller's action (true).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -12576,6 +14342,106 @@
           "Admin returns"
         ],
         "operationId": "Admin_ListReturns",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only returns in these statuses, separated by commas.",
+            "explode": false,
+            "schema": {
+              "uniqueItems": true,
+              "type": "array",
+              "items": {
+                "enum": [
+                  "requested",
+                  "approved",
+                  "rejected",
+                  "escalated",
+                  "declined",
+                  "picked_up",
+                  "returned",
+                  "disputed",
+                  "refunded",
+                  "cancelled"
+                ],
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "order_id",
+            "in": "query",
+            "description": "Only returns of this order.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's returns.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search text over the order number and the customer's name and phone.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Only returns created at or after this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Only returns created before this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "needs_action",
+            "in": "query",
+            "description": "Only returns waiting for the caller's action (true).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -13485,6 +15351,22 @@
           "Customer content"
         ],
         "operationId": "Customer_ListBanners",
+        "parameters": [
+          {
+            "name": "placement",
+            "in": "query",
+            "description": "Only banners shown in this place.",
+            "schema": {
+              "enum": [
+                "home_hero",
+                "home_strip",
+                "category_top",
+                "checkout"
+              ],
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -13581,6 +15463,16 @@
           "Customer content"
         ],
         "operationId": "Customer_GetLegal",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "Language code of the text wanted (for example en or am).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -13682,6 +15574,14 @@
             "name": "slug",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "description": "Language code of the text wanted (for example en or am).",
             "schema": {
               "type": "string"
             }
@@ -13792,6 +15692,27 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
           }
         ],
         "responses": {
@@ -13890,6 +15811,29 @@
           "Customer content"
         ],
         "operationId": "Customer_ListPromotions",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -15106,6 +17050,29 @@
           "Customer engagement"
         ],
         "operationId": "Customer_ListReviews",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -15307,6 +17274,35 @@
           "Merchant reports"
         ],
         "operationId": "Merchant_GetReportsSummary",
+        "parameters": [
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "The shop to report on. Needed when the caller has more than one shop.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start of the report window, inclusive (ISO 8601). Default: 30 days before the end.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End of the report window, exclusive (ISO 8601). Default: the end of today in Addis Ababa. A report covers at most 366 days.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -15402,6 +17398,35 @@
           "Merchant reports"
         ],
         "operationId": "Merchant_GetReportsDailyCsv",
+        "parameters": [
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "The shop to report on. Needed when the caller has more than one shop.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start of the report window, inclusive (ISO 8601). Default: 30 days before the end.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End of the report window, exclusive (ISO 8601). Default: the end of today in Addis Ababa. A report covers at most 366 days.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -15497,6 +17522,35 @@
           "Merchant reports"
         ],
         "operationId": "Merchant_GetReportsProductsCsv",
+        "parameters": [
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "The shop to report on. Needed when the caller has more than one shop.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start of the report window, inclusive (ISO 8601). Default: 30 days before the end.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End of the report window, exclusive (ISO 8601). Default: the end of today in Addis Ababa. A report covers at most 366 days.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -15592,6 +17646,38 @@
           "Merchant reports"
         ],
         "operationId": "Merchant_ListReviews",
+        "parameters": [
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's reviews.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -15687,6 +17773,29 @@
           "Merchant reports"
         ],
         "operationId": "Merchant_ListPromotions",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -16107,6 +18216,26 @@
           "Admin tools"
         ],
         "operationId": "Admin_GetReportsOverview",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start of the report window, inclusive (ISO 8601). Default: 30 days before the end.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End of the report window, exclusive (ISO 8601). Default: the end of today in Addis Ababa. A report covers at most 366 days.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -16202,6 +18331,26 @@
           "Admin tools"
         ],
         "operationId": "Admin_GetReportsOverviewDailyCsv",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start of the report window, inclusive (ISO 8601). Default: 30 days before the end.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End of the report window, exclusive (ISO 8601). Default: the end of today in Addis Ababa. A report covers at most 366 days.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -16297,6 +18446,26 @@
           "Admin tools"
         ],
         "operationId": "Admin_GetReportsMerchantsCsv",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start of the report window, inclusive (ISO 8601). Default: 30 days before the end.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End of the report window, exclusive (ISO 8601). Default: the end of today in Addis Ababa. A report covers at most 366 days.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -16392,6 +18561,75 @@
           "Admin tools"
         ],
         "operationId": "Admin_ListCustomers",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search text over the customer's name, phone and email.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only accounts with this status.",
+            "schema": {
+              "enum": [
+                "active",
+                "suspended"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "anonymized",
+            "in": "query",
+            "description": "Only anonymized accounts (true) or only ones that are not (false).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Only accounts created at or after this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Only accounts created before this time (ISO 8601; a time without an offset is UTC).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -18287,6 +20525,46 @@
           "Admin tools"
         ],
         "operationId": "Admin_ListReviews",
+        "parameters": [
+          {
+            "name": "hidden",
+            "in": "query",
+            "description": "Only hidden reviews (true) or only visible ones (false).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "description": "Only this shop's reviews.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number, starting at 1. A smaller number means 1.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "description": "Items per page, 1 to 100. Zero or less means 20; more than 100 means 100.",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
         "responses": {
           "400": {
             "description": "Bad Request",
@@ -20712,6 +22990,37 @@
           }
         }
       },
+      "CategorySummaryDto": {
+        "required": [
+          "id",
+          "name",
+          "name_am",
+          "icon",
+          "color"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "name_am": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "icon": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          }
+        }
+      },
       "CheckoutDto": {
         "required": [
           "id",
@@ -21550,6 +23859,21 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "DayHours": {
+        "required": [
+          "open",
+          "close"
+        ],
+        "type": "object",
+        "properties": {
+          "open": {
+            "type": "string"
+          },
+          "close": {
+            "type": "string"
           }
         }
       },
@@ -22528,6 +24852,48 @@
           }
         }
       },
+      "HandoffRequest": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "HandoffResponse": {
+        "required": [
+          "access_token",
+          "token_type",
+          "expires_in",
+          "account"
+        ],
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "token_type": {
+            "type": "string"
+          },
+          "expires_in": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "account": {
+            "$ref": "#/components/schemas/AccountDto"
+          }
+        }
+      },
       "HoursRequest": {
         "required": [
           "hours",
@@ -22547,6 +24913,15 @@
           },
           "paused": {
             "type": "boolean"
+          },
+          "prep_time_minutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -25219,6 +27594,22 @@
             ],
             "format": "int32",
             "default": 0
+          },
+          "in_stock": {
+            "type": "boolean",
+            "default": false
+          },
+          "merchant_name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "merchant_slug": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -25466,6 +27857,103 @@
             ],
             "format": "int32",
             "default": 0
+          },
+          "slug": {
+            "type": "string",
+            "default": ""
+          },
+          "weekly_hours": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DayHours"
+            }
+          },
+          "prep_time_minutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "product_count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 0
+          },
+          "categories": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CategorySummaryDto"
+            }
+          },
+          "sample_product_names": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "latest_product_image_url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PublicProductDto": {
+        "required": [
+          "summary",
+          "description",
+          "variants",
+          "images"
+        ],
+        "type": "object",
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/ProductSummaryDto"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicVariantDto"
+            }
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageDto"
+            }
+          },
+          "archive": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ArchiveInfoDto"
+              }
+            ]
           }
         }
       },
@@ -25534,6 +28022,74 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "PublicVariantDto": {
+        "required": [
+          "id",
+          "sku",
+          "attributes",
+          "price",
+          "discount_price",
+          "is_default",
+          "customer_price",
+          "in_stock",
+          "max_order_quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sku": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/JsonElement"
+          },
+          "price": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "discount_price": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "is_default": {
+            "type": "boolean"
+          },
+          "customer_price": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "in_stock": {
+            "type": "boolean"
+          },
+          "max_order_quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -27325,6 +29881,10 @@
               "string"
             ],
             "format": "double"
+          },
+          "in_stock": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -27401,6 +29961,9 @@
     },
     {
       "name": "Internal"
+    },
+    {
+      "name": "Auth"
     },
     {
       "name": "Customer"
