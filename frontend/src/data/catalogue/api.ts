@@ -1,20 +1,23 @@
-import { type ToloClient, withQuery } from "@tolo/api-client";
 import type { components } from "@tolo/api-client";
+import type { ToloClient } from "@tolo/api-client";
+import type { OperatingHours } from "@tolo/ui";
 import type { Category, MerchantRating, Product, ProductImage, ProductVariant, StorefrontStore } from "../../types";
-import type { CatalogueBackend, ProductListQuery, ProductSort, Shop, ShopSummary, StoreCategory, SummaryCategory } from "./types";
+import type { CatalogueBackend, ProductListQuery, ProductSort, Shop, ShopSummary, StoreCategory } from "./types";
 
 type Schemas = components["schemas"];
 type CategoryDto = Schemas["CategoryDto"];
 type ProductSummaryDto = Schemas["ProductSummaryDto"];
-type ProductDto = Schemas["ProductDto"];
-type VariantDto = Schemas["VariantDto"];
+type PublicProductDto = Schemas["PublicProductDto"];
+type PublicVariantDto = Schemas["PublicVariantDto"];
 type PublicMerchantDto = Schemas["PublicMerchantDto"];
 
-// Differences from the Supabase data model that the adapter absorbs (each is listed as a gap in the PR):
-//  * There is no separate "store": a shop is the merchant. Shop and store ids are the merchant id.
-//  * Products and shops are fetched by id, not slug, so the `slug` the screens put in URLs holds the id in this backend.
-//  * The product list carries one price, one image and the rating; no variants (so no stock badge on cards) and no store name.
-const LOW_STOCK = 5;
+// Differences from the Supabase data model that the adapter absorbs (what is still missing from the API is listed in docs/api-migration.md):
+//  * There is no separate "store": a shop is the merchant, so store_id and merchant_id are the same value.
+//  * Products and shops are found by slug or id (the API takes either), so `slug` is the real slug in this backend too.
+//  * The API gives no stock counts: a variant is in stock or not, plus the most one order may take (max_order_quantity).
+
+/** The API takes at most this many ids in one `ids=` request. */
+export const MAX_IDS = 50;
 
 const num = (value: unknown): number | null => (value === null || value === undefined ? null : Number(value));
 
@@ -29,25 +32,20 @@ export function mapProductSummary(s: ProductSummaryDto): Product {
     store_id: s.merchant_id,
     category_id: s.category_id ?? null,
     name: s.name,
-    slug: s.id,
+    slug: s.slug,
     description: null,
     base_price: num(s.price) ?? 0,
     discount_price: num(s.discount_price),
     status: "published",
     customer_price: num(s.customer_price) ?? 0,
+    in_stock: s.in_stock,
     product_variants: [],
     product_images: s.image_url ? [{ id: `${s.id}-primary`, url: s.image_url, is_primary: true, variant_id: null }] : [],
+    stores: s.merchant_name && s.merchant_slug ? { name: s.merchant_name, slug: s.merchant_slug } : null,
   };
 }
 
-/** Raw stock never reaches a customer: only in stock, low (with the remaining count, capped) or out. */
-export function stockStatus(quantity: number): Pick<ProductVariant, "stock_status" | "stock_remaining"> {
-  if (quantity <= 0) return { stock_status: "out_of_stock", stock_remaining: null };
-  if (quantity <= LOW_STOCK) return { stock_status: "low", stock_remaining: quantity };
-  return { stock_status: "in_stock", stock_remaining: null };
-}
-
-function mapVariant(v: VariantDto): ProductVariant {
+function mapVariant(v: PublicVariantDto): ProductVariant {
   return {
     id: v.id,
     sku: v.sku ?? null,
@@ -56,11 +54,13 @@ function mapVariant(v: VariantDto): ProductVariant {
     discount_price: num(v.discount_price),
     is_default: v.is_default,
     customer_price: Number(v.customer_price),
-    ...stockStatus(Number(v.stock_quantity)),
+    stock_status: v.in_stock ? "in_stock" : "out_of_stock",
+    stock_remaining: null,
+    max_order_quantity: Number(v.max_order_quantity),
   };
 }
 
-export function mapProductDetail(p: ProductDto, merchant: PublicMerchantDto | null): Product {
+export function mapProductDetail(p: PublicProductDto, merchant: PublicMerchantDto | null): Product {
   const base = mapProductSummary(p.summary);
   const images: ProductImage[] = p.images.map((i) => ({ id: i.id, url: i.url, is_primary: i.is_primary, variant_id: null, sort_order: Number(i.sort_order) }));
   return {
@@ -68,13 +68,21 @@ export function mapProductDetail(p: ProductDto, merchant: PublicMerchantDto | nu
     description: p.description ?? null,
     product_variants: p.variants.map(mapVariant),
     product_images: images,
-    stores: merchant ? { name: merchant.business_name, slug: merchant.id, logo_url: merchant.logo_url ?? null } : null,
+    stores: merchant ? { name: merchant.business_name, slug: merchant.slug, logo_url: merchant.logo_url ?? null } : base.stores,
     merchants: merchant ? { avg_rating: num(merchant.average_rating), review_count: Number(merchant.review_count) } : null,
   };
 }
 
 function mapShop(m: PublicMerchantDto): Shop {
-  return { id: m.id, merchant_id: m.id, name: m.business_name, slug: m.id, logo_url: m.logo_url ?? null };
+  return { id: m.id, merchant_id: m.id, name: m.business_name, slug: m.slug, logo_url: m.logo_url ?? null };
+}
+
+export function mapShopSummary(m: PublicMerchantDto): ShopSummary {
+  return {
+    categories: (m.categories ?? []).map((c) => ({ name: c.name, name_am: c.name_am ?? null, icon: c.icon, color: c.color })),
+    productNames: m.sample_product_names ?? [],
+    latestProductImage: m.latest_product_image_url ? { url: m.latest_product_image_url, createdAt: "" } : null,
+  };
 }
 
 export function mapStorefront(m: PublicMerchantDto): StorefrontStore {
@@ -82,43 +90,61 @@ export function mapStorefront(m: PublicMerchantDto): StorefrontStore {
     id: m.id,
     merchant_id: m.id,
     name: m.business_name,
-    slug: m.id,
+    slug: m.slug,
     description: m.description ?? null,
     logo_url: m.logo_url ?? null,
     banner_url: m.banner_url ?? null,
     // The public endpoint only returns merchants a customer may see, so what comes back is open for business.
     status: "active",
-    // Not in the public merchant: the hours text is empty and "open now" comes from the server.
-    operating_hours: {},
+    // null when the shop has set no hours: the same as the empty object the screens already understand.
+    operating_hours: (m.weekly_hours ?? {}) as OperatingHours,
     is_open_now: m.open_now,
-    prep_time_minutes: null,
+    prep_time_minutes: num(m.prep_time_minutes),
     merchants: { status: "active", avg_rating: num(m.average_rating), review_count: Number(m.review_count) },
   };
 }
 
-const SORTS: Record<ProductSort, string | undefined> = { newest: "newest", price_asc: "price_asc", price_desc: "price_desc", rating_desc: "rating" };
+const SORTS: Record<ProductSort, "newest" | "price_asc" | "price_desc" | "rating"> = { newest: "newest", price_asc: "price_asc", price_desc: "price_desc", rating_desc: "rating" };
+
+// ids=a,b,c rather than ids=a&ids=b (the API documents the comma form).
+const COMMA_LISTS = { array: { style: "form", explode: false } } as const;
 
 /** The new C# API, behind the same interface. */
 export function createApiCatalogue(client: ToloClient): CatalogueBackend {
-  const ratings = new Map<string, MerchantRating>();
-  const merchants = new Map<string, Promise<PublicMerchantDto | null>>();
+  const merchants = new Map<string, PublicMerchantDto>(); // by id and by slug
 
-  async function fetchMerchant(id: string): Promise<PublicMerchantDto | null> {
-    const { data, response } = await client.GET("/api/customer/merchants/{id}", { params: { path: { id } } });
-    if (data) return data;
-    if (response.status !== 404 && response.status !== 400) console.error(`GET merchant ${id} failed: ${response.status}`);
+  function remember(m: PublicMerchantDto) {
+    merchants.set(m.id, m);
+    merchants.set(m.slug, m);
+  }
+
+  async function fetchMerchant(idOrSlug: string): Promise<PublicMerchantDto | null> {
+    const cached = merchants.get(idOrSlug);
+    if (cached) return cached;
+    const { data, response } = await client.GET("/api/customer/merchants/{id}", { params: { path: { id: idOrSlug } } });
+    if (data) {
+      remember(data);
+      return data;
+    }
+    if (response.status !== 404 && response.status !== 400) console.error(`GET merchant ${idOrSlug} failed: ${response.status}`);
     return null;
   }
 
-  // One request per distinct merchant for the whole session, however many cards ask.
-  const merchant = (id: string) => {
-    let cached = merchants.get(id);
-    if (!cached) {
-      cached = fetchMerchant(id);
-      merchants.set(id, cached);
+  /** Several shops in one request (at most MAX_IDS each), remembered for the session. Shops that are not public are simply not returned. */
+  async function fetchMerchants(ids: string[]): Promise<PublicMerchantDto[]> {
+    const unique = [...new Set(ids)];
+    const missing = unique.filter((id) => !merchants.has(id));
+    for (let i = 0; i < missing.length; i += MAX_IDS) {
+      const chunk = missing.slice(i, i + MAX_IDS);
+      const { data, response } = await client.GET("/api/customer/merchants", { params: { query: { ids: chunk, page_size: chunk.length } }, querySerializer: COMMA_LISTS });
+      if (!data) {
+        console.error(`GET merchants failed: ${response.status}`);
+        continue;
+      }
+      data.items.forEach(remember);
     }
-    return cached;
-  };
+    return unique.map((id) => merchants.get(id)).filter((m): m is PublicMerchantDto => m !== undefined);
+  }
 
   async function fetchCategories(): Promise<Category[]> {
     const { data, response } = await client.GET("/api/customer/categories");
@@ -132,20 +158,21 @@ export function createApiCatalogue(client: ToloClient): CatalogueBackend {
   async function fetchProducts(q: ProductListQuery) {
     // Searching with the screen's default order (newest) means "best match first": leave the sort to the API, whose default for a search is relevance.
     const sort = q.search?.trim() && (q.sort ?? "newest") === "newest" ? undefined : SORTS[q.sort ?? "newest"];
-    const { data, response } = await client.GET(
-      "/api/customer/products",
-      withQuery({
-        q: q.search?.trim(),
-        category_id: q.categoryId,
-        merchant_id: q.storeId,
-        min_price: q.minPrice,
-        max_price: q.maxPrice,
-        featured: q.featured ? true : undefined,
-        sort,
-        page: q.page,
-        page_size: q.pageSize,
-      }),
-    );
+    const { data, response } = await client.GET("/api/customer/products", {
+      params: {
+        query: {
+          q: q.search?.trim() || undefined,
+          category_id: q.categoryId ?? undefined,
+          merchant_id: q.storeId,
+          min_price: q.minPrice,
+          max_price: q.maxPrice,
+          featured: q.featured ? true : undefined,
+          sort,
+          page: q.page,
+          page_size: q.pageSize,
+        },
+      },
+    });
     if (!data) {
       console.error(`GET products failed: ${response.status}`);
       return { items: [], total: 0 };
@@ -153,41 +180,49 @@ export function createApiCatalogue(client: ToloClient): CatalogueBackend {
     return { items: data.items.map(mapProductSummary), total: Number(data.total) };
   }
 
-  async function fetchProduct(id: string, withMerchant: boolean): Promise<Product | null> {
-    const { data, response } = await client.GET("/api/customer/products/{id}", { params: { path: { id } } });
-    if (!data) {
-      if (response.status !== 404 && response.status !== 400) console.error(`GET product ${id} failed: ${response.status}`);
-      return null;
-    }
-    return mapProductDetail(data, withMerchant ? await merchant(data.summary.merchant_id) : null);
-  }
-
   return {
     listCategories: fetchCategories,
     listProducts: fetchProducts,
-    getProduct: (id) => fetchProduct(id, true),
 
-    // No batch lookup in the API: one request per id (recently viewed keeps this list short).
+    async getProduct(idOrSlug) {
+      const { data, response } = await client.GET("/api/customer/products/{id}", { params: { path: { id: idOrSlug } } });
+      if (!data) {
+        if (response.status !== 404 && response.status !== 400) console.error(`GET product ${idOrSlug} failed: ${response.status}`);
+        return null;
+      }
+      return mapProductDetail(data, await fetchMerchant(data.summary.merchant_id));
+    },
+
+    // One request for up to 50 ids, in the order asked; products that are gone are simply not returned.
     async getProductsByIds(ids) {
-      const found = await Promise.all(ids.map((id) => fetchProduct(id, false)));
-      return found.filter((p): p is Product => p !== null);
+      const found = new Map<string, Product>();
+      const unique = [...new Set(ids)];
+      for (let i = 0; i < unique.length; i += MAX_IDS) {
+        const chunk = unique.slice(i, i + MAX_IDS);
+        const { data, response } = await client.GET("/api/customer/products", { params: { query: { ids: chunk, page_size: chunk.length } }, querySerializer: COMMA_LISTS });
+        if (!data) {
+          console.error(`GET products failed: ${response.status}`);
+          continue;
+        }
+        for (const s of data.items) found.set(s.id, mapProductSummary(s));
+      }
+      return ids.map((id) => found.get(id)).filter((p): p is Product => p !== undefined);
     },
 
     async listShops({ page, pageSize, search }) {
-      const { data, response } = await client.GET("/api/customer/merchants", withQuery({ q: search?.trim(), page, page_size: pageSize }));
+      // Browsing is by name, as before; a search ranks by relevance.
+      const q = search?.trim() || undefined;
+      const { data, response } = await client.GET("/api/customer/merchants", { params: { query: { q, sort: q ? undefined : "name", page, page_size: pageSize } } });
       if (!data) {
         console.error(`GET merchants failed: ${response.status}`);
         return { items: [], total: 0 };
       }
-      for (const m of data.items) {
-        merchants.set(m.id, Promise.resolve(m));
-        ratings.set(m.id, { avg_rating: num(m.average_rating), review_count: Number(m.review_count) });
-      }
+      data.items.forEach(remember);
       return { items: data.items.map(mapShop), total: Number(data.total) };
     },
 
-    async getStorefront(id) {
-      const m = await merchant(id);
+    async getStorefront(idOrSlug) {
+      const m = await fetchMerchant(idOrSlug);
       return m ? mapStorefront(m) : null;
     },
 
@@ -201,46 +236,16 @@ export function createApiCatalogue(client: ToloClient): CatalogueBackend {
         .sort((a, b) => a.name.localeCompare(b.name));
     },
 
-    // No batch endpoint: one product request per shop on the page (a shop's newest 20 products), plus the category list once.
+    // The shop list already carries each shop's categories, sample product names and latest picture.
     async getShopSummaries(shops: Shop[]) {
       const map = new Map<string, ShopSummary>();
-      if (shops.length === 0) return map;
-      const categories = new Map((await fetchCategories()).map((c) => [c.id, c]));
-      await Promise.all(
-        shops.map(async (shop) => {
-          const { items } = await fetchProducts({ page: 1, pageSize: 20, storeId: shop.id, sort: "newest" });
-          const summary: ShopSummary = { categories: [], productNames: [], latestProductImage: null };
-          for (const p of items) {
-            const c = p.category_id ? categories.get(p.category_id) : undefined;
-            if (c && !summary.categories.some((x) => x.name === c.name)) {
-              summary.categories.push({ name: c.name, name_am: c.name_am, icon: c.icon, color: c.color } satisfies SummaryCategory);
-            }
-            summary.productNames.push(p.name);
-          }
-          const first = items.find((p) => p.product_images.length > 0);
-          if (first) summary.latestProductImage = { url: first.product_images[0].url, createdAt: "" };
-          map.set(shop.id, summary);
-        }),
-      );
+      for (const m of await fetchMerchants(shops.map((s) => s.id))) map.set(m.id, mapShopSummary(m));
       return map;
     },
 
-    // No batch endpoint: one merchant request per distinct merchant, remembered for the session (listing shops fills the cache for free).
     async getMerchantRatings(merchantIds) {
       const result = new Map<string, MerchantRating>();
-      await Promise.all(
-        [...new Set(merchantIds)].map(async (id) => {
-          let rating = ratings.get(id);
-          if (!rating) {
-            const m = await merchant(id);
-            if (m) {
-              rating = { avg_rating: num(m.average_rating), review_count: Number(m.review_count) };
-              ratings.set(id, rating);
-            }
-          }
-          if (rating) result.set(id, rating);
-        }),
-      );
+      for (const m of await fetchMerchants(merchantIds)) result.set(m.id, { avg_rating: num(m.average_rating), review_count: Number(m.review_count) });
       return result;
     },
   };
