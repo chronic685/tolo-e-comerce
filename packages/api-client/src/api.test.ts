@@ -82,3 +82,13 @@ describe("api client", () => {
     expect(api.select("catalogue", { supabase: () => 1, api: () => 2 })).toBe(2);
   });
 });
+
+describe("withQuery", () => {
+  it("sends only the parameters that have a value", async () => {
+    const { withQuery } = await import("./index");
+    const fetchMock = vi.fn(async (_request: Request) => new Response("[]", { status: 200, headers: { "Content-Type": "application/json" } }));
+    const api = createToloApi({}, { fetch: fetchMock as unknown as typeof fetch });
+    await api.client.GET("/api/customer/products", withQuery({ q: "shoe", page: 2, category_id: undefined, featured: false, min_price: null, empty: "" }));
+    expect(new URL(fetchMock.mock.calls[0][0].url).search).toBe("?q=shoe&page=2&featured=false");
+  });
+});

@@ -5,6 +5,7 @@ import { type TokenSource, createTokenSource } from "./token";
 export * from "./backend";
 export * from "./client";
 export * from "./token";
+export * from "./query";
 export type { components, operations, paths } from "./schema";
 
 export const DEFAULT_API_BASE_URL = "http://localhost:5080";
