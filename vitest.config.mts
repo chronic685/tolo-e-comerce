@@ -70,6 +70,8 @@ export default defineConfig({
       // @tolo/ui's own tests (e.g. Pagination.test.tsx) are never picked up
       // by root `vitest run` / `npm test` at all.
       "packages/ui",
+      // The typed client for the new C# API: pure TypeScript, mocked fetch.
+      "packages/api-client",
       // merchant-dashboard and admin-dashboard gained their own jsdom
       // vitest configs (feat/advanced-ui) -- same reason as "frontend"
       // above: without registering them here, root `vitest run` / `npm
