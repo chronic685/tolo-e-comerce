@@ -92,7 +92,7 @@ export function ProductDetail() {
         <input
           type="number"
           min={1}
-          max={variant?.stock_remaining ?? undefined}
+          max={variant?.max_order_quantity ?? variant?.stock_remaining ?? undefined}
           value={quantity}
           onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
           disabled={outOfStock}

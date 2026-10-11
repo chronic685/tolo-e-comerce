@@ -73,7 +73,7 @@ export function ProductCard({ product, rating, className }: ProductCardProps) {
               </span>
             )}
           </div>
-          {defaultVariant?.stock_status === "out_of_stock" && (
+          {(defaultVariant?.stock_status === "out_of_stock" || product.in_stock === false) && (
             <p className="text-xs font-medium text-red-600 mt-0.5">{t("productDetail.outOfStock")}</p>
           )}
           {defaultVariant?.stock_status === "low" && defaultVariant.stock_remaining != null && (
