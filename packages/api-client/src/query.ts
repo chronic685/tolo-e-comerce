@@ -5,10 +5,11 @@
  *
  *   client.GET("/api/customer/products", withQuery({ q: "shoe", page: 2 }))
  */
-export function withQuery(query: Record<string, string | number | boolean | null | undefined>): never {
+export function withQuery(query: Record<string, string | number | boolean | null | undefined>): { params: { query: undefined } } {
   const clean: Record<string, string | number | boolean> = {};
   for (const [key, value] of Object.entries(query)) {
     if (value !== undefined && value !== null && value !== "") clean[key] = value;
   }
-  return { params: { query: clean } } as never;
+  // Typed as "no query" because the generated types declare none for these endpoints; at run time it carries the real parameters.
+  return { params: { query: clean } } as unknown as { params: { query: undefined } };
 }
