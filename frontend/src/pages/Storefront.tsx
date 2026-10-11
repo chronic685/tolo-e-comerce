@@ -15,27 +15,10 @@ import {
   usePagination,
   useTranslation,
 } from "@tolo/ui";
-import { supabase } from "../lib/supabase";
+import { catalogue, type StoreCategory } from "../data/catalogue";
 import { ProductCard } from "../components/ProductCard";
 import { RatingBadge } from "../components/RatingBadge";
 import type { Product, StorefrontStore } from "../types";
-
-const PRODUCT_SELECT = `
-  id, merchant_id, store_id, category_id, name, slug, description, base_price, discount_price, status,
-  customer_price:products_customer_price,
-  product_variants ( id, sku, attributes, price, discount_price, is_default, stock_status:variant_stock_status, stock_remaining:variant_stock_remaining ),
-  product_images ( id, url, is_primary, variant_id ),
-  stores ( name, slug ),
-  categories ( name )
-`;
-
-interface StoreCategory {
-  id: string;
-  name: string;
-  name_am: string | null;
-  icon: string;
-  color: string;
-}
 
 // A storefront is only shown as open when BOTH the store's own status
 // (merchant-controlled, via merchant-dashboard Store Settings) and the
@@ -69,50 +52,16 @@ export function Storefront() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [categories, setCategories] = useState<StoreCategory[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const { page, from, to, setPage } = usePagination({ pageSize: CUSTOMER_PAGE_SIZE, resetKey: `${store?.id ?? ""}:${activeCategory ?? ""}` });
+  const { page, setPage } = usePagination({ pageSize: CUSTOMER_PAGE_SIZE, resetKey: `${store?.id ?? ""}:${activeCategory ?? ""}` });
 
   useEffect(() => {
     setStore(undefined);
-    // merchants.is_test excludes QA/CI fixture merchants (migration 0079):
-    // a direct link to a test shop's slug should behave exactly like a
-    // slug that never existed (the store === null branch below), not show
-    // a "closed" page that still reveals its name/branding. Needs the
-    // `!inner` embed hint -- without it, PostgREST leaves `stores` as a
-    // left join and a failing merchants filter just comes back with
-    // merchants: null instead of excluding the row (see BrowseShops.tsx).
-    supabase
-      .from("stores")
-      .select(
-        "id, merchant_id, name, slug, description, logo_url, banner_url, status, operating_hours, prep_time_minutes, " +
-          "is_open_now:store_is_open_now, " +
-          "merchants!inner ( status, is_test, avg_rating:merchants_avg_rating, review_count:merchants_review_count )",
-      )
-      .eq("slug", slug)
-      .eq("merchants.is_test", false)
-      .maybeSingle()
-      .then(({ data }) => {
-        setStore((data as unknown as StorefrontStore) ?? null);
-      });
+    catalogue.getStorefront(slug ?? "").then(setStore);
   }, [slug]);
 
   useEffect(() => {
     if (!store || !isStoreOpen(store)) return;
-    // Lightweight metadata query (two columns), same treatment Marketplace.tsx
-    // gives its own global category list -- not the paginated product list
-    // itself, just what's needed to build the filter pills.
-    supabase
-      .from("products")
-      .select("category_id, categories ( name, name_am, icon, color )")
-      .eq("store_id", store.id)
-      .eq("status", "published")
-      .then(({ data }) => {
-        const rows = (data as unknown as { category_id: string | null; categories: Omit<StoreCategory, "id"> | null }[]) ?? [];
-        const seen = new Map<string, StoreCategory>();
-        for (const row of rows) {
-          if (row.category_id && row.categories?.name) seen.set(row.category_id, { id: row.category_id, ...row.categories });
-        }
-        setCategories([...seen.values()].sort((a, b) => a.name.localeCompare(b.name)));
-      });
+    catalogue.listStoreCategories(store).then(setCategories);
   }, [store]);
 
   useEffect(() => {
@@ -121,17 +70,12 @@ export function Storefront() {
       return;
     }
     setProductsLoading(true);
-    let query = supabase.from("products").select(PRODUCT_SELECT, { count: "exact" }).eq("store_id", store.id).eq("status", "published");
-    if (activeCategory) query = query.eq("category_id", activeCategory);
-    query
-      .order("created_at", { ascending: false })
-      .range(from, to)
-      .then(({ data, count }) => {
-        setProducts((data as unknown as Product[]) ?? []);
-        setTotalCount(count ?? 0);
-        setProductsLoading(false);
-      });
-  }, [store, activeCategory, from, to]);
+    catalogue.listProducts({ page, pageSize: CUSTOMER_PAGE_SIZE, storeId: store.id, categoryId: activeCategory }).then(({ items, total }) => {
+      setProducts(items);
+      setTotalCount(total);
+      setProductsLoading(false);
+    });
+  }, [store, activeCategory, page]);
 
   // logo_url first; if the shop hasn't set one, fall back to its most
   // recently added product's photo (products is already ordered by

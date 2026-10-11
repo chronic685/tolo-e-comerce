@@ -3,25 +3,13 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Heart, Star } from "lucide-react";
 import { Button, Card, CardContent, LazyImage, SkeletonPage, cn, formatCurrency, formatRelativeTime, useTranslation } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
+import { catalogue } from "../data/catalogue";
 import { useAuth } from "../lib/AuthContext";
 import { useCart } from "../lib/CartContext";
 import { useFavorites } from "../lib/FavoritesContext";
 import { RatingBadge } from "../components/RatingBadge";
 import { recordProductView } from "../lib/recentlyViewed";
 import type { Product } from "../types";
-
-// merchants(...) is only fetched here, not on grid pages (Marketplace.tsx/
-// Storefront.tsx's product list) — a single-product page pays for one
-// merchant's rating once, where a grid of many cards would recompute the
-// same merchant's aggregate once per card for no real benefit.
-const PRODUCT_SELECT = `
-  id, merchant_id, store_id, category_id, name, slug, description, base_price, discount_price, status,
-  product_variants ( id, sku, attributes, price, discount_price, is_default, customer_price:product_variants_customer_price,
-    stock_status:variant_stock_status, stock_remaining:variant_stock_remaining ),
-  product_images ( id, url, is_primary, variant_id, sort_order ),
-  stores ( name, slug, logo_url ),
-  merchants!inner ( is_test, avg_rating:merchants_avg_rating, review_count:merchants_review_count )
-`;
 
 interface Review {
   id: string;
@@ -49,26 +37,11 @@ export function ProductDetail() {
   const [reviews, setReviews] = useState<Review[] | null>(null);
 
   useEffect(() => {
-    // merchants.is_test excludes a QA/CI fixture product (migration 0079):
-    // a direct link to its slug behaves like a slug that never existed,
-    // same reasoning as Storefront.tsx's store-by-slug fetch. `merchants`
-    // is embedded with `!inner` in PRODUCT_SELECT above -- without it,
-    // PostgREST would leave `products` as a left join and a failing
-    // merchants filter would just null the embed instead of excluding
-    // the row (see BrowseShops.tsx for the full explanation).
-    supabase
-      .from("products")
-      .select(PRODUCT_SELECT)
-      .eq("slug", slug)
-      .eq("status", "published")
-      .eq("merchants.is_test", false)
-      .maybeSingle()
-      .then(({ data }) => {
-        const p = data as unknown as Product | null;
-        setProduct(p);
-        setVariantId(p?.product_variants.find((v) => v.is_default)?.id ?? p?.product_variants[0]?.id ?? null);
-        if (p) recordProductView(p.id);
-      });
+    catalogue.getProduct(slug ?? "").then((p) => {
+      setProduct(p);
+      setVariantId(p?.product_variants.find((v) => v.is_default)?.id ?? p?.product_variants[0]?.id ?? null);
+      if (p) recordProductView(p.id);
+    });
   }, [slug]);
 
   // Reviews are public (reviews_public_select: using (true)) — a separate,
