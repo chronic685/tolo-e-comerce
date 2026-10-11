@@ -29,6 +29,12 @@
     "@supabase/supabase-js": "^2.116.0",
     "playwright": "^1.63.0",
     "supabase": "^2.117.0",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.1",
+    "typescript": "~6.0.2"
+  },
+  "overrides": {
+    "openapi-typescript": {
+      "typescript": "$typescript"
+    }
   }
 }
