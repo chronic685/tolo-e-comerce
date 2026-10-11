@@ -44,7 +44,7 @@ jobs:
           npm run generate --workspace=@tolo/api-client
           git diff --exit-code -- packages/api-client/src/schema.d.ts || (echo "Run: npm run generate -w @tolo/api-client, and commit the result." && exit 1)
       - run: npm run typecheck --workspace=@tolo/api-client
-      - run: npx vitest run --project packages/api-client
+      - run: npx vitest run --project @tolo/api-client
 
   backend-tests:
     name: Regression & security smoke tests (local Supabase)
