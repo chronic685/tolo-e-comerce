@@ -127,7 +127,9 @@ export function createApiMerchantProducts({ client, baseUrl, getToken, fetch: fe
 
   async function uploadImage(productId: string, blob: Blob, name: string): Promise<ActionResult> {
     const form = new FormData();
-    form.append("file", blob, name);
+    // In a browser every Blob is this page's own. Where a blob comes from another realm (a fetched response in some test runtimes) FormData refuses it, so copy it.
+    const part: Blob = blob instanceof Blob ? blob : new Blob([await new Response(blob).arrayBuffer()], { type: (blob as { type?: string }).type });
+    form.append("file", part, name);
     const token = getToken();
     const response = await doFetch(`${baseUrl.replace(/\/+$/, "")}/api/merchant/products/${productId}/images`, {
       method: "POST",
