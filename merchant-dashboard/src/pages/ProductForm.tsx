@@ -1,18 +1,15 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  compressImage,
-  PRODUCT_IMAGE_PRESET,
   toast,
   translateServerError,
   useCategoryName,
   useTranslation,
 } from "@tolo/ui";
-import { supabase } from "../lib/supabase";
+import { merchantProducts, type ShopRef } from "../data/merchantProducts";
 import { useMerchant } from "../lib/MerchantContext";
 import { isEligibleForListing, parseAttributes, slugify } from "../lib/productRules";
-import { saveProduct } from "../lib/productWrites";
-import type { Category, ProductVariant } from "../types";
+import type { Category } from "../types";
 
 interface VariantDraft {
   id?: string;
@@ -26,6 +23,8 @@ interface VariantDraft {
 interface ImageDraft {
   id?: string;
   url: string;
+  /** A picture chosen from this computer that the API backend uploads when the product is saved. */
+  file?: File;
 }
 
 export function ProductForm() {
@@ -56,91 +55,63 @@ export function ProductForm() {
   const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
   const isArchived = currentStatus === "archived";
 
+  // The shop the Supabase backend works for; the API backend finds the signed-in account's own shop.
+  const shopRef: ShopRef | null = merchant && store ? { merchantId: merchant.id, storeId: store.id } : null;
+
   async function handleImageUpload(idx: number, file: File) {
-    if (!merchant) return;
+    if (!shopRef) return;
     setUploadingImageIdx(idx);
-
-    let prepared: File;
-    try {
-      prepared = await compressImage(file, PRODUCT_IMAGE_PRESET);
-    } catch {
-      setUploadingImageIdx(null);
-      toast.error(t("images.prepareFailed"));
-      return;
-    }
-
-    const path = `${merchant.id}/${Date.now()}-${prepared.name}`;
-    const { error: uploadError } = await supabase.storage.from("product-images").upload(path, prepared);
-
+    const result = await merchantProducts.prepareImage(shopRef, file);
     setUploadingImageIdx(null);
-    if (uploadError) {
-      toast.error(translateServerError(uploadError.message, t));
+    if (!result.ok) {
+      toast.error(result.prepareFailed ? t("images.prepareFailed") : translateServerError(result.error, t));
       return;
     }
-
-    const { data } = supabase.storage.from("product-images").getPublicUrl(path);
     const next = [...images];
-    next[idx] = { ...next[idx], url: data.publicUrl };
+    next[idx] = { ...next[idx], url: result.url, file: result.file };
     setImages(next);
   }
 
   useEffect(() => {
-    if (!merchant) return;
-    const params = new URLSearchParams({ merchant_id: merchant.id });
-    if (categoryId) params.set("category_id", categoryId);
-    supabase.functions
-      .invoke(`commission-calc?${params.toString()}`, { method: "GET" })
-      .then(({ data }) => setCommissionRate(data?.rate_percent ?? null));
-  }, [merchant, categoryId]);
+    if (!shopRef) return;
+    merchantProducts.commissionRate(shopRef, categoryId).then(setCommissionRate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [merchant, store, categoryId]);
 
   useEffect(() => {
-    supabase.from("categories").select("id, name, name_am, slug").eq("is_active", true).then(({ data }) => setCategories(data ?? []));
+    merchantProducts.categories().then(setCategories);
   }, []);
 
   useEffect(() => {
-    if (isNew) return;
-    supabase
-      .from("products")
-      .select(
-        `name, description, category_id, base_price, status, archived_by_role,
-         product_variants ( id, sku, attributes, price, inventory ( stock_quantity, low_stock_threshold ) ),
-         product_images ( id, url )`,
-      )
-      .eq("id", id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data) return;
-        setName(data.name);
-        setDescription(data.description ?? "");
-        setCategoryId(data.category_id ?? "");
-        setBasePrice(String(data.base_price));
-        setCurrentStatus(data.status as string);
-        setArchivedBy((data.archived_by_role as "merchant" | "staff" | null) ?? null);
-        const vs =
-          (data.product_variants as unknown as (ProductVariant & {
-            inventory: { stock_quantity: number; low_stock_threshold: number } | null;
-          })[]) ?? [];
-        if (vs.length > 0) {
-          setVariants(
-            vs.map((v) => ({
-              id: v.id,
-              sku: v.sku ?? "",
-              attributesText: Object.entries(v.attributes ?? {})
-                .map(([k, val]) => `${k}:${val}`)
-                .join(", "),
-              price: String(v.price),
-              stock: String(v.inventory?.stock_quantity ?? 0),
-              lowStockThreshold: String(v.inventory?.low_stock_threshold ?? 5),
-            })),
-          );
-        }
-        const imgs = (data.product_images as unknown as { id: string; url: string }[]) ?? [];
-        if (imgs.length > 0) setImages(imgs.map((i) => ({ id: i.id, url: i.url })));
-      });
+    if (isNew || !id) return;
+    merchantProducts.load(id).then((p) => {
+      if (!p) return;
+      setName(p.name);
+      setDescription(p.description ?? "");
+      setCategoryId(p.categoryId ?? "");
+      setBasePrice(String(p.basePrice));
+      setCurrentStatus(p.status);
+      setArchivedBy(p.archivedBy);
+      if (p.variants.length > 0) {
+        setVariants(
+          p.variants.map((v) => ({
+            id: v.id,
+            sku: v.sku ?? "",
+            attributesText: Object.entries(v.attributes ?? {})
+              .map(([k, val]) => `${k}:${val}`)
+              .join(", "),
+            price: String(v.price),
+            stock: String(v.stock),
+            lowStockThreshold: String(v.lowStockThreshold),
+          })),
+        );
+      }
+      if (p.images.length > 0) setImages(p.images.map((i) => ({ id: i.id, url: i.url })));
+    });
   }, [id, isNew]);
 
   async function handleSave(targetStatus: "draft" | "published" | "submitted" | "paused" | "approved") {
-    if (!merchant || !store || isArchived) return;
+    if (!shopRef || isArchived) return;
     if (!name.trim() || !basePrice) {
       toast.error(t("productForm.nameRequired"));
       return;
@@ -163,10 +134,9 @@ export function ProductForm() {
 
     setSaving(true);
 
-    const result = await saveProduct(
+    const result = await merchantProducts.save(
+      shopRef,
       {
-        merchantId: merchant.id,
-        storeId: store.id,
         categoryId: categoryId || null,
         name: name.trim(),
         slug: slugify(name),
@@ -187,27 +157,17 @@ export function ProductForm() {
         })),
       images,
       isNew ? undefined : id,
+      { variantIds: removedVariantIds, imageIds: removedImageIds },
     );
 
     if (!result.ok) {
       setSaving(false);
-      toast.error(translateServerError(result.error, t));
+      toast.error(result.variantInUse ? t("productForm.variantInUse") : translateServerError(result.error, t));
       return;
     }
 
-    // Removals go after the save so the product is never left without a variant. A variant customers
-    // have ordered cannot be deleted (order_items keeps it), so that is reported rather than hidden.
-    if (removedImageIds.length > 0) {
-      await supabase.from("product_images").delete().in("id", removedImageIds);
-    }
-    if (removedVariantIds.length > 0) {
-      const { error } = await supabase.from("product_variants").delete().in("id", removedVariantIds);
-      if (error) {
-        setSaving(false);
-        toast.error(error.code === "23503" ? t("productForm.variantInUse") : translateServerError(error.message, t));
-        return;
-      }
-    }
+    // The product is saved; say what could not be done with its pictures.
+    for (const warning of result.warnings ?? []) toast.error(warning);
     setSaving(false);
     navigate("/products");
   }
