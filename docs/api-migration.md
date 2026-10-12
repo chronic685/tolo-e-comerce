@@ -13,7 +13,7 @@ The three React apps are being re-pointed, one module at a time, from Supabase t
 | # | Module | Screens | Status |
 |---|---|---|---|
 | 1 | `catalogue` | marketplace home and search, shops list, storefront, product page, quick view, recently viewed | done, default `supabase` (uses the API's slug lookups, `ids=` batches, shop hours and typed query parameters) |
-| 2 | `merchant-products` | merchant dashboard products | not started |
+| 2 | `merchant-products` | merchant dashboard: product list, hide/show, archive/restore, delete, create/edit with variants and pictures, CSV import | adapter in place, default `supabase` |
 | 3 | `orders` | cart, checkout, customer orders, cancel | not started |
 | 4 | `merchant-orders` | merchant orders | not started |
 | 5 | `admin` | merchants, applications, accounts, categories, audit log | not started |
@@ -33,7 +33,15 @@ Open <http://localhost:5173>. You should see the three `[DEMO]` shops' products,
 
 **2. A dev token, only if a screen needs a signed-in call.** The catalogue is public, so you can skip this for the customer site. When you need one, never paste it anywhere but your own browser: in the API window, select the line under `CUSTOMER` (drag with the mouse) and press Enter to copy it; then in the site's browser tab press F12, open Console, type `localStorage.setItem("tolo.dev_token", "` , paste with Ctrl+V, type `")` and press Enter. Tokens last 12 hours and stop working each time the API script is restarted (a new key every run). Only development builds read the token.
 
-The other apps use ports 5174 (merchant dashboard) and 5175 (admin), which the API's default CORS list already allows. Any other port needs `-CorsOrigins "http://localhost:<port>"` on the API script.
+**3. The merchant dashboard (module 2: products).** It needs a token: the products are the signed-in merchant's. Same recipe, port 5174:
+```powershell
+$env:VITE_API_BASE_URL = "http://localhost:5080"
+$env:VITE_BACKEND_MERCHANT_PRODUCTS = "api"
+npm run dev -w merchant-dashboard
+```
+Open <http://localhost:5174>, sign in the way you do today (sign-in is still Supabase), then put the **MERCHANT** token (the line under `MERCHANT` in the API window) in the browser as described in step 2, and open `/products`. You see the demo owner's shops' products from the API: hide/show, archive/restore, delete, edit (name, price, stock, pictures) and "New product" all go to the API. Your Supabase merchant account is not used for these calls: the API works for the demo owner the token belongs to, so what you see is the demo data, not your Supabase shop.
+
+The admin dashboard is on port 5175, which the API's default CORS list also allows. Any other port needs `-CorsOrigins "http://localhost:<port>"` on the API script.
 
 ## Gaps: things a screen needs that the API does not give (yet)
 Listed, not faked. Each is a candidate for a small API change.
@@ -47,3 +55,16 @@ What is still missing or different:
 3. **A shop's category pills** are derived from its first 100 products (there is no per-shop category list; the shop card's `categories` holds only three).
 4. **Search default order.** The old screen searched with "newest first". In API mode a search with the default sort uses the API's relevance ranking (substring and typo tolerant: "hoe" finds "shoe"); choosing a sort overrides it.
 5. **Banners** (homepage) and **reviews** are the content module and still come from Supabase in every mode.
+
+### Module 2: merchant products
+What works the same: list (active and archived tabs, paged), hide and show, archive and restore (one request per product), delete (the API refuses a product that has orders and the screen then offers archiving), create and edit with variants and pictures, the CSV export and the CSV import (it writes through the same adapter).
+
+Differences and gaps:
+1. **Whose shop.** The API works for the account the token belongs to and finds its shop itself (`GET /api/merchant/merchants`, the first one). The Supabase merchant and store the dashboard is signed in as are not used in API mode. An account with several shops always works on its first.
+2. **The list has no stock counts, category names or archive details**, so the adapter reads each product of a page (one request per product, 20 at most) to fill the stock column, the category and "archived by you/Tolo".
+3. **Pictures** are uploaded as files after the product is saved (the API takes only uploads). A picture pasted as a link is fetched by the browser and uploaded; if the link cannot be read from the browser (the site refuses cross-origin reads) the product is still saved and a message says which picture to upload as a file instead. Changing the address of a picture that is already stored is not possible; remove it and add another.
+4. **Variants are replaced as a whole** on save. A variant that an order refers to cannot be dropped (the API answers `variant_in_use`, shown as today). The editor has no discount field; a variant's existing discount is kept.
+5. **No low-stock threshold** in the API; the field is ignored in API mode.
+6. **Statuses.** The API has draft, published and hidden (archived is a flag). "Hidden" is the dashboard's "paused". The statuses `submitted` and `approved` do not exist: saving a product as "submit for approval" leaves it a draft.
+7. **Commission note** shows the merchant's rate; the API has no per-category rate, so a category-specific rate is not reflected.
+8. **Delete asks afterwards.** Supabase can be asked beforehand whether orders refer to a product; the API only says so when the delete is refused (the same "archive instead" message appears then).
