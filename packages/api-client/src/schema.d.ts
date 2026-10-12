@@ -72,6 +72,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/handoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Exchanges the one-time code from the Tolo app for a session token */
+        post: operations["Auth_HandoffItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/customer/categories": {
         parameters: {
             query?: never;
@@ -2914,6 +2931,14 @@ export interface components {
             /** @default true */
             is_active: boolean;
         };
+        CategorySummaryDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            name_am: null | string;
+            icon: string;
+            color: string;
+        };
         CheckoutDto: {
             /** Format: uuid */
             id: string;
@@ -3103,6 +3128,10 @@ export interface components {
             returned_value: number | string;
             /** Format: int32 */
             new_customers: number | string;
+        };
+        DayHours: {
+            open: string;
+            close: string;
         };
         DeliveryCallbackBody: {
             job_id: null | string;
@@ -3324,9 +3353,21 @@ export interface components {
             fee: number | string;
             reason: null | string;
         };
+        HandoffRequest: {
+            code: null | string;
+        };
+        HandoffResponse: {
+            access_token: string;
+            token_type: string;
+            /** Format: int32 */
+            expires_in: number | string;
+            account: components["schemas"]["AccountDto"];
+        };
         HoursRequest: {
             hours: null | components["schemas"]["JsonElement"];
             paused: boolean;
+            /** Format: int32 */
+            prep_time_minutes?: null | number | string;
         };
         ImageDto: {
             /** Format: uuid */
@@ -3938,6 +3979,10 @@ export interface components {
              * @default 0
              */
             review_count: number | string;
+            /** @default false */
+            in_stock: boolean;
+            merchant_name?: null | string;
+            merchant_slug?: null | string;
         };
         ProductsDto: {
             /** Format: int32 */
@@ -3994,6 +4039,28 @@ export interface components {
              * @default 0
              */
             review_count: number | string;
+            /** @default  */
+            slug: string;
+            weekly_hours?: null | {
+                [key: string]: components["schemas"]["DayHours"];
+            };
+            /** Format: int32 */
+            prep_time_minutes?: null | number | string;
+            /**
+             * Format: int32
+             * @default 0
+             */
+            product_count: number | string;
+            categories?: null | components["schemas"]["CategorySummaryDto"][];
+            sample_product_names?: null | string[];
+            latest_product_image_url?: null | string;
+        };
+        PublicProductDto: {
+            summary: components["schemas"]["ProductSummaryDto"];
+            description: null | string;
+            variants: components["schemas"]["PublicVariantDto"][];
+            images: components["schemas"]["ImageDto"][];
+            archive?: null | components["schemas"]["ArchiveInfoDto"];
         };
         PublicPromotionDto: {
             /** Format: uuid */
@@ -4011,6 +4078,22 @@ export interface components {
             scope_id: null | string;
             /** Format: date-time */
             ends_at: null | string;
+        };
+        PublicVariantDto: {
+            /** Format: uuid */
+            id: string;
+            sku: null | string;
+            attributes: components["schemas"]["JsonElement"];
+            /** Format: double */
+            price: number | string;
+            /** Format: double */
+            discount_price: null | number | string;
+            is_default: boolean;
+            /** Format: double */
+            customer_price: number | string;
+            in_stock: boolean;
+            /** Format: int32 */
+            max_order_quantity: number | string;
         };
         QuoteReturnRequest: {
             /** Format: uuid */
@@ -4420,6 +4503,8 @@ export interface components {
             stock_quantity: number | string;
             /** Format: double */
             customer_price: number | string;
+            /** @default false */
+            in_stock: boolean;
         };
         VariantRequest: {
             sku: null | string;
@@ -4534,6 +4619,93 @@ export interface operations {
             };
         };
     };
+    Auth_HandoffItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandoffRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HandoffResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     Customer_ListCategories: {
         parameters: {
             query?: never;
@@ -4619,7 +4791,22 @@ export interface operations {
     };
     Customer_ListMerchants: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Search text over the shop's name, description and city (typos forgiven). */
+                q?: string;
+                /** @description Only shops in this category. */
+                category_id?: string;
+                /** @description Only shops in this city. */
+                city?: string;
+                /** @description Order: relevance (default when q is set), newest (default otherwise), name, rating. */
+                sort?: "relevance" | "newest" | "name" | "rating";
+                /** @description Only these items, as ids separated by commas (at most 50). Items that are not publicly visible are left out, and the rest come back in the order given unless q or sort is set. */
+                ids?: string[];
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4705,6 +4892,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description The shop's id (uuid) or its slug. */
                 id: string;
             };
             cookie?: never;
@@ -4787,7 +4975,32 @@ export interface operations {
     };
     Customer_ListProducts: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Search text: every word must match the start of a word, appear inside the text, or be close to a word (typos forgiven). */
+                q?: string;
+                /** @description Only products in this category. */
+                category_id?: string;
+                /** @description Only this shop's products. */
+                merchant_id?: string;
+                /** @description Lowest price the customer pays. */
+                min_price?: number;
+                /** @description Highest price the customer pays. */
+                max_price?: number;
+                /** @description Only featured (true) or only not featured (false) products. */
+                featured?: boolean;
+                /** @description Only products with at least one variant in stock (true). */
+                in_stock?: boolean;
+                /** @description Lowest average rating. */
+                min_rating?: number;
+                /** @description Order: relevance (default when q is set), newest (default otherwise), price_asc, price_desc, name, rating. */
+                sort?: "relevance" | "newest" | "price_asc" | "price_desc" | "name" | "rating";
+                /** @description Only these items, as ids separated by commas (at most 50). Items that are not publicly visible are left out, and the rest come back in the order given unless q or sort is set. */
+                ids?: string[];
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4873,6 +5086,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description The product's id (uuid) or its slug. */
                 id: string;
             };
             cookie?: never;
@@ -4885,7 +5099,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProductDto"];
+                    "application/json": components["schemas"]["PublicProductDto"];
                 };
             };
             /** @description Bad Request */
@@ -5208,7 +5422,24 @@ export interface operations {
     };
     Merchant_ListMerchants: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Search text over the shop's name, description and city (typos forgiven). */
+                q?: string;
+                /** @description Only shops in this category. */
+                category_id?: string;
+                /** @description Only shops in this city. */
+                city?: string;
+                /** @description Order: relevance (default when q is set), newest (default otherwise), name, rating. */
+                sort?: "relevance" | "newest" | "name" | "rating";
+                /** @description Only these items, as ids separated by commas (at most 50). Items that are not publicly visible are left out, and the rest come back in the order given unless q or sort is set. */
+                ids?: string[];
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+                /** @description Only shops with this status. */
+                status?: "active" | "suspended" | "closed";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5550,7 +5781,36 @@ export interface operations {
     };
     Merchant_ListProducts: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Search text: every word must match the start of a word, appear inside the text, or be close to a word (typos forgiven). */
+                q?: string;
+                /** @description Only products in this category. */
+                category_id?: string;
+                /** @description Only this shop's products. */
+                merchant_id?: string;
+                /** @description Lowest price the customer pays. */
+                min_price?: number;
+                /** @description Highest price the customer pays. */
+                max_price?: number;
+                /** @description Only featured (true) or only not featured (false) products. */
+                featured?: boolean;
+                /** @description Only products with at least one variant in stock (true). */
+                in_stock?: boolean;
+                /** @description Lowest average rating. */
+                min_rating?: number;
+                /** @description Order: relevance (default when q is set), newest (default otherwise), price_asc, price_desc, name, rating. */
+                sort?: "relevance" | "newest" | "price_asc" | "price_desc" | "name" | "rating";
+                /** @description Only these items, as ids separated by commas (at most 50). Items that are not publicly visible are left out, and the rest come back in the order given unless q or sort is set. */
+                ids?: string[];
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+                /** @description Only products with this status. */
+                status?: "draft" | "published" | "hidden";
+                /** @description Only archived (true) or only not archived (false) products. */
+                archived?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6826,7 +7086,14 @@ export interface operations {
     };
     Admin_ListMerchantApplications: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only applications with this status. */
+                status?: "pending" | "approved" | "rejected";
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7081,7 +7348,24 @@ export interface operations {
     };
     Admin_ListMerchants: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Search text over the shop's name, description and city (typos forgiven). */
+                q?: string;
+                /** @description Only shops in this category. */
+                category_id?: string;
+                /** @description Only shops in this city. */
+                city?: string;
+                /** @description Order: relevance (default when q is set), newest (default otherwise), name, rating. */
+                sort?: "relevance" | "newest" | "name" | "rating";
+                /** @description Only these items, as ids separated by commas (at most 50). Items that are not publicly visible are left out, and the rest come back in the order given unless q or sort is set. */
+                ids?: string[];
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+                /** @description Only shops with this status. */
+                status?: "active" | "suspended" | "closed";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -8109,7 +8393,36 @@ export interface operations {
     };
     Admin_ListProducts: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Search text: every word must match the start of a word, appear inside the text, or be close to a word (typos forgiven). */
+                q?: string;
+                /** @description Only products in this category. */
+                category_id?: string;
+                /** @description Only this shop's products. */
+                merchant_id?: string;
+                /** @description Lowest price the customer pays. */
+                min_price?: number;
+                /** @description Highest price the customer pays. */
+                max_price?: number;
+                /** @description Only featured (true) or only not featured (false) products. */
+                featured?: boolean;
+                /** @description Only products with at least one variant in stock (true). */
+                in_stock?: boolean;
+                /** @description Lowest average rating. */
+                min_rating?: number;
+                /** @description Order: relevance (default when q is set), newest (default otherwise), price_asc, price_desc, name, rating. */
+                sort?: "relevance" | "newest" | "price_asc" | "price_desc" | "name" | "rating";
+                /** @description Only these items, as ids separated by commas (at most 50). Items that are not publicly visible are left out, and the rest come back in the order given unless q or sort is set. */
+                ids?: string[];
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+                /** @description Only products with this status. */
+                status?: "draft" | "published" | "hidden";
+                /** @description Only archived (true) or only not archived (false) products. */
+                archived?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -8696,7 +9009,16 @@ export interface operations {
     };
     Admin_GetAuditLog: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only entries about this kind of thing (for example product, merchant, order). */
+                entity_type?: string;
+                /** @description Only entries about this id. */
+                entity_id?: string;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -8779,7 +9101,14 @@ export interface operations {
     };
     Notifications_GetNotifications: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only unread notifications (true). */
+                unread?: boolean;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -9379,7 +9708,32 @@ export interface operations {
     };
     Customer_ListOrders: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only orders in these statuses, separated by commas (status=pending,accepted). */
+                status?: ("new" | "processing" | "ready_for_pickup" | "picked_up" | "delivered" | "completed" | "rejected" | "cancelled")[];
+                /** @description Only this shop's orders. */
+                merchant_id?: string;
+                /** @description Only this customer's orders. */
+                customer_id?: string;
+                /** @description Search text over the order number and the customer's name and phone. */
+                q?: string;
+                /** @description Only orders created at or after this time (ISO 8601; a time without an offset is UTC). */
+                from?: string;
+                /** @description Only orders created before this time (ISO 8601; a time without an offset is UTC). */
+                to?: string;
+                /** @description Only orders with this payment status. */
+                payment_status?: "pending" | "paid" | "refunded";
+                /** @description Only orders paid this way. */
+                payment_method?: "cash_on_delivery" | "online";
+                /** @description Only orders waiting for the caller's action (true). */
+                needs_action?: boolean;
+                /** @description Only test orders (true) or only real orders (false). */
+                is_test?: boolean;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -9636,7 +9990,32 @@ export interface operations {
     };
     Merchant_ListOrders: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only orders in these statuses, separated by commas (status=pending,accepted). */
+                status?: ("new" | "processing" | "ready_for_pickup" | "picked_up" | "delivered" | "completed" | "rejected" | "cancelled")[];
+                /** @description Only this shop's orders. */
+                merchant_id?: string;
+                /** @description Only this customer's orders. */
+                customer_id?: string;
+                /** @description Search text over the order number and the customer's name and phone. */
+                q?: string;
+                /** @description Only orders created at or after this time (ISO 8601; a time without an offset is UTC). */
+                from?: string;
+                /** @description Only orders created before this time (ISO 8601; a time without an offset is UTC). */
+                to?: string;
+                /** @description Only orders with this payment status. */
+                payment_status?: "pending" | "paid" | "refunded";
+                /** @description Only orders paid this way. */
+                payment_method?: "cash_on_delivery" | "online";
+                /** @description Only orders waiting for the caller's action (true). */
+                needs_action?: boolean;
+                /** @description Only test orders (true) or only real orders (false). */
+                is_test?: boolean;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -10335,7 +10714,32 @@ export interface operations {
     };
     Admin_ListOrders: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only orders in these statuses, separated by commas (status=pending,accepted). */
+                status?: ("new" | "processing" | "ready_for_pickup" | "picked_up" | "delivered" | "completed" | "rejected" | "cancelled")[];
+                /** @description Only this shop's orders. */
+                merchant_id?: string;
+                /** @description Only this customer's orders. */
+                customer_id?: string;
+                /** @description Search text over the order number and the customer's name and phone. */
+                q?: string;
+                /** @description Only orders created at or after this time (ISO 8601; a time without an offset is UTC). */
+                from?: string;
+                /** @description Only orders created before this time (ISO 8601; a time without an offset is UTC). */
+                to?: string;
+                /** @description Only orders with this payment status. */
+                payment_status?: "pending" | "paid" | "refunded";
+                /** @description Only orders paid this way. */
+                payment_method?: "cash_on_delivery" | "online";
+                /** @description Only orders waiting for the caller's action (true). */
+                needs_action?: boolean;
+                /** @description Only test orders (true) or only real orders (false). */
+                is_test?: boolean;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -11707,7 +12111,14 @@ export interface operations {
     };
     Admin_ListDiscountRules: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only active rules (true) or only inactive ones (false). */
+                active?: boolean;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -12051,7 +12462,22 @@ export interface operations {
     };
     Merchant_ListPayouts: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only payouts in this batch. */
+                batch_id?: string;
+                /** @description Only this shop's payouts. */
+                merchant_id?: string;
+                /** @description Only payouts with this status. */
+                status?: "pending" | "approved" | "paid" | "cancelled";
+                /** @description Only payouts created at or after this time (ISO 8601; a time without an offset is UTC). */
+                from?: string;
+                /** @description Only payouts created before this time (ISO 8601; a time without an offset is UTC). */
+                to?: string;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -12304,7 +12730,14 @@ export interface operations {
     };
     Merchant_ListEarnings: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only this shop's earnings. */
+                merchant_id?: string;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -12483,7 +12916,14 @@ export interface operations {
     };
     Admin_ListPayoutBatches: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only batches with this status. */
+                status?: "pending" | "approved" | "paid" | "cancelled";
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -12825,7 +13265,22 @@ export interface operations {
     };
     Admin_ListPayouts: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only payouts in this batch. */
+                batch_id?: string;
+                /** @description Only this shop's payouts. */
+                merchant_id?: string;
+                /** @description Only payouts with this status. */
+                status?: "pending" | "approved" | "paid" | "cancelled";
+                /** @description Only payouts created at or after this time (ISO 8601; a time without an offset is UTC). */
+                from?: string;
+                /** @description Only payouts created before this time (ISO 8601; a time without an offset is UTC). */
+                to?: string;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -12908,7 +13363,18 @@ export interface operations {
     };
     Admin_GetPayoutsExport: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only payouts in this batch. */
+                batch_id?: string;
+                /** @description Only this shop's payouts. */
+                merchant_id?: string;
+                /** @description Only payouts with this status. */
+                status?: "pending" | "approved" | "paid" | "cancelled";
+                /** @description Only payouts created at or after this time (ISO 8601; a time without an offset is UTC). */
+                from?: string;
+                /** @description Only payouts created before this time (ISO 8601; a time without an offset is UTC). */
+                to?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -13339,7 +13805,10 @@ export interface operations {
     };
     Admin_ListPayoutAdjustments: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only this shop's adjustments. */
+                merchant_id?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -13681,7 +14150,26 @@ export interface operations {
     };
     Customer_ListReturns: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only returns in these statuses, separated by commas. */
+                status?: ("requested" | "approved" | "rejected" | "escalated" | "declined" | "picked_up" | "returned" | "disputed" | "refunded" | "cancelled")[];
+                /** @description Only returns of this order. */
+                order_id?: string;
+                /** @description Only this shop's returns. */
+                merchant_id?: string;
+                /** @description Search text over the order number and the customer's name and phone. */
+                q?: string;
+                /** @description Only returns created at or after this time (ISO 8601; a time without an offset is UTC). */
+                from?: string;
+                /** @description Only returns created before this time (ISO 8601; a time without an offset is UTC). */
+                to?: string;
+                /** @description Only returns waiting for the caller's action (true). */
+                needs_action?: boolean;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -14204,7 +14692,26 @@ export interface operations {
     };
     Merchant_ListReturns: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only returns in these statuses, separated by commas. */
+                status?: ("requested" | "approved" | "rejected" | "escalated" | "declined" | "picked_up" | "returned" | "disputed" | "refunded" | "cancelled")[];
+                /** @description Only returns of this order. */
+                order_id?: string;
+                /** @description Only this shop's returns. */
+                merchant_id?: string;
+                /** @description Search text over the order number and the customer's name and phone. */
+                q?: string;
+                /** @description Only returns created at or after this time (ISO 8601; a time without an offset is UTC). */
+                from?: string;
+                /** @description Only returns created before this time (ISO 8601; a time without an offset is UTC). */
+                to?: string;
+                /** @description Only returns waiting for the caller's action (true). */
+                needs_action?: boolean;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -14724,7 +15231,26 @@ export interface operations {
     };
     Admin_ListReturns: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only returns in these statuses, separated by commas. */
+                status?: ("requested" | "approved" | "rejected" | "escalated" | "declined" | "picked_up" | "returned" | "disputed" | "refunded" | "cancelled")[];
+                /** @description Only returns of this order. */
+                order_id?: string;
+                /** @description Only this shop's returns. */
+                merchant_id?: string;
+                /** @description Search text over the order number and the customer's name and phone. */
+                q?: string;
+                /** @description Only returns created at or after this time (ISO 8601; a time without an offset is UTC). */
+                from?: string;
+                /** @description Only returns created before this time (ISO 8601; a time without an offset is UTC). */
+                to?: string;
+                /** @description Only returns waiting for the caller's action (true). */
+                needs_action?: boolean;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -15426,7 +15952,10 @@ export interface operations {
     };
     Customer_ListBanners: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only banners shown in this place. */
+                placement?: "home_hero" | "home_strip" | "category_top" | "checkout";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -15509,7 +16038,10 @@ export interface operations {
     };
     Customer_GetLegal: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Language code of the text wanted (for example en or am). */
+                lang?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -15592,7 +16124,10 @@ export interface operations {
     };
     Customer_GetLegalBySlug: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Language code of the text wanted (for example en or am). */
+                lang?: string;
+            };
             header?: never;
             path: {
                 slug: string;
@@ -15677,7 +16212,12 @@ export interface operations {
     };
     Customer_ListProductReviews: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path: {
                 id: string;
@@ -15762,7 +16302,12 @@ export interface operations {
     };
     Customer_ListPromotions: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -16776,7 +17321,12 @@ export interface operations {
     };
     Customer_ListReviews: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -16944,7 +17494,14 @@ export interface operations {
     };
     Merchant_GetReportsSummary: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The shop to report on. Needed when the caller has more than one shop. */
+                merchant_id?: string;
+                /** @description Start of the report window, inclusive (ISO 8601). Default: 30 days before the end. */
+                from?: string;
+                /** @description End of the report window, exclusive (ISO 8601). Default: the end of today in Addis Ababa. A report covers at most 366 days. */
+                to?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -17027,7 +17584,14 @@ export interface operations {
     };
     Merchant_GetReportsDailyCsv: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The shop to report on. Needed when the caller has more than one shop. */
+                merchant_id?: string;
+                /** @description Start of the report window, inclusive (ISO 8601). Default: 30 days before the end. */
+                from?: string;
+                /** @description End of the report window, exclusive (ISO 8601). Default: the end of today in Addis Ababa. A report covers at most 366 days. */
+                to?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -17110,7 +17674,14 @@ export interface operations {
     };
     Merchant_GetReportsProductsCsv: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The shop to report on. Needed when the caller has more than one shop. */
+                merchant_id?: string;
+                /** @description Start of the report window, inclusive (ISO 8601). Default: 30 days before the end. */
+                from?: string;
+                /** @description End of the report window, exclusive (ISO 8601). Default: the end of today in Addis Ababa. A report covers at most 366 days. */
+                to?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -17193,7 +17764,14 @@ export interface operations {
     };
     Merchant_ListReviews: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only this shop's reviews. */
+                merchant_id?: string;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -17276,7 +17854,12 @@ export interface operations {
     };
     Merchant_ListPromotions: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -17620,7 +18203,12 @@ export interface operations {
     };
     Admin_GetReportsOverview: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Start of the report window, inclusive (ISO 8601). Default: 30 days before the end. */
+                from?: string;
+                /** @description End of the report window, exclusive (ISO 8601). Default: the end of today in Addis Ababa. A report covers at most 366 days. */
+                to?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -17703,7 +18291,12 @@ export interface operations {
     };
     Admin_GetReportsOverviewDailyCsv: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Start of the report window, inclusive (ISO 8601). Default: 30 days before the end. */
+                from?: string;
+                /** @description End of the report window, exclusive (ISO 8601). Default: the end of today in Addis Ababa. A report covers at most 366 days. */
+                to?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -17786,7 +18379,12 @@ export interface operations {
     };
     Admin_GetReportsMerchantsCsv: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Start of the report window, inclusive (ISO 8601). Default: 30 days before the end. */
+                from?: string;
+                /** @description End of the report window, exclusive (ISO 8601). Default: the end of today in Addis Ababa. A report covers at most 366 days. */
+                to?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -17869,7 +18467,22 @@ export interface operations {
     };
     Admin_ListCustomers: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Search text over the customer's name, phone and email. */
+                q?: string;
+                /** @description Only accounts with this status. */
+                status?: "active" | "suspended";
+                /** @description Only anonymized accounts (true) or only ones that are not (false). */
+                anonymized?: boolean;
+                /** @description Only accounts created at or after this time (ISO 8601; a time without an offset is UTC). */
+                from?: string;
+                /** @description Only accounts created before this time (ISO 8601; a time without an offset is UTC). */
+                to?: string;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -19413,7 +20026,16 @@ export interface operations {
     };
     Admin_ListReviews: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only hidden reviews (true) or only visible ones (false). */
+                hidden?: boolean;
+                /** @description Only this shop's reviews. */
+                merchant_id?: string;
+                /** @description Page number, starting at 1. A smaller number means 1. */
+                page?: number;
+                /** @description Items per page, 1 to 100. Zero or less means 20; more than 100 means 100. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;

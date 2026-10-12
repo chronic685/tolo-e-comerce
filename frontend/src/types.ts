@@ -31,6 +31,8 @@ export interface ProductVariant {
    * case stock_remaining is non-null, and even then it's capped at 5. */
   stock_status?: "in_stock" | "low" | "out_of_stock";
   stock_remaining?: number | null;
+  /** The most one order may take (the API backend, which gives no stock counts): the quantity box's maximum. */
+  max_order_quantity?: number;
 }
 
 export interface Product {
@@ -49,6 +51,8 @@ export interface Product {
   status: string;
   /** Server-computed: base_price + commission. Always use this for display — never compute it client-side. */
   customer_price: number;
+  /** True when any variant has stock. Set by the API backend, whose product list carries no variants to read stock from. */
+  in_stock?: boolean;
   product_variants: ProductVariant[];
   product_images: ProductImage[];
   stores?: { name: string; slug: string; logo_url?: string | null } | null;
