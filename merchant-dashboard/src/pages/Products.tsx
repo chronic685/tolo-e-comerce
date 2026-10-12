@@ -12,7 +12,6 @@ import {
   Pagination,
   SkeletonRows,
   exportToCsv,
-  fetchAllRows,
   formatCurrency,
   formatDate,
   toast,
@@ -24,16 +23,9 @@ import {
   type DataTableColumn,
 } from "@tolo/ui";
 import { supabase } from "../lib/supabase";
+import { merchantProducts, type ShopRef } from "../data/merchantProducts";
 import { useMerchant } from "../lib/MerchantContext";
 import type { Product } from "../types";
-import type { FetchPageResult } from "@tolo/ui";
-
-const PRODUCT_SELECT = `
-  id, merchant_id, store_id, category_id, name, slug, description, base_price, discount_price, status, archived_at, archived_by_role,
-  product_variants ( id, product_id, sku, attributes, price, discount_price, is_default, inventory ( stock_quantity, reserved_quantity, available_quantity ) ),
-  product_images ( id, url, is_primary ),
-  categories ( name, name_am )
-`;
 
 const statusVariant: Record<string, "default" | "warning" | "info" | "success" | "danger"> = {
   draft: "default",
@@ -76,7 +68,7 @@ export function Products() {
   const [bulkUploadEnabled, setBulkUploadEnabled] = useState(false);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [working, setWorking] = useState(false);
-  const { page, from, to, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE, resetKey: tab });
+  const { page, setPage } = usePagination({ pageSize: ADMIN_PAGE_SIZE, resetKey: tab });
 
   useEffect(() => {
     // Platform-wide toggle (admin-dashboard Settings.tsx, merchant_features
@@ -94,23 +86,23 @@ export function Products() {
       });
   }, []);
 
+  // The shop the Supabase backend works for; the API backend finds the signed-in account's own shop.
+  const shopRef: ShopRef | null = merchant && store ? { merchantId: merchant.id, storeId: store.id } : null;
+
   async function load() {
-    if (!merchant) return;
+    if (!shopRef) return;
     setLoading(true);
     // The active tab hides archived products; the archived tab shows only those.
-    const base = supabase.from("products").select(PRODUCT_SELECT, { count: "exact" }).eq("merchant_id", merchant.id);
-    const { data, count } = await (tab === "archived" ? base.eq("status", "archived") : base.neq("status", "archived"))
-      .order("created_at", { ascending: false })
-      .range(from, to);
-    setProducts((data as unknown as Product[]) ?? []);
-    setTotalCount(count ?? 0);
+    const { items, total } = await merchantProducts.list(shopRef, tab, page, ADMIN_PAGE_SIZE);
+    setProducts(items);
+    setTotalCount(total);
     setLoading(false);
   }
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [merchant, from, to, tab]);
+  }, [merchant, store, page, tab]);
 
   /** Drops rows from the list without a full reload (a reload would blank the table). */
   function removeFromView(ids: string[]) {
@@ -120,9 +112,9 @@ export function Products() {
 
   async function toggleVisibility(p: Product) {
     const next = p.status === "published" ? "paused" : "published";
-    const { error } = await supabase.from("products").update({ status: next }).eq("id", p.id);
-    if (error) {
-      toast.error(translateServerError(error.message, t));
+    const result = await merchantProducts.setVisible([p.id], next === "published");
+    if (!result.ok) {
+      toast.error(translateServerError(result.error, t));
       return;
     }
     setProducts((prev) => prev.map((prod) => (prod.id === p.id ? { ...prod, status: next } : prod)));
@@ -133,7 +125,7 @@ export function Products() {
   async function bulkHide(selected: Product[]) {
     const live = selected.filter((p) => p.status === "published");
     if (live.length === 0) return;
-    await supabase.from("products").update({ status: "paused" }).in("id", live.map((p) => p.id));
+    await merchantProducts.setVisible(live.map((p) => p.id), false);
     setProducts((prev) => prev.map((p) => (live.some((sel) => sel.id === p.id) ? { ...p, status: "paused" } : p)));
   }
 
@@ -141,25 +133,24 @@ export function Products() {
     if (dialog?.kind !== "archive") return;
     setWorking(true);
     const ids = dialog.products.map((p) => p.id);
-    const { data, error } = await supabase.rpc("archive_products", { p_ids: ids });
+    const result = await merchantProducts.archive(ids);
     setWorking(false);
     setDialog(null);
-    if (error) {
-      toast.error(translateServerError(error.message, t));
+    if (!result.ok) {
+      toast.error(translateServerError(result.error, t));
       return;
     }
     removeFromView(ids);
-    toast.success(t("merchantProducts.archivedToast", { count: Number(data ?? ids.length) }));
+    toast.success(t("merchantProducts.archivedToast", { count: result.count }));
   }
 
   async function restore(selected: Product[]) {
     const ids = selected.map((p) => p.id);
-    const { data, error } = await supabase.rpc("restore_products", { p_ids: ids }).single();
-    if (error) {
-      toast.error(translateServerError(error.message, t));
+    const result = await merchantProducts.restore(ids);
+    if (!result.ok) {
+      toast.error(translateServerError(result.error, t));
       return;
     }
-    const result = data as { restored: number; blocked: number };
     if (result.restored > 0) {
       removeFromView(ids);
       toast.success(t("merchantProducts.restoredToast", { count: result.restored }));
@@ -170,23 +161,25 @@ export function Products() {
   // Delete asks the database first: a product any order has referenced has to stay in the records,
   // so the merchant is offered "Archive instead" rather than a delete that would fail.
   async function startDelete(p: Product) {
-    const { data, error } = await supabase.rpc("product_has_orders", { p_product_id: p.id });
-    if (error) {
-      toast.error(translateServerError(error.message, t));
+    const result = await merchantProducts.hasOrders(p.id);
+    if (!result.ok) {
+      toast.error(translateServerError(result.error, t));
       return;
     }
-    setDialog(data ? { kind: "deleteBlocked", product: p } : { kind: "delete", product: p });
+    setDialog(result.hasOrders ? { kind: "deleteBlocked", product: p } : { kind: "delete", product: p });
   }
 
   async function confirmDelete() {
     if (dialog?.kind !== "delete") return;
     setWorking(true);
-    const { error } = await supabase.from("products").delete().eq("id", dialog.product.id);
-    setWorking(false);
     const deleted = dialog.product;
+    const result = await merchantProducts.remove(deleted.id);
+    setWorking(false);
     setDialog(null);
-    if (error) {
-      toast.error(translateServerError(error.message, t));
+    if (!result.ok) {
+      // Some backends can only find out that an order refers to the product when the delete is refused.
+      if (result.hasOrders) setDialog({ kind: "deleteBlocked", product: deleted });
+      else toast.error(translateServerError(result.error, t));
       return;
     }
     removeFromView([deleted.id]);
@@ -194,15 +187,8 @@ export function Products() {
   }
 
   async function handleExportAll() {
-    if (!merchant) return;
-    const rows = await fetchAllRows<Product>(
-      (rangeFrom, rangeTo) => {
-        const base = supabase.from("products").select(PRODUCT_SELECT).eq("merchant_id", merchant.id);
-        return (tab === "archived" ? base.eq("status", "archived") : base.neq("status", "archived"))
-          .order("created_at", { ascending: false })
-          .range(rangeFrom, rangeTo) as unknown as PromiseLike<FetchPageResult<Product>>;
-      },
-    );
+    if (!shopRef) return;
+    const rows = await merchantProducts.listAll(shopRef, tab);
     exportToCsv(
       `products-${tab}-${new Date().toISOString().slice(0, 10)}.csv`,
       rows.map((p) => ({
